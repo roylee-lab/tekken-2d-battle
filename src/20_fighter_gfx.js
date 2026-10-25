@@ -40,6 +40,17 @@ function poly(ctx, pts, col, outline) {
   ctx.fillStyle = col; ctx.fill();
 }
 
+// 털 (허도개미): 선분을 따라 짧은 털을 그림
+function hairStrokes(ctx, x1, y1, x2, y2, n, w) {
+  const dx = x2 - x1, dy = y2 - y1, len = Math.hypot(dx, dy) || 1, nx = -dy / len, ny = dx / len;
+  ctx.strokeStyle = '#2a1a10'; ctx.lineWidth = 0.7;
+  ctx.beginPath();
+  for (let i = 1; i <= n; i++) {
+    const k = i / (n + 1), x = x1 + dx * k, y = y1 + dy * k, o = (i % 2 ? 1 : -1) * w * 0.3;
+    ctx.moveTo(x + nx * o, y + ny * o); ctx.lineTo(x + nx * (o + (i % 2 ? 1.6 : -1.6)) + dx / len * 0.8, y + ny * (o + (i % 2 ? 1.6 : -1.6)) + dy / len * 0.8);
+  }
+  ctx.stroke();
+}
 // ---------------- 포즈 ----------------
 function P(o) {
   return Object.assign({ lean: 0.06, tilt: 0, fa: [0.8, 1.95], ba: [0.5, 2.1], fl: [0.26, 0.34], bl: [-0.22, 0.14], hand: 'fist', bhand: 'fist', eyes: 'n', mouth: 'n', air: false, rot: 0, dy: 0 }, o);
@@ -281,6 +292,7 @@ function drawCharacter(ctx, c, pose, t, opts) {
     // 아래팔
     if (longSleeve) seg(ctx, AR.ex, AR.ey, AR.hx, AR.hy, foreW + 0.5, isFront ? L.top : sh(L.top, -0.18));
     else seg(ctx, AR.ex, AR.ey, AR.hx, AR.hy, foreW, isFront ? skin : sh(skin, -0.15));
+    if (A.hairy && !longSleeve) { hairStrokes(ctx, S[0], S[1], AR.ex, AR.ey, 4, armW); hairStrokes(ctx, AR.ex, AR.ey, AR.hx, AR.hy, 4, foreW); }
     if (giSleeve) {
       const mx = lerp(AR.ex, AR.hx, 0.45), my = lerp(AR.ey, AR.hy, 0.45);
       seg(ctx, AR.ex, AR.ey, mx, my, foreW + 1.6, isFront ? L.top : sh(L.top, -0.18));
@@ -311,7 +323,7 @@ function drawCharacter(ctx, c, pose, t, opts) {
     const pc = isFront ? pantsCol : sh(pantsCol, -0.2);
     const kx = hip[0] + LG.kx, ky = hip[1] + LG.ky, fx = hip[0] + LG.fx, fy = hip[1] + LG.fy;
     seg(ctx, hip[0], hip[1], kx, ky, thW, pc);
-    if (shorts) seg(ctx, kx, ky, fx, fy, shW, isFront ? skin : sh(skin, -0.15));
+    if (shorts) { seg(ctx, kx, ky, fx, fy, shW, isFront ? skin : sh(skin, -0.15)); if (A.hairy) hairStrokes(ctx, kx, ky, fx, fy, 5, shW); }
     else seg(ctx, kx, ky, fx, fy, shW + (L.topStyle === 'gi' ? 1 : 0), pc);
     if (shorts) { ctx.strokeStyle = OUT; ctx.lineWidth = 1; }
     // 발 / 신발
@@ -374,6 +386,22 @@ function drawCharacter(ctx, c, pose, t, opts) {
     ctx.beginPath(); ctx.moveTo(...pc); ctx.lineTo(...pe); ctx.stroke();
   }
   ctx.restore();
+  // 큰 가슴 (허도개미)
+  if (A.chest) {
+    const c1 = tw(cw * 0.38, -toL * 0.66);
+    ell(ctx, c1[0], c1[1], 5.2 * H, 4.6 * H, L.top, true, lean);
+    ctx.fillStyle = sh(L.top, 0.2); ctx.beginPath(); ctx.ellipse(c1[0] - 1, c1[1] - 1.5, 2.2, 1.4, lean, 0, Math.PI * 2); ctx.fill();
+    if (A.hairy) { const n0 = tw(cw * 0.15, -toL + 2), n1 = tw(cw * 0.45, -toL * 0.8); hairStrokes(ctx, n0[0], n0[1], n1[0], n1[1], 5, 3); }
+  }
+  // 축구 유니폼 등번호 (차니팍)
+  if (A.jersey) {
+    const q = tw(ww * 0.12, -toL * 0.5);
+    ctx.save(); ctx.translate(q[0], q[1]); ctx.rotate(lean);
+    ctx.font = 'bold 8px sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = '#ffffff'; ctx.fillText(A.jersey, 0, 3); ctx.textAlign = 'left';
+    ctx.restore();
+    const sl = tw(-cw * 0.45, -toL + 1), sr = tw(cw * 0.45, -toL + 1);
+    ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(sl[0], sl[1]); ctx.lineTo(sr[0], sr[1]); ctx.stroke();
+  }
 
   // 로브 치마 (죽림고수)
   if (L.topStyle === 'robe') {

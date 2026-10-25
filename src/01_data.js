@@ -37,10 +37,12 @@ const BAL = {   // v3 밸런스 패치 (E/R 추가, AI 대전 시뮬레이션 �
   7: { hp: 93, gaeDmg: 4.5, gaeRoot: 55, poisT: 270, poisTick: 1, footExt: 60, stackMax: 5, breathDmg: 5, breathStun: 60, breathHB: 180, burpAtk: 0.1, burpHeal: 10, burpStun: 60, burpT: 600 },
   8: { hp: 94, noteDiff: 0.34, noteSame: 0.15, noteHeal: 5, boardSpd: 1.2, dr: 0.1, laughDmg: 300, laughWind: 24, laughReach: 12, kcT: 300, kcDmg: 1 },
   9: { hp: 100, pressRoot: 30, pressSlow: 90, forceT: 150, awakeSec: 30, awakeMul: 1.3, awakeCd: 1, rageT: 1200, rage: 1.3, penT: 120, penSlow: 0.25, earT: 1800 },
-  10: { hp: 100, fartMul: 0.5, explMul: 2, poisT: 300, poisTick: 1, bombRed: 5, legT: 1200, leg: 1.3, shuttleHit: 50, shuttleBlock: 5 },
+  10: { hp: 100, fartMul: 0.65, explMul: 2, poisT: 300, poisTick: 1, bombRed: 5, legT: 1200, leg: 1.3, shuttleHit: 50, shuttleBlock: 5 },
   11: { hp: 98, painMax: 5, painRoot: 176, majRoot: 59, majBoost: 180, majSpd: 0.1, yankP: 0.5, fireT: 45, fireDmg: 1 },
-  12: { hp: 94, sealSec: 5, headDmg: 8.3, spikeT: 300, spikeDR: 0.1, otaku: 0.1, growT: 1200, grow: 1.3, moP: 0.5, moPct: 0.5 },
+  12: { hp: 100, sealSec: 5, headDmg: 12, spikeT: 300, spikeDR: 0.1, otaku: 0.1, growT: 1200, grow: 1.3, moP: 0.5, moPct: 0.5 },
   13: { hp: 86, late: 0.1, kkDmg: 5, drunkT: 300, jjinSelf: 10, jjinStun: 150, formT: 600, form: 1.3 },
+  14: { hp: 132, furDot: 0.5, sneezeP: 0.15, sneezeT: 30, shingT: 600, shingDmg: 1, chestT: 300, chestDR: 0.5, antN: 100, antRate: 4, antSpd: 2.4, antDmg: 1, antKill: 8 },
+  15: { hp: 90, eun: 0.1, mallangT: 180, mallangRefl: 0.5, ballMin: 3, ballMax: 30, fifaT: 1200, fifaLS: 0.5, fifaAtk: 0.1, fifaMul: 2, bombDmg: 50, bombFuse: 60, bombR: 85 },
 };
 function skillDef(c, slot) { return CHARS[c]['s' + (slot + 1)] || null; }
 function skillInfo(c, slot) { const d = skillDef(c, slot); return d ? d.info(BAL[c]) : '비어 있는 슬롯 (추후 추가 예정)'; }
@@ -206,9 +208,9 @@ const CHARS = [
   },
   {
     name: '힌참휴', en: 'HINCHAMHYU', color: '#00e676', country: 'JP', stage: 'tokyo',
-    desc: ['천재 해커 파이터', '해킹과 뾰족한 머리'],
-    s1: { name: '해킹', info: (b) => `상대 스킬 1개 ${b.sealSec}초 봉인 + 1회 복제 (Q 다시 누르기)` },
-    s2: { name: '뾰족한 머리', info: (b) => `박치기 고정 ${b.headDmg} 피해 + ${b.spikeT / 60}초간 받는 피해 -${Math.round(b.spikeDR * 100)}%` },
+    desc: ['천재 해커 파이터', '뾰족한 머리와 해킹'],
+    s1: { name: '뾰족한 머리', info: (b) => `박치기 고정 ${b.headDmg} 피해 + ${b.spikeT / 60}초간 받는 피해 -${Math.round(b.spikeDR * 100)}%` },
+    s2: { name: '해킹', info: (b) => `상대 스킬 1개 ${b.sealSec}초 봉인 + 1회 복제 (W 다시 누르기)` },
     s3: { name: '난쟁이의 희망', info: (b) => `${b.growT / 60}초간 사거리·몸집 +${Math.round((b.grow - 1) * 100)}% (맞는 범위도 커짐)` },
     s4: { name: '모 아니면 도', info: (b) => `윷! ${Math.round(b.moP * 100)}% 모: 상대 현재 체력 ${Math.round(b.moPct * 100)}% 고정 피해 / 도: 1 피해` },
     passive: { name: '오타쿠', desc: (b) => `상대가 이은뚱이면 모든 능력치 +${Math.round(b.otaku * 100)}%, 일본 스테이지에서 +${Math.round(b.otaku * 100)}% (중첩)` },
@@ -230,10 +232,36 @@ const CHARS = [
       hair: { style: 'slick', color: '#2a1a12' }, top: '#e84393', topStyle: 'coat', pants: '#1c1c28', shoes: '#f5f5f5', acc: { sequin: true, mic: true },
     },
   },
+  {
+    name: '허도개미', en: 'HEODOGAEMI', color: '#8d6e63', country: 'BR', stage: 'rio_dojo',
+    desc: ['털이 엄청 많은 파이터', '전염·대상포진·개미 군단'],
+    s1: { name: '전염', info: () => '내 상태이상(독·구속·감속·봉인 등)을 모두 상대에게 옮기고 나는 깨끗해짐' },
+    s2: { name: '대상포진', info: (b) => `맞으면 ${b.shingT / 60}초간 초당 ${b.shingDmg} 지속 피해` },
+    s3: { name: '옵빠이', info: (b) => `${b.chestT / 60}초간 받는 피해 -${Math.round(b.chestDR * 100)}%, 투사체·독은 상대에게 튕겨냄` },
+    s4: { name: '개미군단', info: (b) => `개미 ${b.antN}마리 소환 (체력 1, 공격력 1), 상대에게 달려가 문다` },
+    passive: { name: '털복숭이', desc: (b) => `독·지속 피해 -${Math.round(b.furDot * 100)}% / 나를 때린 상대가 ${Math.round(b.sneezeP * 100)}% 확률로 재채기 (${(b.sneezeT / 60).toFixed(1)}초 경직)` },
+    look: {
+      H: 1.0, b: build({ torsoW: 17, waistW: 14, belly: 0.25, thigh: 6.8, shin: 5.8, arm: 5.4, fore: 4.9 }), skin: '#e6b088',
+      hair: { style: 'messy', color: '#1c1410' }, top: '#6d8b3a', topStyle: 'tank', pants: '#4e342e', shoes: '#3e2723', acc: { glasses: true, chest: true, hairy: true },
+    },
+  },
+  {
+    name: '차니팍', en: 'CHANI PARK', color: '#d32f2f', country: 'ES', stage: 'sagrada',
+    desc: ['축구에 진심인 파이터', '마른 비만 · 센터백 본능'],
+    s1: { name: '말랑뱃살', info: (b) => `${b.mallangT / 60}초간 킥을 튕겨냄 (킥 무효 + ${Math.round(b.mallangRefl * 100)}% 반사)` },
+    s2: { name: '센백본능', info: (b) => `축구공 슛! ${b.ballMin}~${b.ballMax} 랜덤 피해` },
+    s3: { name: '피파ㅈ밥', info: (b) => `다음 피격 1회 ${b.fifaMul * 100}% 피해, 대신 ${b.fifaT / 60}초간 흡혈 ${Math.round(b.fifaLS * 100)}% + 공격력 +${Math.round(b.fifaAtk * 100)}%` },
+    s4: { name: '은뚱폭발', info: (b) => `이은뚱을 던짐! 떨어진 자리에서 ${b.bombFuse / 60}초 뒤 폭발, ${b.bombDmg} 피해` },
+    passive: { name: '은뚱 전문가', desc: (b) => `상대가 이은뚱이면 모든 능력치 +${Math.round(b.eun * 100)}%` },
+    look: {
+      H: 1.12, b: build({ torsoW: 14, waistW: 15.5, belly: 0.4, thigh: 5.6, shin: 4.8, arm: 4.0, fore: 3.6, headR: 8.4 }), skin: '#f0c8a0',
+      hair: { style: 'short', color: '#222' }, top: '#d32f2f', topStyle: 'tee', pants: '#1a237e', shoes: '#ffffff', acc: { jersey: '7' },
+    },
+  },
 ];
-const SELECT_ORDER = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 13]; // 7+6 그리드 (Tirón은 K로)
-const SEL_COLS = 7;
-const TIRON = 11, HINCHAM = 12, YOUNGTAK = 13;
+const SELECT_ORDER = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 13, 14, 15]; // 8+7 그리드 (Tirón은 K로)
+const SEL_COLS = 8;
+const TIRON = 11, HINCHAM = 12, YOUNGTAK = 13, GAEMI = 14, CHANI = 15;
 
 // 승리 기록
 function getRecords() {

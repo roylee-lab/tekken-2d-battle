@@ -23,8 +23,11 @@ const AI_SKILL = {
   9: [(F, O, d) => d < 170, (F, O, d) => d < 140, (F, O, d) => d < 150, (F, O, d) => true],
   10: [(F, O, d) => d < 140, (F, O, d) => d < 78, (F, O, d) => d < 200, (F, O, d) => d > 60 && d < 260],
   11: [(F, O, d) => d < 220, (F, O, d) => d < 140, (F, O, d) => true, (F, O, d) => close(F, O, 90)],
-  12: [(F, O, d) => (F.copy ? d < 190 : true), (F, O, d) => d < 62, (F, O, d) => d < 180, (F, O, d) => true],
+  12: [(F, O, d) => d < 66, (F, O, d) => (F.copy ? d < 190 : true), (F, O, d) => d < 180, (F, O, d) => true],
   13: [(F, O, d) => close(F, O, 22), (F, O, d) => d > 50 && d < 220, (F, O, d) => d < 150 && F.hp > 20, (F, O, d) => d < 170],
+  14: [(F) => F.poisT > 0 || F.shingT > 0 || F.rootT > 0 || F.slowT > 0 || F.drunkT > 0 || F.hbT > 0 || F.ttaT > 0 || F.guardOffT > 0 || F.seal.some((v) => v > 0) || F.mods.some((m) => m.v < 1 && m.k !== 'size'),
+    (F, O, d) => d > 50 && d < 240 && O.shingT <= 0, (F, O, d) => d < 170, (F, O, d) => true],
+  15: [(F, O, d) => d < 140, (F, O, d) => d > 60 && d < 260, (F, O, d) => d < 200, (F, O, d) => d < 260],
 };
 const MASH = [5, 7, 9];          // AI 연타 속도 (초당)
 const QTE_REACT = [[45, 35], [32, 24], [22, 18]];   // AI 글자 반응 (최소, 랜덤 폭) 프레임
@@ -75,6 +78,12 @@ function aiInput(G, F, O, mem, diffLv) {
     if (O.flyT > 0 && O.flyT < 30 && Math.abs(O.flyX - F.x) < 70) { h |= (O.flyX > F.x ? B_L : B_R); return { h, p, keys, a }; }
     if ((O.shutT > 0 || O.rushT2 > 0) && F.y <= 0) { h |= B_D; return { h, p, keys, a }; }
     if (O.fireT > 0 && realD < 150) { h |= (O.x > F.x ? B_L : B_R); return { h, p, keys, a }; }
+    if (O.bomb && O.bomb.fuse > 0 && Math.abs(O.bomb.x - F.x) < BAL[15].bombR + 40) { h |= (O.bomb.x > F.x ? B_L : B_R); if (F.y <= 0 && rnd() < 0.05) p |= B_U; return { h, p, keys, a }; }
+  }
+  // 개미가 가까이 오면 펀치로 처치
+  if (O.ants && O.ants.length && !F.atk && F.y <= 0) {
+    const near = O.ants.some((x) => Math.abs(x - F.x) <= radius(F) + reachOf(F, 'P') && sign(x - F.x) === F.f);
+    if (near && rnd() < D.aggr * 0.5) { p |= B_P; mem.prevH = h; return { h, p, keys, a }; }
   }
   const projThreat = G.proj.find((q) => q.o === O.side && sign(F.x - q.x) === sign(q.vx) && Math.abs(F.x - q.x) < 85);
   if (mem.guardT > 0) {
@@ -100,7 +109,7 @@ function aiInput(G, F, O, mem, diffLv) {
     // 스킬 사용 시도
     const slots = [0, 1, 2, 3].filter((s) => {
       if (!skillDef(F.c, s) || !AI_SKILL[F.c][s]) return false;
-      const ready = (F.cd[s] <= 0 && F.seal[s] <= 0) || (s === 0 && F.c === HINCHAM && F.copy);
+      const ready = (F.cd[s] <= 0 && F.seal[s] <= 0) || (s === 1 && F.c === HINCHAM && F.copy);
       return ready && AI_SKILL[F.c][s](F, O, dist);
     });
     if (slots.length && r < D.skill) {
@@ -132,7 +141,7 @@ function aiInput(G, F, O, mem, diffLv) {
       break;
     case 'airatk':
       h |= toward;
-      if (F.y > 10 && dist < kRange) { p |= B_K; mem.plan = 'attack'; }
+      if (F.y > 10 && dist < kRange) { p |= O.mallangT > 0 ? B_P : B_K; mem.plan = 'attack'; }
       if (F.y <= 0 && F.vy === 0 && mem.planT <= 0) mem.plan = 'wait';
       break;
     case 'attack':
@@ -140,7 +149,7 @@ function aiInput(G, F, O, mem, diffLv) {
       else {
         mem.atkCad--;
         if (mem.atkCad <= 0 && !F.atk) {
-          p |= dist > pRange ? B_K : rnd() < 0.7 ? B_P : B_K;
+          p |= O.mallangT > 0 ? B_P : dist > pRange ? B_K : rnd() < 0.7 ? B_P : B_K;   // 말랑뱃살에는 킥 금지
           mem.atkCad = 4 + Math.floor(rnd() * (diffLv === 2 ? 4 : 12));
         }
       }
