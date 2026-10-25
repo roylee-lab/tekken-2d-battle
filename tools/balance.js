@@ -2,8 +2,8 @@
 // 사용법: node tools/balance.js [조합당 판수=4] [덮어쓸 수치.json] [matrix]
 const { Worker, isMainThread, parentPort, workerData } = require('worker_threads');
 const fs = require('fs'), vm = require('vm');
-const IDS = [0,1,2,3,4,5,6,7,8,9,10,11,12];
-const NAMES = ['일반인','mola','JJjin','죽림','이은뚱','사명감','안거녕','독민재','힙찔','창가오','매미킴','Tiron','힌참휴'];
+const IDS = (process.env.IDS || '0,1,2,3,4,5,6,7,8,9,10,11,12,13').split(',').map(Number);
+const NAMES = ['일반인','mola','JJjin','죽림','이은뚱','사명감','안거녕','독민재','힙찔','창가오','매미킴','Tiron','힌참휴','영탁'];
 function runChunk({ pairs, n, ov, diffs, seedOff }) {
   const src = ['00_core','01_data','10_sim','11_ai'].map(f=>fs.readFileSync(require('path').join(__dirname,'..','src',f+'.js'),'utf8')).join('\n');
   const ctx = { console, Math, JSON, Object, Array, Set };
@@ -14,7 +14,7 @@ function runChunk({ pairs, n, ov, diffs, seedOff }) {
     const out = [];
     for (const [a,b] of pairs) for (const diff of diffs) for (let g=0; g<n; g++) {
       rnd = mulberry32(a*1009 + b*917 + g*131 + diff*7 + 1 + SEEDOFF * 7777);
-      const G = newMatch(a, b, 'seoul', 'cpu');
+      const G = newMatch(a, b, 'seoul', 'cpu', [false, true]);
       const m = [makeAIMem(), makeAIMem()];
       let f = 0;
       while (G.phase !== 'end' && f < 60*60*10) { G.ev = []; stepGame(G, [aiInput(G,G.F[0],G.F[1],m[0],diff), aiInput(G,G.F[1],G.F[0],m[1],diff)]); f++; }
@@ -31,7 +31,7 @@ if (!isMainThread) { parentPort.postMessage(runChunk(workerData)); return; }
   const diffs = (process.env.DIFFS || '1,2').split(',').map(Number);
   const pairs = [];
   for (const a of IDS) for (const b of IDS) if (a !== b) pairs.push([a, b]);
-  const W = 2, chunks = Array.from({ length: W }, (_, i) => pairs.filter((_, j) => j % W === i));
+  const W = +(process.env.W || require('os').cpus().length), chunks = Array.from({ length: W }, (_, i) => pairs.filter((_, j) => j % W === i));
   const t0 = Date.now();
   const res = (await Promise.all(chunks.map((c) => new Promise((ok, bad) => { const w = new Worker(__filename, { workerData: { pairs: c, n, ov, diffs, seedOff: +(process.env.SEEDOFF || 0) } }); w.on('message', ok); w.on('error', bad); })))).flat();
   const win = {}, games = {}, mat = {};
