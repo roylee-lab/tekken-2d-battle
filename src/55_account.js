@@ -51,9 +51,9 @@ async function pollNow() {
 setInterval(() => {
   if (!ACC.token || document.hidden) return;
   const open = APP.state === 'account' || ACC.waiting;
-  const iv = open ? 4000 : APP.state === 'fight' ? 25000 : 12000;
+  const iv = ACC.waiting ? 3000 : open ? 4000 : APP.state === 'fight' ? 30000 : 12000;   // 서버(DB) 사용량을 아끼려고 화면별로 간격 조절
   if (Date.now() - ACC.lastPoll > iv) pollNow();
-  if (ACC.waiting && Date.now() - ACC.waiting.t0 > 60000) { cancelWaiting(true); toast('응답이 없어서 대전 신청을 취소했어요'); }
+  if (ACC.waiting && Date.now() - ACC.waiting.t0 > 90000) { cancelWaiting(true); toast('응답이 없어서 대전 신청을 취소했어요'); }
   if (ACC.waiting) renderAccount();
 }, 1000);
 
@@ -97,7 +97,8 @@ function inviteFriend(nick) {
       accMsg('', true);
     } catch (e) { netReset(); accMsg(e.message); }
     ACC.busyBtn = false; renderAccount();
-  }, () => { ACC.busyBtn = false; inviteFriend(nick); }, (msg) => { ACC.busyBtn = false; accMsg('❌ ' + msg); });
+  }, () => { ACC.busyBtn = false; inviteFriend(nick); }, (msg) => { ACC.busyBtn = false; if (ACC.waiting) cancelWaiting(true); accMsg('❌ ' + msg); },
+  { onStatus: (t) => { accMsg(t.replace(/<[^>]+>/g, ' '), !/⚠️/.test(t)); if (/⚠️/.test(t)) toast('친구 접속이 실패했어요. 친구가 다시 수락하거나 다시 신청해 주세요'); } });
 }
 function cancelWaiting(tellServer) {
   const w = ACC.waiting; if (!w) return;
@@ -114,12 +115,7 @@ async function answerInvite(inv, accept) {
   if (!accept) return;
   if (APP.state === 'fight' && APP.mode === 'cpu') goTitle();
   toast(`${inv.nick}님의 방에 접속하는 중...`);
-  netJoinRoom(inv.room);
-  const t0 = Date.now();
-  const chk = setInterval(() => {
-    if (NET.conn && NET.conn.open) { clearInterval(chk); return; }
-    if (Date.now() - t0 > 45000) { clearInterval(chk); toast('접속에 실패했어요. 친구에게 다시 신청해 달라고 해 주세요'); }
-  }, 500);
+  netJoinRoom(inv.room, (t) => toast(t.replace(/<[^>]+>/g, ' ')), (t) => toast('❌ ' + t));
 }
 
 // ---------- 화면 (HTML 패널) ----------
@@ -146,7 +142,7 @@ function renderAccount() {
     h += `<div class="me"><span>👤 <b>${esc(ACC.nick)}</b> 님</span><button id="accOut" class="mini">로그아웃</button></div>`;
     h += `<div class="row"><input id="accFriend" maxlength="12" placeholder="친구 닉네임" autocomplete="off"><button id="accAdd">친구 추가</button></div>`;
     if (ACC.waiting) {
-      const left = Math.max(0, 60 - Math.floor((Date.now() - ACC.waiting.t0) / 1000));
+      const left = Math.max(0, 90 - Math.floor((Date.now() - ACC.waiting.t0) / 1000));
       h += `<div class="wait">⚔ <b>${esc(ACC.waiting.to)}</b>님의 수락을 기다리는 중... (${left}초) <button id="accCancel" class="mini">취소</button></div>`;
     }
     if (ACC.requests.length) {

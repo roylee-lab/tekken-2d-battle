@@ -110,9 +110,19 @@ function renderWorld(b, G, t) {
   const hype = G.phase === 'ko' ? 1 : (A.hp < A.maxHp * 0.3 || Bf.hp < Bf.maxHp * 0.3) ? 0.5 : 0;
   drawStage(b, G.stage, cam, t, hype);
 
-  // 죽순
+  // 죽순 / 피모
   for (const tr of G.traps) {
     const [sx] = worldToScreen(tr.x, 0);
+    if (tr.k === 'pimo') {   // 설치 중인 게임 아이콘 + 진행 막대
+      const bl = tr.life - tr.age < 60 && (t >> 2) % 2;
+      b.globalAlpha = bl ? 0.4 : 1;
+      b.fillStyle = '#000'; b.fillRect(sx - 7, GROUND - 15, 14, 12);
+      b.fillStyle = '#1e88e5'; b.fillRect(sx - 6, GROUND - 14, 12, 10);
+      b.fillStyle = '#fff'; b.font = 'bold 7px sans-serif'; b.textAlign = 'center'; b.fillText('P', sx, GROUND - 6.5); b.textAlign = 'left';
+      b.fillStyle = '#333'; b.fillRect(sx - 7, GROUND - 2, 14, 2); b.fillStyle = '#64ffda'; b.fillRect(sx - 7, GROUND - 2, 14 * ((t % 60) / 60), 2);
+      b.globalAlpha = 1;
+      continue;
+    }
     const grow = Math.min(1, (tr.age || 0) / 20);
     b.fillStyle = '#145a32'; b.fillRect(sx - 4, GROUND - 2, 8, 3);
     b.fillStyle = tr.o === APP.mySide || APP.mode === 'cpu' && tr.o === 0 ? '#7dcea0' : '#a3e4b8';
@@ -148,7 +158,16 @@ function renderWorld(b, G, t) {
   for (const F of G.F) if (F.momHp > 0 && F.momT > 0) drawMom(b, F, t);
   // mola 분신
   for (const F of G.F) if (F.clone) drawClone(b, F, G, t);
-  // 개미군단
+  // 개미군단 (달라붙은 개미는 상대 몸 위를 기어다님)
+  for (const F of G.F) {
+    const O = G.F[1 - F.side], H = lookOf(O).H;
+    let k = 0;
+    for (const g of F.antG) for (let i = 0; i < g.n && k < 60; i++, k++) {
+      const a = k * 2.399 + t * 0.05 * (k % 2 ? 1 : -1);
+      const [ax, ay] = worldToScreen(O.x + Math.cos(a) * radius(O) * 0.45 * ((k % 5) / 5 + 0.5), O.y + 10 + ((k * 37) % 80) * H);
+      b.fillStyle = '#1a0f0a'; b.fillRect(Math.round(ax) - 1, Math.round(ay) - 1, 3, 2);
+    }
+  }
   for (const F of G.F) for (const x of F.ants) {
     const [ax, ay] = worldToScreen(x, 0), w = ((t + x * 3) >> 2) % 2;
     b.fillStyle = '#1a0f0a'; b.fillRect(Math.round(ax) - 2, ay - 2, 4, 2); b.fillRect(Math.round(ax) + (F.f > 0 ? 2 : -3), ay - 3, 1.5, 1.5);
@@ -249,6 +268,13 @@ function drawFighterInGame(b, F, G, t) {
   if (alpha < 1) { b.save(); b.globalAlpha = alpha; b.drawImage(TMP, ox, oy); b.restore(); }
   else b.drawImage(TMP, ox, oy);
   drawSkillFX(b, F, G, t, sx, sy);
+  // 이유동 아이언맨 레이저 펀치
+  if (F.c === YUDONG && (F.ironT > 0 || F.phoneT > 0) && F.atk === 'P' && F.atkT >= F.atkAct - 1 && F.atkT <= F.atkAct + 4) {
+    const len = radius(F) + reachOf(F, 'P'), y0 = sy - 66 * lookOf(F).H * FSCALE;
+    b.strokeStyle = 'rgba(120,220,255,0.55)'; b.lineWidth = 6; b.beginPath(); b.moveTo(sx + F.f * 12, y0); b.lineTo(sx + F.f * len, y0); b.stroke();
+    b.strokeStyle = '#ffffff'; b.lineWidth = 2; b.beginPath(); b.moveTo(sx + F.f * 12, y0); b.lineTo(sx + F.f * len, y0); b.stroke();
+  }
+  if (F.invulT > 0 && (t >> 2) % 2) { b.strokeStyle = 'rgba(255,246,160,0.8)'; b.lineWidth = 1; b.beginPath(); b.ellipse(sx, sy - 50, 24, 54, 0, 0, Math.PI * 2); b.stroke(); }
   // 상태 아이콘
   const top = sy - 110 * lookOf(F).H * FSCALE * (F.sz || 1);
   if (F.stunT > 0 && !F.ko) {
@@ -554,7 +580,7 @@ function renderHUD(ctx, G, t) {
   const sec = Math.max(0, Math.ceil(G.timer / SEC));
   ctx.fillStyle = '#000'; ctx.fillRect(222, 5, 36, 24);
   ctx.fillStyle = '#1b1b3a'; ctx.fillRect(223, 6, 34, 22);
-  txt(ctx, String(Math.min(99, sec)).padStart(2, '0'), 240, 25, 16, sec <= 10 && (t >> 4) % 2 ? '#ff4d4d' : '#ffe14d', 'center', FONT_EN, '#000');
+  txt(ctx, String(Math.min(999, sec)).padStart(2, '0'), 240, 25, sec > 99 ? 11 : 16, sec <= 10 && (t >> 4) % 2 ? '#ff4d4d' : '#ffe14d', 'center', FONT_EN, '#000');
   // 알림
   G.notes.forEach((n, i) => {
     const a = Math.min(1, n.life / 20), y = 84 + i * 12;
@@ -583,6 +609,7 @@ function renderHUD(ctx, G, t) {
   if (G.dice) drawDice(ctx, G.dice, t);
   if (G.yut) drawYut(ctx, G.yut, t);
   if (G.qte) drawQTE(ctx, G, t);
+  if (G.clock) drawClock(ctx, G.clock, t);
   // 아나운서
   drawAnnouncer(ctx, G, t);
 }
@@ -655,9 +682,14 @@ function drawStatus(ctx, F, s, t) {
   if (F.mallangT > 0) tags.push(['말랑뱃살', '#ffb3c6']);
   if (F.fifaT > 0) tags.push(['흡혈 ' + Math.ceil(F.fifaT / SEC) + 's', '#ff6b6b']);
   if (F.fifaNext) tags.push(['다음 피격 x2', '#ff7b7b']);
+  if (F.invulT > 0) tags.push(['무적', '#fff6a0']);
+  if (F.antG.length) tags.push(['개미 ' + F.antG.reduce((s, g) => s + g.n, 0) + '마리 붙음', '#a1887f']);
+  if (F.ironT > 0) tags.push(['아이언맨 ' + Math.ceil(F.ironT / SEC) + 's', '#ff5252']);
+  if (F.phoneT > 0) tags.push(['휴대폰압수 ' + Math.ceil(F.phoneT / SEC) + 's (불사)', '#ff5252']);
+  if (F.clockT > 0) tags.push(['4시 55분', '#fff59d']);
   if (F.c === 4 && F.ddFree) tags.push(['더블다운 1회 더', '#ffb36b']);
   for (const m of F.mods) {
-    const lab = { focus: '공속↑', debuff: '능력치-20%', debuff_c: '능력치-20%', rage: '반장의 분노', pen: '벌점', pen_c: '벌점', leg1: '다리 회복', grow1: '거대화', form: '폼 미쳤다', burp: '트름 공격↑', fifa: '공격 +10%' }[m.id];
+    const lab = { mantis: '맨티스컷', focus: '공속↑', debuff: '능력치-20%', debuff_c: '능력치-20%', rage: '반장의 분노', pen: '벌점', pen_c: '벌점', leg1: '다리 회복', grow1: '거대화', form: '폼 미쳤다', burp: '트름 공격↑', fifa: '공격 +10%' }[m.id];
     if (lab) tags.push([lab + (m.t < 1e8 ? ' ' + Math.ceil(m.t / SEC) + 's' : ''), m.id === 'debuff' || m.id === 'pen' ? '#9f8fff' : '#ffb347']);
   }
   if ((F.pm || 1) > 1.001) tags.push(['패시브 +' + Math.round((F.pm - 1) * 100) + '%', '#ffb3e6']);
@@ -685,6 +717,27 @@ function drawDice(ctx, d, t) {
   if (d.t === 0) txt(ctx, `${d.res} x ${BAL[4].dicePer} = ${d.res * BAL[4].dicePer}`, 240, 185, 12, '#fff', 'center', FONT_EN);
 }
 
+// 이유동 4시 55분: 화면 가득한 시계
+function drawClock(ctx, c, t) {
+  const k = Math.min(1, (80 - c.t) / 10), a = c.t < 12 ? c.t / 12 : 1;
+  ctx.save(); ctx.globalAlpha = a;
+  ctx.fillStyle = 'rgba(10,10,30,0.55)'; ctx.fillRect(0, 0, VW, VH);
+  ctx.translate(240, 140); ctx.scale(k, k);
+  const R = 105;
+  ctx.fillStyle = '#fffde7'; ctx.beginPath(); ctx.arc(0, 0, R, 0, Math.PI * 2); ctx.fill();
+  ctx.lineWidth = 8; ctx.strokeStyle = '#3e2723'; ctx.stroke();
+  for (let i = 0; i < 60; i++) { const an = i / 60 * Math.PI * 2, r0 = i % 5 ? R - 8 : R - 16; ctx.lineWidth = i % 5 ? 1.5 : 4; ctx.beginPath(); ctx.moveTo(Math.sin(an) * r0, -Math.cos(an) * r0); ctx.lineTo(Math.sin(an) * (R - 3), -Math.cos(an) * (R - 3)); ctx.stroke(); }
+  ctx.fillStyle = '#3e2723'; ctx.font = `bold 16px ${FONT_EN}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  for (let h = 1; h <= 12; h++) { const an = h / 12 * Math.PI * 2; ctx.fillText(String(h), Math.sin(an) * (R - 30), -Math.cos(an) * (R - 30)); }
+  const hand = (an, len, w, col) => { ctx.strokeStyle = col; ctx.lineWidth = w; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(Math.sin(an) * len, -Math.cos(an) * len); ctx.stroke(); };
+  hand((4 + 55 / 60) / 12 * Math.PI * 2, R * 0.5, 7, '#3e2723');
+  hand(55 / 60 * Math.PI * 2, R * 0.78, 4, '#3e2723');
+  hand(((t % 60) / 60) * Math.PI * 2, R * 0.85, 1.5, '#d32f2f');
+  ctx.fillStyle = '#d32f2f'; ctx.beginPath(); ctx.arc(0, 0, 5, 0, Math.PI * 2); ctx.fill();
+  ctx.textBaseline = 'alphabetic';
+  ctx.restore();
+  bigText(ctx, '4 : 55', 240, 262, 20, '#ffffff', '#ffb000');
+}
 function drawYut(ctx, y, t) {
   ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.fillRect(150, 100, 180, 100);
   txt(ctx, '모 아니면 도!', 240, 118, 12, '#00e676', 'center');

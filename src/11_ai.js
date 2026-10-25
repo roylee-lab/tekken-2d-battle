@@ -1,11 +1,17 @@
 // ============================================================
 //  CPU 인공지능
 // ============================================================
+// block: 막기/피하기 확률, interval: 판단 주기(프레임), aggr: 공격성, skill: 스킬 사용 확률, cad: 연타 간격,
+// punish: 상대 헛손질·착지 반격, react: 위협을 알아채는 데 걸리는 프레임
 const DIFF = {
-  0: { name: '쉬움', block: 0.3, interval: 22, aggr: 0.45, skill: 0.25 },
-  1: { name: '보통', block: 0.6, interval: 14, aggr: 0.6, skill: 0.4 },
-  2: { name: '어려움', block: 0.85, interval: 8, aggr: 0.75, skill: 0.55 },
+  0: { name: '매우 쉬움', block: 0.1, interval: 34, aggr: 0.3, skill: 0.12, cad: 18, punish: 0, react: 14 },
+  1: { name: '쉬움', block: 0.3, interval: 22, aggr: 0.45, skill: 0.25, cad: 12, punish: 0, react: 8 },
+  2: { name: '보통', block: 0.6, interval: 14, aggr: 0.6, skill: 0.4, cad: 12, punish: 0.2, react: 4 },
+  3: { name: '어려움', block: 0.85, interval: 8, aggr: 0.75, skill: 0.55, cad: 4, punish: 0.5, react: 2 },
+  4: { name: '매우 어려움', block: 0.95, interval: 5, aggr: 0.82, skill: 0.7, cad: 3, punish: 0.8, react: 1 },
+  5: { name: 'LUNATIC', block: 1.0, interval: 2, aggr: 0.9, skill: 0.85, cad: 2, punish: 1.0, react: 0, lunatic: true },
 };
+const DIFF_N = 6;
 
 // 스킬별 AI 사용 조건 (dist = 거리, F = 자신, O = 상대)
 const close = (F, O, extra) => Math.abs(O.x - F.x) <= radius(F) + radius(O) + extra;
@@ -28,22 +34,23 @@ const AI_SKILL = {
   14: [(F) => F.poisT > 0 || F.shingT > 0 || F.rootT > 0 || F.slowT > 0 || F.drunkT > 0 || F.hbT > 0 || F.ttaT > 0 || F.guardOffT > 0 || F.seal.some((v) => v > 0) || F.mods.some((m) => m.v < 1 && m.k !== 'size'),
     (F, O, d) => d > 50 && d < 240 && O.shingT <= 0, (F, O, d) => d < 170, (F, O, d) => true],
   15: [(F, O, d) => d < 140, (F, O, d) => d > 60 && d < 260, (F, O, d) => d < 200, (F, O, d) => d < 260],
+  16: [(F, O, d) => d < 150, (F, O, d) => d < 120, (F, O, d) => d < 140, (F, O, d) => F.hp < F.maxHp * 0.45],
 };
-const MASH = [5, 7, 9];          // AI 연타 속도 (초당)
-const QTE_REACT = [[45, 35], [32, 24], [22, 18]];   // AI 글자 반응 (최소, 랜덤 폭) 프레임
+const MASH = [3, 5, 7, 9, 11, 14];          // AI 연타 속도 (초당)
+const QTE_REACT = [[60, 40], [45, 35], [32, 24], [22, 18], [16, 12], [9, 6]];   // AI 글자 반응 (최소, 랜덤 폭) 프레임
 
 function makeAIMem() { return { t: 10, plan: 'wait', planT: 0, guardT: 0, reacted: false, prevH: 0, atkCad: 0, mash: 0, qL: '', qAt: 0, ghostX: 0, ghostT: 0 }; }
-function aiMash(mem, diffLv) { mem.mash += MASH[diffLv] / 60; const n = Math.floor(mem.mash); mem.mash -= n; return n; }
+function aiMash(mem, diffLv) { mem.mash += (MASH[diffLv] || 7) / 60; const n = Math.floor(mem.mash); mem.mash -= n; return n; }
 
 function aiInput(G, F, O, mem, diffLv) {
-  const D = DIFF[diffLv] || DIFF[1];
+  const D = DIFF[diffLv] || DIFF[2];
   let h = 0, p = 0, keys = '', a = 0;
   if (G.phase !== 'fight') { mem.prevH = 0; return { h: 0, p: 0 }; }
   // 패드립 배틀: 글자 보고 반응
   if (G.qte) {
     const q = G.qte;
     if (q.st === 'show') {
-      if (mem.qL !== q.L + q.i) { mem.qL = q.L + q.i; const r = QTE_REACT[diffLv] || QTE_REACT[1]; mem.qAt = r[0] + Math.floor(rnd() * r[1]); }
+      if (mem.qL !== q.L + q.i) { mem.qL = q.L + q.i; const r = QTE_REACT[diffLv] || QTE_REACT[2]; mem.qAt = r[0] + Math.floor(rnd() * r[1]); }
       if (q.t === mem.qAt) keys = rnd() < 0.06 ? QTE_KEYS[Math.floor(rnd() * QTE_KEYS.length)] : q.L;
     }
     return { h: 0, p: 0, keys, a: 0 };
@@ -80,12 +87,20 @@ function aiInput(G, F, O, mem, diffLv) {
     if (O.fireT > 0 && realD < 150) { h |= (O.x > F.x ? B_L : B_R); return { h, p, keys, a }; }
     if (O.bomb && O.bomb.fuse > 0 && Math.abs(O.bomb.x - F.x) < BAL[15].bombR + 40) { h |= (O.bomb.x > F.x ? B_L : B_R); if (F.y <= 0 && rnd() < 0.05) p |= B_U; return { h, p, keys, a }; }
   }
-  // 개미가 가까이 오면 펀치로 처치
-  if (O.ants && O.ants.length && !F.atk && F.y <= 0) {
-    const near = O.ants.some((x) => Math.abs(x - F.x) <= radius(F) + reachOf(F, 'P') && sign(x - F.x) === F.f);
-    if (near && rnd() < D.aggr * 0.5) { p |= B_P; mem.prevH = h; return { h, p, keys, a }; }
-  }
+  // 몸에 개미가 달라붙으면 펀치로 떼어냄
+  if (O.antG && O.antG.length && !F.atk && F.recov <= 0 && rnd() < D.aggr * 0.25) { p |= B_P; mem.prevH = h; return { h, p, keys, a }; }
+  // 이유동 피모: 보이면 밟지 않게 점프로 넘거나 멈춤
+  const pimo = G.traps.find((t) => t.k === 'pimo' && t.o === O.side && Math.abs(t.x - F.x) < 30);
+  if (pimo && F.y <= 0 && rnd() < D.block * 0.3) { p |= B_U; h |= (pimo.x > F.x ? B_R : B_L); }
   const projThreat = G.proj.find((q) => q.o === O.side && sign(F.x - q.x) === sign(q.vx) && Math.abs(F.x - q.x) < 85);
+  // 반격: 상대가 헛손질 후 굳어 있거나(후딜) 공중에서 내려오면 바로 때림 (어려움 이상)
+  if (!F.atk && F.y <= 0 && D.punish > 0 && mem.guardT <= 0) {
+    const realD = Math.abs(O.x - F.x);
+    if (O.atk && O.atkT === O.atkAct + 2) mem.pun = rnd() < D.punish;             // 상대 공격마다 한 번 판정
+    if (O.atk && O.atkT > O.atkAct + 1 && mem.pun && realD <= pRange + 6) { mem.pun = false; mem.prevH = h; return { h, p: p | B_P, keys, a }; }
+    if (O.y > 18 && O.vy < 0 && O.vy > -0.5) mem.aa = rnd() < D.punish * 0.7;           // 점프 정점에서 한 번 판정
+    if (O.y > 18 && O.vy < 0 && mem.aa && realD <= kRange) { mem.aa = false; mem.prevH = h; return { h, p: p | B_K, keys, a }; }
+  }
   if (mem.guardT > 0) {
     mem.guardT--; h |= B_D;
   } else if ((meleeThreat || projThreat) && !mem.reacted) {
@@ -94,8 +109,8 @@ function aiInput(G, F, O, mem, diffLv) {
       if (F.c === 2 && F.parryR <= 0 && F.cd[1] <= 0 && F.seal[1] <= 0 && meleeThreat && rnd() < 0.7) p |= B_S2;          // JJjin 패링
       else if (F.c === 6 && F.cd[0] <= 0 && F.seal[0] <= 0 && rnd() < 0.5) p |= B_S1;   // 안거녕 먹부림
       else if (projThreat && F.c === 6) { /* 투사체 무적 */ }
-      else if (projThreat && rnd() < 0.35 && F.rootT <= 0) { p |= B_U; h |= toward; }
-      else { mem.guardT = meleeThreat ? 16 : 22; h |= B_D; }
+      else if (projThreat && rnd() < (D.lunatic ? 0.6 : 0.35) && F.rootT <= 0) { p |= B_U; h |= toward; }
+      else { mem.guardT = meleeThreat ? (D.lunatic ? 9 : 16) : (D.lunatic ? 14 : 22); h |= B_D; }
     }
   }
   if (!meleeThreat && !projThreat) mem.reacted = false;
@@ -150,7 +165,7 @@ function aiInput(G, F, O, mem, diffLv) {
         mem.atkCad--;
         if (mem.atkCad <= 0 && !F.atk) {
           p |= O.mallangT > 0 ? B_P : dist > pRange ? B_K : rnd() < 0.7 ? B_P : B_K;   // 말랑뱃살에는 킥 금지
-          mem.atkCad = 4 + Math.floor(rnd() * (diffLv === 2 ? 4 : 12));
+          mem.atkCad = 2 + Math.floor(rnd() * D.cad);
         }
       }
       if (mem.planT <= 0) mem.plan = 'wait';

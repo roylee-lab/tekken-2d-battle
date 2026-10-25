@@ -13,7 +13,7 @@ let rnd = Math.random; // 시뮬레이션 난수
 const _lookVar = {};
 function lookOf(F) {
   const base = CHARS[F.c].look;
-  const k = (F.slim && F.c === 6 ? 's' : '') + (F.earT > 0 ? 'e' : '') + (F.drunkT > 0 ? 'd' : '');
+  const k = (F.slim && F.c === 6 ? 's' : '') + (F.earT > 0 ? 'e' : '') + (F.drunkT > 0 ? 'd' : '') + (F.c === YUDONG && ironOn(F) ? 'i' : '');
   if (!k) return base;
   const key = F.c + k;
   if (!_lookVar[key]) {
@@ -21,13 +21,14 @@ function lookOf(F) {
     if (k.includes('s')) { v.b.belly = 0; v.b.waistW = 14; v.b.torsoW = 18; v.acc.roundFace = false; }
     if (k.includes('e')) v.acc.earmuff = true;
     if (k.includes('d')) v.acc.drunk = true;
+    if (k.includes('i')) { v.top = '#b71c1c'; v.pants = '#b71c1c'; v.shoes = '#f9a825'; v.topStyle = 'track'; v.acc.ironMask = true; }
     _lookVar[key] = v;
   }
   return _lookVar[key];
 }
 function radius(F) {
   const L = lookOf(F), b = L.b;
-  return (b.torsoW * 0.5 + 7 + b.belly * 7 + b.hips * 0.7) * L.H * 1.25 * (F.sz || 1); // 화면 확대(FSCALE)와 두께 반영
+  return (b.torsoW * 0.5 + 7 + b.belly * 7 + b.hips * 0.7) * L.H * 1.25; // 화면 확대(FSCALE)와 두께 반영 (몸집 버프는 겉모습만 커짐)
 }
 // ---------- 능력치 배율 (버프/디버프) ----------
 const STAT_ALL = new Set(['atk', 'def', 'spd', 'aspd', 'range']);
@@ -44,6 +45,7 @@ function faceX(F, O) {
   if (C && C.hp > 0 && Math.abs(C.x - F.x) < Math.abs(O.x - F.x)) return C.x;
   return O.x;
 }
+function ironOn(F) { return F.ironT > 0 || F.phoneT > 0; }   // 이유동 아이언맨 상태
 function busyOf(F) { return F.laughT > 0 || F.fireT > 0 || F.flyT > 0 || F.rushT2 > 0 || F.kkT > 0 || F.shutT > 0 || F.chokeHold || F.chokeT > 0; }
 function charName(c) { return CHARS[c].name; }
 
@@ -65,7 +67,8 @@ function makeFighter(side, c) {
     mods: [], sz: 1, pm: 1, stunT: 0, hbT: 0, ttaT: 0, invisT: 0, drunkT: 0, earT: 0, rageT: 0, kcT: 0,
     laughT: 0, breathN: 0, breathT: 0, breathHit: false, fireT: 0, flyT: 0, flyX: 0, flyFrom: 0, rushT2: 0,
     chokeT: 0, chokeN: 0, chokeTick: 0, chokeHold: false, kkT: 0, shutT: 0, stk: 0, yank: false, slim: false, clone: null, ddFree: false,
-    shingT: 0, shingTick: 0, chestT: 0, ants: [], antQ: 0, antT: 0, mallangT: 0, fifaT: 0, fifaNext: false, bomb: null,
+    shingT: 0, shingTick: 0, chestT: 0, ants: [], antG: [], antQ: 0, antT: 0, mallangT: 0, fifaT: 0, fifaNext: false, bomb: null,
+    invulT: 0, ironT: 0, ironUsed: false, clockT: 0, phoneT: 0, phoneDmg: 0, phoneStart: 0, phoneHealT: 0, phoneHealAmt: 0,
     ko: false, wins: 0, combo_recv: 0, comboShowT: 0,
   };
 }
@@ -84,17 +87,18 @@ function newMatch(c0, c1, stage, mode, late) {
 
 function resetRound(G) {
   G.phase = 'intro'; G.pt = 0; G.timer = ROUND_TIME * SEC; G.roundF = 0;
-  G.proj = []; G.traps = []; G.freezeT = 0; G.hitStop = 0; G.dice = null; G.notes = []; G.flash = 0; G.qte = null; G.yut = null;
+  G.proj = []; G.traps = []; G.freezeT = 0; G.hitStop = 0; G.dice = null; G.notes = []; G.flash = 0; G.qte = null; G.yut = null; G.clock = null;
   G.rw = -1; G.koType = ''; G.perfect = false;
   for (const F of G.F) {
-    const wins = F.wins, c = F.c, side = F.side;
+    const wins = F.wins, c = F.c, side = F.side, prevCd = F.cd.slice();
     Object.assign(F, makeFighter(side, c));
     F.wins = wins;
     const O = G.F[1 - side];
     // 이은뚱 패시브: 상대가 mola/JJjin이면 최대 체력 +10
     F.maxHp = BAL[c].hp + (c === 4 && (O.c === 1 || O.c === 2) ? Math.round(BAL[4].hp * BAL[4].friend) : 0);
     F.hp = F.maxHp;
-    F.cd = SLOT_CD_START.map((s) => s * SEC);   // 라운드 시작 시 첫 쿨타임부터 돈다
+    // 첫 라운드는 첫 쿨타임부터, 다음 라운드부터는 이전 라운드의 남은 쿨타임을 그대로 이어감
+    F.cd = G.round > 1 ? prevCd : SLOT_CD_START.map((s) => s * SEC);
     // 힌참휴 오타쿠 / 영탁 니가 왜 거기서 나와: 모든 능력치 배율
     F.pm = 1;
     if (c === HINCHAM) { if (O.c === 4) F.pm *= 1 + BAL[12].otaku; if (G.stage === 'tokyo') F.pm *= 1 + BAL[12].otaku; }
@@ -120,6 +124,7 @@ function momTake(G, F, dmg, label) {
 // 구속·감속·봉인 같은 방해효과를 받기 전에 호출 → true면 은맘이 대신 받아서 무효
 function disrupt(G, T) {
   if (T.earT > 0) { ev(G, 'float', T.x, T.y + 92, '무시!', '#c38bff'); return true; }   // 창가오 거꾸로 쓴 귀마개
+  if (T.invulT > 0) { ev(G, 'float', T.x, T.y + 92, '무적!', '#fff6a0'); return true; }
   if (!momAlive(T)) return false;
   momTake(G, T, 0, '방해 무효!');
   return true;
@@ -131,6 +136,7 @@ function applyDamage(G, A, D, dmg, type, o) {
   if (D.ko) return 'immune';
   const proj = PROJ_TYPES.has(type);
   const hy = D.y + 50 * lookOf(D).H;
+  if (D.invulT > 0 && !o.pure && A !== D) { ev(G, 'spark', D.x, hy, 'immune'); ev(G, 'float', D.x, hy + 24, '무적', '#fff6a0'); return 'immune'; }
   // 창가오 거꾸로 쓴 귀마개: 상대 스킬 피해 무시 (일반 공격만 맞음)
   if (D.earT > 0 && A !== D && !MELEE_T.has(type)) { ev(G, 'spark', D.x, hy, 'immune'); ev(G, 'float', D.x, hy + 24, '무시!', '#c38bff'); return 'immune'; }
   if (A && A !== D && A.curseT > 0 && !o.reflect) dmg *= 1 + BAL[4].curseAtk;   // 31.8의 저주: 공격력 증가
@@ -191,7 +197,7 @@ function applyDamage(G, A, D, dmg, type, o) {
   }
   // 9. 경감 효과 (고정 피해는 무시)
   // 31.8의 저주: 받은 피해 일부 반사 (고정 피해)
-  if (D.curseT > 0 && !o.reflect && A !== D && dmg > 0) {
+  if (D.curseT > 0 && !o.reflect && !o.noReflect && A !== D && dmg > 0) {
     const refl = dmg * BAL[4].curseRefl;
     applyDamage(G, D, A, refl, 'REFLECT', { fixed: true, reflect: true });
   }
@@ -210,6 +216,7 @@ function applyDamage(G, A, D, dmg, type, o) {
   }
   if (dmg > 0) {
     D.hp -= dmg;
+    if (D.phoneT > 0) D.phoneDmg += dmg;
     ev(G, 'float', D.x + rnd() * 10 - 5, hy + 22, (Math.round(dmg * 10) / 10).toString(), blocked ? '#bbbbbb' : (o.fixed ? '#ff5edb' : '#ffe14d'));
     if (A !== D && A.stimT > 0 && canHeal(A)) { addHp(A, dmg * BAL[0].stimLS); ev(G, 'heal', A.x, A.y + 50); }
     if (A !== D && A.fifaT > 0 && canHeal(A)) addHp(A, dmg * BAL[15].fifaLS);
@@ -221,6 +228,7 @@ function applyDamage(G, A, D, dmg, type, o) {
 
 function checkKO(G, D) {
   if (D.hp > 0 || D.ko) return;
+  if (D.phoneT > 0 || D.phoneHealT > 0) { D.hp = 0; return; }   // 이유동 휴대폰압수: 스킬이 끝날 때까지 죽지 않음
   if (D.c === 2 && !D.revived) {
     D.revived = true; D.hp = D.maxHp * BAL[2].reviveHp; D.hitT = 0;
     G.freezeT = Math.max(G.freezeT, 75);
@@ -364,6 +372,14 @@ function updateProjectiles(G) {
     const tr = G.traps[i];
     tr.age = (tr.age || 0) + 1;
     const T = G.F[1 - tr.o];
+    if (tr.k === 'pimo') {
+      if (tr.age > tr.life) { G.traps.splice(i, 1); continue; }
+      if (tr.age > 24 && !T.ko && T.y <= 0 && Math.abs(T.x - tr.x) < 10 + radius(T) * 0.4) {
+        if (!disrupt(G, T)) { T.rootT = Math.max(T.rootT, BAL[16].pimoRoot); ev(G, 'float', T.x, T.y + 100, '현혹! 구속', '#64b5f6'); }
+        ev(G, 'sfx', 'hack'); G.traps.splice(i, 1);
+      }
+      continue;
+    }
     if (tr.age > 20 && !T.ko && T.y <= 0 && Math.abs(T.x - tr.x) < 10 + radius(T) * 0.4) {
       const res = applyDamage(G, G.F[tr.o], T, 5, 'SHOOT');
       if (res === 'hit') T.hitT = Math.max(T.hitT, 10);
@@ -478,12 +494,16 @@ const SK = {
       F.parryT = BAL[2].parryT; F.parryR = BAL[2].parryT + 16; return true;
     },
     (G, F, O) => { if (G.qte || O.ko) return false; startQTE(G, F); return true; },
-    (G, F, O) => { F.invisT = BAL[2].invisT; note(G, '영역 전개!', '#f5c542', 70); ev(G, 'sfx', 'hack'); ev(G, 'flashOnce'); return true; },
+    (G, F, O) => {
+      F.invisT = BAL[2].invisT; F.invulT = Math.max(F.invulT, BAL[2].invisT);
+      if (!disrupt(G, O)) O.guardOffT = Math.max(O.guardOffT, BAL[2].invisGuardOff);
+      note(G, '영역 전개! 무적 + 투명, 상대 가드 불가', '#f5c542', 90); ev(G, 'sfx', 'hack'); return true;
+    },
   ],
   3: [
     (G, F, O) => { spawnProj(G, F, 'bamboo', 10, 20, 10); return true; },
     (G, F, O) => {
-      if (G.traps.filter((t) => t.o === F.side).length >= BAL[3].shootMax) return false;
+      if (G.traps.filter((t) => t.o === F.side && !t.k).length >= BAL[3].shootMax) return false;
       G.traps.push({ x: F.x, o: F.side, age: 0 }); return true;
     },
     (G, F, O) => { spawnProj(G, F, 'crystal', 7, 50, 9); ev(G, 'sfx', 'charge'); return true; },
@@ -617,9 +637,9 @@ const SK = {
     (G, F, O) => { F.fireT = BAL[11].fireT; ev(G, 'sfx', 'explosion'); ev(G, 'shake', 8, 4); return true; },
   ],
   12: [
-    (G, F, O) => { F.headT = 14; F.headHit = false; F.spikeT = BAL[12].spikeT; ev(G, 'sfx', 'charge'); return true; },
+    (G, F, O) => { F.headT = 14; F.headHit = false; F.spikeT = BAL[12].spikeT; F.invulT = Math.max(F.invulT, BAL[12].headInv); ev(G, 'sfx', 'charge'); return true; },
     (G, F, O) => {
-      if (disrupt(G, O)) { note(G, '해킹 실패! 은맘이 막았다', '#ff8fb3', 80); return true; }
+      if (disrupt(G, O)) { note(G, '해킹 실패! 막혔다', '#ff8fb3', 80); return true; }
       const own = [0, 1, 2, 3].filter((s) => skillDef(O.c, s));
       let avail = own.filter((s) => O.seal[s] <= 0);
       if (!avail.length) avail = own;
@@ -631,7 +651,11 @@ const SK = {
       note(G, `해킹 성공! ${CHARS[O.c].name}의 '${nm}' ${BAL[12].sealSec}초 봉인 + 복제 완료`, '#00e676', 120);
       return true;
     },
-    (G, F, O) => { const v = BAL[12].grow, T = BAL[12].growT; addMod(F, 'grow1', 'range', v, T); addMod(F, 'grow2', 'size', v, T); note(G, '난쟁이의 희망! 몸이 커진다', '#00e676', 80); ev(G, 'sfx', 'powerup'); return true; },
+    (G, F, O) => {
+      const v = BAL[12].grow, T = BAL[12].growT; addMod(F, 'grow1', 'range', v, T); addMod(F, 'grow2', 'size', v, T);
+      if (!disrupt(G, O)) { O.kb = sign(O.x - F.x) * BAL[12].growPush / 5; O.hitT = Math.max(O.hitT, 10); }   // kb는 매 프레임 0.8배 → 총 이동 = kb x 5
+      note(G, '난쟁이의 희망! 몸이 커지며 상대를 밀어낸다', '#00e676', 80); ev(G, 'sfx', 'powerup'); ev(G, 'shake', 6, 3); return true;
+    },
     (G, F, O) => {
       if (G.dice || G.yut) return false;
       G.yut = { o: F.side, t: 50, res: 0, pop: 0 };
@@ -669,7 +693,29 @@ const SK = {
     },
     (G, F, O) => { spawnProj(G, F, 'shingles', 6.5, 45, 9); ev(G, 'sfx', 'fart'); return true; },
     (G, F, O) => { F.chestT = BAL[14].chestT; note(G, '옵빠이!! 가슴으로 받아낸다', '#ffd27f', 90); ev(G, 'sfx', 'powerup'); return true; },
-    (G, F, O) => { F.antQ = BAL[14].antN; F.antT = 0; note(G, `🐜 개미군단 ${BAL[14].antN}마리 출동!`, '#a1887f', 110); ev(G, 'sfx', 'roar'); return true; },
+    (G, F, O) => { F.antQ = BAL[14].antN; F.antT = BAL[14].antWaveT; note(G, `🐜 개미군단 ${BAL[14].antN}마리가 쏟아진다!`, '#a1887f', 110); ev(G, 'sfx', 'roar'); return true; },
+  ],
+  16: [
+    (G, F, O) => {   // 피모 지웠다 깔기: 밟으면 현혹 → 구속
+      const mine = G.traps.filter((t) => t.o === F.side && t.k === 'pimo');
+      if (mine.length >= BAL[16].pimoMax) G.traps.splice(G.traps.indexOf(mine[0]), 1);
+      G.traps.push({ x: clamp(F.x + F.f * 34, 20, ARENA_W - 20), o: F.side, age: 0, k: 'pimo', life: BAL[16].pimoLife });
+      ev(G, 'float', F.x, F.y + 100, '피모 설치 중...', '#64b5f6'); return true;
+    },
+    (G, F, O) => { addMod(F, 'mantis', 'aspd', BAL[16].mantis, BAL[16].mantisT); ev(G, 'float', F.x, F.y + 100, '사마귀 뜯기!', '#a5d6a7'); ev(G, 'sfx', 'powerup'); return true; },
+    (G, F, O) => {   // 4시 55분
+      const B = BAL[16];
+      G.clock = { t: 80, o: F.side }; G.freezeT = Math.max(G.freezeT, 80);
+      G.timer = B.clockSec * SEC; F.clockT = B.clockT; addMod(F, 'clock', 'aspd', B.clockSpd, B.clockT);
+      note(G, '🕓 4시 55분! (남은 시간 455초)', '#fff59d', 120); ev(G, 'sfx', 'tick'); return true;
+    },
+    (G, F, O) => {   // 휴대폰압수
+      const B = BAL[16];
+      F.phoneStart = F.maxHp * B.phonePct; if (F.hp > F.phoneStart) F.hp = F.phoneStart;
+      F.phoneT = B.phoneT; F.phoneDmg = 0;
+      note(G, '📱 휴대폰압수! 30초간 아이언맨 + 죽지 않음', '#ff5252', 120); ev(G, 'sfx', 'roar'); ev(G, 'shake', 10, 5);
+      return true;
+    },
   ],
   15: [
     (G, F, O) => { F.mallangT = BAL[15].mallangT; ev(G, 'sfx', 'powerup'); ev(G, 'float', F.x, F.y + 100, '말랑말랑', '#ffb3c6'); return true; },
@@ -748,7 +794,7 @@ function startAttack(G, F, O, type) {
 }
 
 function reachOf(F, type) {
-  return (type === 'P' ? ATK.pReach : ATK.kReach * stat(F, 'krange')) * lookOf(F).H * stat(F, 'range');
+  return (type === 'P' ? ATK.pReach * (F.c === YUDONG && ironOn(F) ? BAL[16].ironRange : 1) : ATK.kReach * stat(F, 'krange')) * lookOf(F).H * stat(F, 'range');
 }
 function meleeHit(G, F, O) {
   const reach = reachOf(F, F.atk);
@@ -761,11 +807,12 @@ function meleeHit(G, F, O) {
     G.hitStop = 4; ev(G, 'spark', C.x - F.f * 8, C.y + 55, 'hit'); ev(G, 'sfx', F.atk === 'K' ? 'hitK' : 'hitP');
     return;
   }
-  // 상대 개미 처치 (펀치·킥 범위 안의 개미)
-  if (O.ants.length) {
-    let killed = 0;
-    O.ants = O.ants.filter((x) => { if (killed < BAL[14].antKill && Math.abs(x - F.x) <= radius(F) + reach + 4 && sign(x - F.x) === F.f && F.y < 30) { killed++; return false; } return true; });
-    if (killed) { ev(G, 'spark', F.x + F.f * (radius(F) + reach * 0.6), 4, 'dust'); ev(G, 'float', F.x + F.f * 30, 30, '개미 -' + killed, '#a1887f'); }
+  // 몸에 달라붙은 개미 떼어내기: 공격할 때마다 공격력만큼 개미 체력을 깎음
+  if (O.antG.length) {
+    let kill = Math.max(1, Math.floor(F.atkDmg / BAL[14].antHp)), killed = 0;
+    for (const g of O.antG) { const k = Math.min(g.n, kill); g.n -= k; kill -= k; killed += k; if (!kill) break; }
+    O.antG = O.antG.filter((g) => g.n > 0);
+    if (killed) ev(G, 'float', F.x, F.y + 70, '개미 -' + killed, '#a1887f');
   }
   if (inR(O.x, O.y)) {
     const isK = F.atk === 'K';
@@ -797,6 +844,31 @@ function meleeHit(G, F, O) {
     }
   } else {
     ev(G, 'sfx', 'miss');
+  }
+}
+
+// ---------- 이유동 ----------
+function stepYudong(G, F, O) {
+  const B = BAL[16];
+  // 패시브 아이언맨: 체력 20% 이하가 되면 5초 변신 (라운드당 1회)
+  if (F.c === YUDONG && !F.ironUsed && F.hp > 0 && F.hp <= F.maxHp * B.ironAt && !F.ko) {
+    F.ironUsed = true; F.ironT = B.ironT;
+    note(G, '🦾 아크 리액터 가동! 아이언맨 변신!', '#ff5252', 110); ev(G, 'sfx', 'powerup'); ev(G, 'revive', F.x, F.y);
+  }
+  // 4시 55분: 밀려나지 않음, 끝나면 죄책감 기절
+  if (F.clockT > 0) {
+    F.kb = 0; if (F.hitT > 0) F.hitT = 0;
+    if (--F.clockT === 0) { F.stunT = Math.max(F.stunT, B.clockStun); F.atk = null; ev(G, 'float', F.x, F.y + 110, '죄책감...', '#9fa8da'); }
+  }
+  // 휴대폰압수: 끝나면 1초 동안 그동안 받은 피해를 회복
+  if (F.phoneT > 0 && --F.phoneT === 0) {
+    F.phoneHealT = 60; F.phoneHealAmt = Math.max(0, Math.min(F.phoneDmg, F.phoneStart - F.hp));
+    note(G, '📱 휴대폰을 돌려받았다! 피해 회복', '#7dff9a', 90);
+  }
+  if (F.phoneHealT > 0) {
+    if (F.phoneHealAmt > 0 && canHeal(F)) addHp(F, F.phoneHealAmt / 60);
+    if (F.phoneHealT % 12 === 0) ev(G, 'heal', F.x, F.y + 50);
+    if (--F.phoneHealT === 0) checkKO(G, F);
   }
 }
 
@@ -887,22 +959,29 @@ function stepSkillStates(G, F, O, inp) {
   }
   // 매미킴 배드민턴 스매시
   if (F.shutT > 0 && --F.shutT === 0) { spawnProj(G, F, 'shuttle', 15, 40, 6); ev(G, 'sfx', 'whoosh'); ev(G, 'shake', 5, 3); }
-  // 허도개미 개미군단
-  if (F.antQ > 0 && ++F.antT >= BAL[14].antRate) { F.antT = 0; F.antQ--; F.ants.push(Math.round(F.x + F.f * 8)); }
+  // 허도개미 개미군단: 한 번에 여러 마리씩 쏟아져 아주 빠르게 달려가 달라붙음 (가드 불가)
+  if (F.antQ > 0 && ++F.antT >= BAL[14].antWaveT) {
+    F.antT = 0;
+    const n = Math.min(F.antQ, BAL[14].antWave); F.antQ -= n;
+    for (let i = 0; i < n; i++) F.ants.push(Math.round(F.x + F.f * (6 + i * 1.5)));
+    ev(G, 'sfx', 'tick');
+  }
   if (F.ants.length) {
+    const B = BAL[14], reach = radius(O) * 0.8;
+    let arrived = 0;
+    F.ants = F.ants.filter((x) => { if (O.ko) return false; if (Math.abs(O.x - x) <= reach + B.antSpd) { arrived++; return false; } return true; })
+      .map((x) => Math.round((x + sign(O.x - x) * B.antSpd) * 10) / 10);
+    if (arrived) F.antG.push({ n: arrived, life: B.antLife, bite: 10 });
+  }
+  if (F.antG.length) {
     const B = BAL[14];
     let bites = 0;
-    const reach = radius(O) * 0.8;
-    F.ants = F.ants.filter((x) => {
-      if (O.ko) return false;
-      const d = O.x - x;
-      if (Math.abs(d) <= reach) { if (O.y < 20) { bites++; return false; } return true; }
-      return true;
-    }).map((x) => { const d = O.x - x; return Math.abs(d) <= reach ? x : Math.round((x + sign(d) * B.antSpd) * 10) / 10; });
-    if (bites) {
-      const res = applyDamage(G, F, O, B.antDmg * bites, 'ANT');
+    for (const g of F.antG) { g.life--; if (--g.bite <= 0) { g.bite = B.antBite; bites += g.n; } }
+    F.antG = F.antG.filter((g) => g.life > 0 && g.n > 0);
+    if (bites && !O.ko) {
+      const res = applyDamage(G, F, O, B.antDmg * bites, 'ANT', { fixed: true });
       if (res === 'hit' && O.hitT < 4) O.hitT = 4;
-      if (F.anim % 6 === 0) ev(G, 'sfx', 'tick');
+      ev(G, 'sfx', 'tick');
     }
   }
   // 차니팍 은뚱폭발
@@ -916,7 +995,7 @@ function stepSkillStates(G, F, O, inp) {
       F.bomb = null;
       ev(G, 'sfx', 'explosion'); ev(G, 'shake', 20, 9); ev(G, 'explosion', bm.x, 30, 1); ev(G, 'explosion', bm.x, 30, -1);
       if (Math.abs(O.x - bm.x) <= BAL[15].bombR + radius(O) * 0.5 && O.y < 80) {
-        const res = applyDamage(G, F, O, BAL[15].bombDmg, 'EUN_BOMB');
+        const res = applyDamage(G, F, O, BAL[15].bombDmg, 'EUN_BOMB', { noReflect: true });   // 던진 차니팍은 절대 피해를 받지 않음
         if (res === 'hit') { O.hitT = Math.max(O.hitT, 22); O.kb = sign(O.x - bm.x) * 7; G.hitStop = 8; }
       }
     }
@@ -946,7 +1025,8 @@ function stepFighter(G, F, O, inp) {
   const L = lookOf(F), H = L.H;
   F.anim++;
   for (const k of ['stimT', 'meokT', 'manT', 'parryT', 'parryR', 'slowT', 'delayT', 'guardOffT', 'boostT', 'spikeT', 'hitT', 'blockT', 'castT', 'angerT', 'hitFlash', 'recov', 'comboShowT', 'rootT',
-    'stunT', 'hbT', 'ttaT', 'invisT', 'drunkT', 'earT', 'rageT', 'kcT', 'chestT', 'mallangT', 'fifaT']) dec(F, k);
+    'stunT', 'hbT', 'ttaT', 'invisT', 'drunkT', 'earT', 'rageT', 'kcT', 'chestT', 'mallangT', 'fifaT', 'invulT', 'ironT']) dec(F, k);
+  stepYudong(G, F, O);
   if (F.mods.length) { for (const m of F.mods) m.t--; F.mods = F.mods.filter((m) => m.t > 0); }
   F.sz = 1; for (const m of F.mods) if (m.k === 'size') F.sz *= m.v;
   // 영탁 막걸리: 방향키 반대 + 가드/점프 반대
@@ -1148,6 +1228,7 @@ function stepGame(G, inputs) {
   }
   if (G.freezeT > 0) {
     G.freezeT--;
+    if (G.clock && --G.clock.t <= 0) G.clock = null;
     if (G.yut) {
       const y = G.yut;
       if (y.t > 0) {
@@ -1156,12 +1237,12 @@ function stepGame(G, inputs) {
         if (y.t === 0) {
           y.res = rnd() < BAL[12].moP ? 5 : 1; y.pop = 50;
           const C = G.F[y.o], T = G.F[1 - y.o];
-          const dmg = y.res === 5 ? Math.max(1, T.hp * BAL[12].moPct) : 1;
-          y.dmg = Math.round(dmg * 10) / 10;
-          const res = applyDamage(G, C, T, dmg, 'YUT', { fixed: true });
-          if (res === 'hit' && y.res === 5) { T.hitT = 20; ev(G, 'spark', T.x, T.y + 60, 'big'); ev(G, 'shake', 14, 7); }
+          if (y.res === 5) {
+            // 모: 즉사 (은맘·방어 스킬 무시, 귀마개·무적은 막음)
+            if (T.earT > 0 || T.invulT > 0) { ev(G, 'float', T.x, T.y + 92, T.earT > 0 ? '무시!' : '무적!', '#c38bff'); note(G, '🥢 모!!! ...하지만 막혔다', '#c38bff', 100); }
+            else { T.momHp = 0; T.momT = 0; T.hp = 0; T.hitT = 20; checkKO(G, T); ev(G, 'spark', T.x, T.y + 60, 'big'); ev(G, 'shake', 18, 9); note(G, '🥢 모!!! 즉사!!', '#ffcc33', 110); }
+          } else { applyDamage(G, C, T, 1, 'YUT', { fixed: true }); note(G, '🥢 도... (1 피해)', '#aaa', 100); }
           ev(G, 'sfx', y.res === 5 ? 'jackpot' : 'deny');
-          note(G, y.res === 5 ? `🥢 모!!! 상대 체력 절반 (${y.dmg})` : '🥢 도... (1 피해)', y.res === 5 ? '#ffcc33' : '#aaa', 100);
         }
       } else if (y.pop > 0) { y.pop--; if (y.pop === 0) G.yut = null; }
     }
@@ -1216,7 +1297,7 @@ function endCheck(G) {
     G.rw = Math.abs(ra - rb) < 0.001 ? -1 : ra > rb ? 0 : 1;
   }
   if (!ended) return;
-  G.phase = 'ko'; G.pt = 0; G.freezeT = 0; G.dice = null; G.hitStop = 0; G.qte = null; G.yut = null;
+  G.phase = 'ko'; G.pt = 0; G.freezeT = 0; G.dice = null; G.hitStop = 0; G.qte = null; G.yut = null; G.clock = null;
   G.proj = [];
   if (G.rw === -1) { a.wins++; b.wins++; }
   else {
@@ -1228,8 +1309,8 @@ function endCheck(G) {
     F.atk = null; F.guard = false; F.dashT = 0; F.headT = 0;
     for (const k of ['hitFlash', 'stimT', 'meokT', 'manT', 'jeongA', 'jeongP', 'parryT', 'rootT', 'guardOffT', 'slowT', 'poisT', 'hitT', 'blockT', 'castT', 'spikeT', 'angerT', 'rushN', 'noteN', 'momHp', 'momT', 'curseT',
       'stunT', 'hbT', 'ttaT', 'invisT', 'drunkT', 'earT', 'rageT', 'kcT', 'laughT', 'breathN', 'fireT', 'flyT', 'rushT2', 'chokeT', 'kkT', 'shutT',
-      'shingT', 'chestT', 'antQ', 'mallangT', 'fifaT']) F[k] = 0;
-    F.chokeHold = false; F.clone = null; F.ants = []; F.bomb = null; F.fifaNext = false; F.mods = F.mods.filter((m) => m.id === 'belly'); F.sz = 1;
+      'shingT', 'chestT', 'antQ', 'mallangT', 'fifaT', 'invulT', 'ironT', 'clockT', 'phoneT', 'phoneHealT']) F[k] = 0;
+    F.chokeHold = false; F.clone = null; F.ants = []; F.antG = []; F.bomb = null; F.fifaNext = false; F.mods = F.mods.filter((m) => m.id === 'belly'); F.sz = 1;
     if (F.ko) { F.vy = 4; F.vx = -F.f * 2.2; F.y = Math.max(F.y, 0.1); }
   }
   ev(G, 'announce', G.koType === 'KO' ? 'ko' : 'time');

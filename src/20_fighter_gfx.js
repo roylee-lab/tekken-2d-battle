@@ -240,7 +240,8 @@ function winPose(c, t) {
 function drawCharacter(ctx, c, pose, t, opts) {
   opts = opts || {};
   const L = opts.look || CHARS[c].look, H = L.H, b = L.b, A = L.acc;
-  const thL = 21 * H, shL = 21 * H, toL = 27 * H, uaL = 16 * H, faL = 15 * H, hr = b.headR * H;
+  const legK = b.leg || 1;   // 다리 길이 배율 (이유동: 아주 긴 다리)
+  const thL = 21 * H * legK, shL = 21 * H * legK, toL = 27 * H, uaL = 16 * H, faL = 15 * H, hr = b.headR * H;
   const skin = L.skin;
   const longSleeve = ['hoodie', 'track', 'jacket', 'coat', 'robe', 'hackerHood', 'dragon'].includes(L.topStyle);
   const giSleeve = L.topStyle === 'gi';
@@ -386,6 +387,12 @@ function drawCharacter(ctx, c, pose, t, opts) {
     ctx.beginPath(); ctx.moveTo(...pc); ctx.lineTo(...pe); ctx.stroke();
   }
   ctx.restore();
+  // 아크 리액터 (이유동)
+  if (A.arc) {
+    const c1 = tw(cw * 0.22, -toL * 0.7);
+    ctx.fillStyle = 'rgba(120,220,255,0.35)'; ctx.beginPath(); ctx.arc(c1[0], c1[1], 4.2, 0, Math.PI * 2); ctx.fill();
+    circ(ctx, c1[0], c1[1], 2.4, (t >> 3) % 2 ? '#e1f5fe' : '#81d4fa');
+  }
   // 큰 가슴 (허도개미)
   if (A.chest) {
     const c1 = tw(cw * 0.38, -toL * 0.66);
@@ -626,6 +633,12 @@ function drawHead(ctx, c, r, pose, t, opts) {
     ctx.fillStyle = OUT; ctx.fillRect(-r * 1.55, -r * 0.62, r * 0.75, 2.2);
     ctx.fillStyle = A.capBack; ctx.fillRect(-r * 1.5, -r * 0.6, r * 0.65, 1.2);
     ctx.fillStyle = '#ff007f'; ctx.fillRect(-r * 0.2, -r * 0.95, 2, 2);
+  }
+  if (A.ironMask) {   // 아이언맨 금색 얼굴판
+    ctx.fillStyle = OUT; ctx.beginPath(); ctx.ellipse(r * 0.25, r * 0.05, rx * 0.95, r * 1.0, 0, -1.4, 1.75); ctx.fill();
+    ctx.fillStyle = '#f9a825'; ctx.beginPath(); ctx.ellipse(r * 0.28, r * 0.08, rx * 0.85, r * 0.9, 0, -1.4, 1.75); ctx.fill();
+    ctx.fillStyle = '#e1f5fe'; ctx.fillRect(r * 0.35, -r * 0.2, r * 0.45, r * 0.13);
+    ctx.fillStyle = '#b71c1c'; ctx.beginPath(); ctx.ellipse(-r * 0.3, -r * 0.25, rx * 0.75, r * 0.75, 0, Math.PI, Math.PI * 2); ctx.fill();
   }
   if (A.earmuff) {
     // 거꾸로 쓴 귀마개: 띠가 턱 아래로

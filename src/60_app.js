@@ -18,10 +18,11 @@ const WIN_QUOTES = {
   13: '니가 왜 거기서 나와? 찐이야~',
   14: '털 하나에도 개미 백 마리가 산다.',
   15: '센터백은 뚫려도 은뚱은 터진다.',
+  16: '4시 55분이다. 휴대폰은 내일 돌려받는다.',
 };
 
 const APP = {
-  state: 'title', mode: 'cpu', mySide: 0, diff: 1, t: 0, st: 0,
+  state: 'title', mode: 'cpu', mySide: 0, diff: 2, t: 0, st: 0,
   menu: 0, sel: { cur: 0, hidden: false, ready: false, opp: { cur: 6, ready: false, c: null }, cpuC: null, roulette: 0 },
   G: null, ai: [makeAIMem(), makeAIMem()], dict: 0, vs: null, paused: false, pauseIdx: 0, toastT: 0, toastS: '', titleStage: 0,
 };
@@ -36,13 +37,14 @@ const BUF = mkCanvas(VW, VH), bctx = BUF.getContext('2d');
 (function loadSettings() {
   try {
     const s = JSON.parse(safeLS('tekken2d_settings') || '{}');
-    if (typeof s.diff === 'number') APP.diff = s.diff;
+    if (typeof s.diff6 === 'number' && DIFF[s.diff6]) APP.diff = s.diff6;
+    else if (typeof s.diff === 'number') APP.diff = ({ 0: 1, 1: 2, 2: 3 })[s.diff] ?? 2;   // 예전 3단계 설정 → 6단계로 옮김
     if (s.music === false) AUD.musicOn = false;
     if (s.sfx === false) AUD.sfxOn = false;
     if (s.voice === false) AUD.voiceOn = false;
   } catch (e) { /* 무시 */ }
 })();
-function saveSettings() { safeLS('tekken2d_settings', JSON.stringify({ diff: APP.diff, music: AUD.musicOn, sfx: AUD.sfxOn, voice: AUD.voiceOn })); }
+function saveSettings() { safeLS('tekken2d_settings', JSON.stringify({ diff6: APP.diff, music: AUD.musicOn, sfx: AUD.sfxOn, voice: AUD.voiceOn })); }
 
 // ---------- 화면 전환 ----------
 function setState(s) { APP.state = s; APP.st = 0; IN.clear(); if (s !== 'account') hideAccount(); setTimeout(renderInvitePop, 0); }
@@ -127,7 +129,7 @@ function updTitle() {
   if (IN.take('D')) { APP.menu = (APP.menu + 1) % n; playSfx('cursor'); }
   const lr = IN.take('L') ? -1 : IN.take('R') ? 1 : 0;
   const go = IN.take('START') || IN.take('S1') || IN.take('P');
-  if (APP.menu === 4 && (lr || go)) { APP.diff = (APP.diff + (lr || 1) + 3) % 3; playSfx('cursor'); saveSettings(); return; }
+  if (APP.menu === 4 && (lr || go)) { APP.diff = (APP.diff + (lr || 1) + DIFF_N) % DIFF_N; playSfx('cursor'); saveSettings(); return; }
   if (APP.menu === 5 && (lr || go)) { AUD.setMusic(!AUD.musicOn); if (AUD.musicOn) { MUSIC.key = null; playMusic('title'); } playSfx('cursor'); saveSettings(); return; }
   if (APP.menu === 6 && (lr || go)) { AUD.setSfx(!AUD.sfxOn); playSfx('cursor'); saveSettings(); return; }
   if (APP.menu === 7 && (lr || go)) { AUD.voiceOn = !AUD.voiceOn; playSfx('cursor'); saveSettings(); return; }
@@ -257,8 +259,14 @@ function render() {
   }
   if (APP.toastT > 0) {
     ctx.globalAlpha = Math.min(1, APP.toastT / 20);
-    ctx.fillStyle = 'rgba(0,0,0,0.75)'; ctx.fillRect(140, 238, 200, 18);
-    txt(ctx, APP.toastS, 240, 251, 8.5, '#fff', 'center', FONT_KR2, 0);
+    // 긴 안내도 잘리지 않게 여러 줄로
+    ctx.font = `8px ${FONT_KR2}`;
+    const words = String(APP.toastS).split(' '), lines = []; let line = '';
+    for (const w of words) { const t = line ? line + ' ' + w : w; if (ctx.measureText(t).width > 330 && line) { lines.push(line); line = w; } else line = t; }
+    if (line) lines.push(line);
+    const h = lines.length * 11 + 7, y0 = 258 - h;
+    ctx.fillStyle = 'rgba(0,0,0,0.8)'; ctx.fillRect(66, y0, 348, h);
+    lines.forEach((l, i) => txt(ctx, l, 240, y0 + 12 + i * 11, 8, '#fff', 'center', FONT_KR2, 0));
     ctx.globalAlpha = 1;
   }
   if (APP.mode === 'online' && NET.conn) txt(ctx, `ONLINE ${NET.ping}ms`, 476, 266, 5.5, NET.ping < 80 ? '#7dff9a' : NET.ping < 160 ? '#ffe14d' : '#ff6b6b', 'right', FONT_EN);
