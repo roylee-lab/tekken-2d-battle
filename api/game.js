@@ -10,7 +10,7 @@ const R_TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_
 const P = 't2d:';                       // 키 접두어
 const SESSION_TTL = 60 * 60 * 24 * 30;  // 로그인 유지 30일
 const ONLINE_TTL = 45;                  // 이 시간(초) 동안 신호가 없으면 오프라인
-const INVITE_TTL = 60;                  // 대전 신청 유효 시간(초)
+const INVITE_TTL = 90;                  // 대전 신청 유효 시간(초)
 const NICK_RE = /^[0-9A-Za-z가-힣_]{2,12}$/;
 
 // ---------- Redis (Upstash REST) ----------
@@ -43,15 +43,17 @@ async function rateLimit(name, limit, windowSec) {
 }
 async function newSession(nick) {
   const token = crypto.randomBytes(24).toString('hex');
-  await redis(['SET', P + 's:' + token, key(nick), 'EX', SESSION_TTL]);
+  await redis(['SET', P + 's:' + token, key(nick) + '|' + nick, 'EX', SESSION_TTL]);   // 닉네임도 함께 저장 → 매 요청 Redis 명령 1개 절약
   return token;
 }
 async function auth(body) {
   const t = String(body.token || '');
   if (!/^[0-9a-f]{48}$/.test(t)) throw new E('로그인이 필요해요', 401);
-  const id = await redis(['GET', P + 's:' + t]);
-  if (!id) throw new E('로그인이 만료됐어요. 다시 로그인해 주세요', 401);
-  const nick = await redis(['HGET', P + 'u:' + id, 'nick']);
+  const v = await redis(['GET', P + 's:' + t]);
+  if (!v) throw new E('로그인이 만료됐어요. 다시 로그인해 주세요', 401);
+  const bar = v.indexOf('|');
+  const id = bar >= 0 ? v.slice(0, bar) : v;
+  const nick = bar >= 0 ? v.slice(bar + 1) : await redis(['HGET', P + 'u:' + id, 'nick']);
   if (!nick) throw new E('계정을 찾을 수 없어요', 401);
   return { id, nick, token: t };
 }
