@@ -10,17 +10,41 @@ async function redis(...cmd) {
   if (!r.ok || j.error) throw Error('signaling storage unavailable');
   return j.result;
 }
+const FALLBACK_ICE = [
+  {urls:['stun:stun.l.google.com:19302','stun:stun.cloudflare.com:3478']},
+  {urls:['turn:eu-0.turn.peerjs.com:3478','turn:us-0.turn.peerjs.com:3478'],username:'peerjs',credential:'peerjsp'}
+];
+// Cloudflare Realtime TURN: CF_TURN_KEY_ID + CF_TURN_API_TOKEN 환경변수가 있으면 24시간짜리 임시 TURN 자격증명을 발급한다.
+let cfCache = null;
+async function cloudflareIce() {
+  const id = process.env.CF_TURN_KEY_ID, tok = process.env.CF_TURN_API_TOKEN;
+  if (!id || !tok) return null;
+  if (cfCache && cfCache.until > Date.now()) return cfCache.servers;
+  const r = await fetch(`https://rtc.live.cloudflare.com/v1/turn/keys/${encodeURIComponent(id)}/credentials/generate-ice-servers`, {
+    method:'POST', headers:{Authorization:`Bearer ${tok}`,'Content-Type':'application/json'}, body:JSON.stringify({ttl:86400}), signal:AbortSignal.timeout(5000)
+  });
+  if (!r.ok) throw Error('turn credential '+r.status);
+  const j = await r.json();
+  const list = Array.isArray(j.iceServers) ? j.iceServers : j.iceServers ? [j.iceServers] : [];
+  // 브라우저에서 막히는 53번 포트 주소는 빼서 ICE 수집 대기를 줄인다.
+  const servers = list.map(s => ({...s, urls:[].concat(s.urls).filter(u => !/:53(\?|$)/.test(u))})).filter(s => s.urls.length);
+  if (!servers.length) throw Error('turn credential empty');
+  cfCache = {servers, until: Date.now() + 6 * 3600e3};
+  return servers;
+}
+async function iceConfig() {
+  if (process.env.WEBRTC_ICE_SERVERS) return JSON.parse(process.env.WEBRTC_ICE_SERVERS);
+  try { const cf = await cloudflareIce(); if (cf) return cf; } catch (e) { console.error('TURN credential failed:', e.message); }
+  return FALLBACK_ICE;
+}
 export default async function handler(req,res) {
   res.setHeader('Cache-Control','no-store');
   try {
     if (req.method === 'GET') {
       const ip = String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '').split(',')[0].trim();
-      const iceServers = process.env.WEBRTC_ICE_SERVERS ? JSON.parse(process.env.WEBRTC_ICE_SERVERS) : [
-        {urls:'stun:stun.l.google.com:19302'},
-        {urls:['turn:eu-0.turn.peerjs.com:3478','turn:us-0.turn.peerjs.com:3478'],username:'peerjs',credential:'peerjsp'}
-      ];
+      const iceServers = await iceConfig();
       if (!Array.isArray(iceServers) || !iceServers.length) throw Error('invalid ICE configuration');
-      res.status(200).json({signaling:!!(STORE_URL && STORE_TOKEN),network:ip ? crypto.createHash('sha256').update('t2d:'+ip).digest('hex').slice(0,24) : null,iceServers}); return;
+      res.status(200).json({signaling:!!(STORE_URL && STORE_TOKEN),relay:!!(process.env.WEBRTC_ICE_SERVERS || process.env.CF_TURN_KEY_ID),network:ip ? crypto.createHash('sha256').update('t2d:'+ip).digest('hex').slice(0,24) : null,iceServers}); return;
     }
     if (req.method !== 'POST') { res.status(405).json({error:'Method not allowed'}); return; }
     if (!STORE_URL || !STORE_TOKEN) { res.status(503).json({error:'온라인 접속 서버 DB 설정을 확인해주세요.'}); return; }
