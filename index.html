@@ -189,7 +189,9 @@ function build(o) { return Object.assign({}, BASE_BUILD, o); }
 
 // ---------- 스킬 슬롯 / 밸런스 수치 (밸런스 패치는 여기만 고치면 됨) ----------
 const SLOT_KEYS = ['Q', 'W', 'E', 'R'];
-const SLOT_CD = [5, 10, 30, 60];               // 슬롯별 쿨타임(초). 라운드 시작 시 쿨타임부터 돈다
+const SLOT_CD = [5, 10, 30, 60];               // 슬롯별 쿨타임(초)
+const SLOT_CD_START = [5, 10, 20, 30];         // 라운드 시작 시 첫 쿨타임(초)
+function cdText(k) { return SLOT_CD_START[k] !== SLOT_CD[k] ? `첫 ${SLOT_CD_START[k]}초 · 이후 ${SLOT_CD[k]}초` : `${SLOT_CD[k]}초`; }
 const ATK = { pBase: 8, pStep: 3, kickMul: 0.5, pReach: 38, kReach: 60 };
 const BAL = {   // v2 밸런스 패치 (AI 대전 시뮬레이션 기반)
   0: { hp: 100, vacPush: 8, vacStun: 30, stimT: 300, stimLS: 1.0 },
@@ -434,7 +436,7 @@ function resetRound(G) {
     // 이은뚱 패시브: 상대가 mola/JJjin이면 최대 체력 +10
     F.maxHp = BAL[c].hp + (c === 4 && (O.c === 1 || O.c === 2) ? Math.round(BAL[4].hp * BAL[4].friend) : 0);
     F.hp = F.maxHp;
-    F.cd = SLOT_CD.map((s) => s * SEC);   // 라운드 시작 시 쿨타임부터 돈다
+    F.cd = SLOT_CD_START.map((s) => s * SEC);   // 라운드 시작 시 첫 쿨타임부터 돈다
     F.x = ARENA_W / 2 + (side === 0 ? -80 : 80);
     F.f = side === 0 ? 1 : -1;
   }
@@ -3226,8 +3228,8 @@ function drawSkillBoxes(ctx, F, s, t) {
     const x = s === 0 ? 30 + col * (w + 4) : 450 - w - col * (w + 4), y = 37 + row * 12;
     const sealed = F.seal[k] > 0;
     const isCopy = F.c === HINCHAM && k === 0 && F.copy;
-    const maxCd = SLOT_CD[k] * SEC;
     const cd = sealed ? F.seal[k] : F.cd[k];
+    const maxCd = Math.max(SLOT_CD[k] * SEC, cd || 0);
     ctx.fillStyle = '#000'; ctx.fillRect(x - 1, y - 1, w + 2, h + 2);
     if (!def) {
       ctx.fillStyle = '#15182a'; ctx.fillRect(x, y, w, h);
@@ -4475,8 +4477,8 @@ function rSelectHUD(t) {
     const sk = skillDef(mc, k);
     ctx.fillStyle = sk ? '#ffe14d' : '#555a70'; ctx.fillRect(156, y - 7, 9, 9);
     txt(ctx, SLOT_KEYS[k], 160.5, y + 0.5, 6, '#000', 'center', FONT_EN, 0);
-    if (!sk) { txt(ctx, `(비어 있음 · 쿨 ${SLOT_CD[k]}초)`, 169, y, 7.5, '#6b6f86', 'left', FONT_KR2, 0); y += 11; continue; }
-    txt(ctx, sk.name + `  (${SLOT_CD[k]}초)`, 169, y, 8.5, '#fff', 'left', FONT_KR, 0);
+    if (!sk) { txt(ctx, `(비어 있음 · 쿨 ${cdText(k)})`, 169, y, 7.5, '#6b6f86', 'left', FONT_KR2, 0); y += 11; continue; }
+    txt(ctx, sk.name + `  (${cdText(k)})`, 169, y, 8.5, '#fff', 'left', FONT_KR, 0);
     y += wrapText(ctx, skillInfo(mc, k), 169, y + 9, 156, 6.5, '#b8c4dd') + 10;
   }
   txt(ctx, '패시브 · ' + C.passive.name, 156, y + 2, 8.5, '#ffb3e6', 'left', FONT_KR, 0);
@@ -4555,8 +4557,8 @@ function rDictHUD(t) {
     const sk = skillDef(c, k);
     ctx.fillStyle = sk ? '#ffe14d' : '#555a70'; ctx.fillRect(210, y - 8, 10, 10);
     txt(ctx, SLOT_KEYS[k], 215, y + 0.5, 6.5, '#000', 'center', FONT_EN, 0);
-    if (!sk) { txt(ctx, `비어 있음 (추후 추가) · 쿨타임 ${SLOT_CD[k]}초`, 224, y, 8, '#6b6f86', 'left', FONT_KR2, 0); y += 13; continue; }
-    txt(ctx, sk.name + `   쿨타임 ${SLOT_CD[k]}초`, 224, y, 9.5, '#fff', 'left', FONT_KR, 0);
+    if (!sk) { txt(ctx, `비어 있음 (추후 추가) · 쿨타임 ${cdText(k)}`, 224, y, 8, '#6b6f86', 'left', FONT_KR2, 0); y += 13; continue; }
+    txt(ctx, sk.name + `   쿨타임 ${cdText(k)}`, 224, y, 9.5, '#fff', 'left', FONT_KR, 0);
     y += wrapText(ctx, skillInfo(c, k), 224, y + 11, 236, 7.5, '#b8c4dd') + 14;
   }
   txt(ctx, '패시브 · ' + C.passive.name, 210, y, 9.5, '#ffb3e6', 'left', FONT_KR, 0);
