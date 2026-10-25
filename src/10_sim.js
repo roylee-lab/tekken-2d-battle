@@ -319,7 +319,7 @@ const SK = {
     },
     (G, F, O) => {   // E: 은맘 소환
       if (momAlive(F)) return false;
-      F.momMax = F.momHp = Math.max(1, Math.round(F.hp * BAL[4].momPct * 10) / 10);
+      F.momMax = F.momHp = Math.max(1, Math.round(F.maxHp * BAL[4].momPct * 10) / 10);   // 현재 최대 체력 기준
       F.momT = Math.round(BAL[4].momSec * SEC);
       note(G, `은맘 등장! (체력 ${F.momHp}) 모든 피해와 방해를 대신 받는다`, '#ff8fb3', 110);
       ev(G, 'sfx', 'revive'); ev(G, 'spark', F.x - F.f * 20, F.y + 50, 'immune');

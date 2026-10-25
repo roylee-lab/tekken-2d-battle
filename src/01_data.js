@@ -30,7 +30,7 @@ const BAL = {   // v2 밸런스 패치 (AI 대전 시뮬레이션 기반)
   1: { hp: 96, toothN: 4, toothDmg: 3, cutPct: 0.045, regen: 10, regenSec: 8 },
   2: { hp: 150, dashT: 6, parryT: 30, reviveHp: 0.5 },
   3: { hp: 108, bambooDmg: 12, shootDmg: 9, shootMax: 3, spd: 1.2, cdRed: 0.2 },
-  4: { hp: 95, ddHeal: 0.07, ddEvery: 4, ddMax: 0.1, dicePer: 5, angerEvery: 3, angerAdd: 0.05, friend: 0.1,
+  4: { hp: 92, ddHeal: 0.06, ddEvery: 4, ddMax: 0.1, dicePer: 5, angerEvery: 3, angerAdd: 0.05, friend: 0.1,
     momPct: 0.318, momSec: 31.8, curseSec: 31.8, curseDR: 0.318, curseAtk: 0.318, curseRefl: 0.318 },
   5: { hp: 86, nunDmg: 4, nunRoot: 40, prep: 120, act: 84, atkUp: 0.1 },
   6: { hp: 95, meokT: 36, manT: 54 },
@@ -96,7 +96,7 @@ const CHARS = [
     desc: ['체력 회복 및 주사위', '운명의 힘을 다룸 (체지방률 31.8%)'],
     s1: { name: '더블다운', info: (b) => `최대 체력 ${Math.round(b.ddHeal * 100)}% 회복 / ${b.ddEvery}회마다 최대 체력 ${Math.round(b.ddMax * 100)}% 증가` },
     s2: { name: '하츠 스테리오', info: (b) => `주사위 눈 x ${b.dicePer} 데미지 / ${b.angerEvery}번마다 공격력 +${Math.round(b.angerAdd * 100)}% & 분노` },
-    s3: { name: '은맘', info: (b) => `현재 체력의 ${(b.momPct * 100).toFixed(1)}% 체력을 가진 은맘 소환. 모든 피해·방해효과를 대신 받음 (파괴되거나 ${b.momSec}초 후 사라짐)` },
+    s3: { name: '은맘', info: (b) => `현재 최대 체력의 ${(b.momPct * 100).toFixed(1)}% 체력을 가진 은맘 소환. 모든 피해·방해효과를 대신 받음 (파괴되거나 ${b.momSec}초 후 사라짐)` },
     s4: { name: '31.8의 저주', info: (b) => `${b.curseSec}초간 받는 피해 ${(b.curseDR * 100).toFixed(1)}% 감소 · 공격력 ${(b.curseAtk * 100).toFixed(1)}% 증가 · 받은 피해의 ${(b.curseRefl * 100).toFixed(1)}% 반사` },
     passive: { name: '우리는 친구', desc: (b) => `상대가 mola나 JJjin일 때 능력 +${Math.round(b.friend * 100)}%` },
     look: {
