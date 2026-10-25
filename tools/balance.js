@@ -2,8 +2,8 @@
 // 사용법: node tools/balance.js [조합당 판수=4] [덮어쓸 수치.json] [matrix]
 const { Worker, isMainThread, parentPort, workerData } = require('worker_threads');
 const fs = require('fs'), vm = require('vm');
-const IDS = (process.env.IDS || '0,1,2,3,4,5,6,7,8,9,10,11,12,13').split(',').map(Number);
-const NAMES = ['일반인','mola','JJjin','죽림','이은뚱','사명감','안거녕','독민재','힙찔','창가오','매미킴','Tiron','힌참휴','영탁'];
+const IDS = (process.env.IDS || '0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15').split(',').map(Number);
+const NAMES = ['일반인','mola','JJjin','죽림','이은뚱','사명감','안거녕','독민재','힙찔','창가오','매미킴','Tiron','힌참휴','영탁','허도개미','차니팍'];
 function runChunk({ pairs, n, ov, diffs, seedOff }) {
   const src = ['00_core','01_data','10_sim','11_ai'].map(f=>fs.readFileSync(require('path').join(__dirname,'..','src',f+'.js'),'utf8')).join('\n');
   const ctx = { console, Math, JSON, Object, Array, Set };

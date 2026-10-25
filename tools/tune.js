@@ -18,6 +18,8 @@ const KNOBS = {
   11: [['majRoot', 1, 1], ['painRoot', 1, 1]],
   12: [['sealSec', 1, 1], ['headDmg', 1, 0]],
   13: [['kkDmg', 1, 0], ['drunkT', 1, 1]],
+  14: [['shingDmg', 1, 0], ['antDmg', 1, 0]],
+  15: [['ballMax', 1, 1], ['bombDmg', 1, 0]],
 };
 const ctx = {}; vm.createContext(ctx);
 vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'src', '00_core.js'), 'utf8').replace("'use strict';", '') + fs.readFileSync(path.join(__dirname, '..', 'src', '01_data.js'), 'utf8').replace(/^const /gm, 'var ') + '; var __B = BAL;', Object.assign(ctx, { safeLS: () => null }));

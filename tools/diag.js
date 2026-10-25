@@ -9,7 +9,7 @@ applyDamage = function (G, A, D, dmg, type, o) { const hp0 = D.hp, m0 = D.momHp;
 const _us = useSkill;
 useSkill = function (G, F, O, slot, inp) { const cd = F.cd[slot]; _us(G, F, O, slot, inp); if (F.cd[slot] > cd || (slot === 0 && F.c === 4)) { const k = CHARS[F.c].name + ':' + slot; STATS.use[k] = (STATS.use[k] || 0) + 1; } };
 var __run = function (c, n) {
-  const ids = [0,1,2,3,4,5,6,7,8,9,10,11,12,13].filter((x) => x !== c);
+  const ids = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15].filter((x) => x !== c);
   let w = 0, g = 0;
   for (const o of ids) for (let i = 0; i < n; i++) {
     rnd = mulberry32(c * 99 + o * 7 + i * 13 + 5);
