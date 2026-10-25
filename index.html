@@ -47,6 +47,27 @@
     body.touch .acts { grid-template-columns: repeat(4, 46px); grid-template-rows: repeat(2, 44px); }
     body.touch .pad { grid-template-columns: repeat(3, 42px); grid-template-rows: repeat(3, 36px); }
   }
+  /* 계정 / 친구 */
+  .panel.acc { max-height: 94%; overflow-y: auto; text-align: left; }
+  .panel.acc h2 { text-align: center; }
+  .panel.acc input { width: 100%; font-family: "Do Hyeon", sans-serif; font-size: 16px; letter-spacing: 0; text-transform: none; text-align: left; color: #fff; }
+  .panel.acc .row input { width: auto; }
+  .panel .mini { width: auto; display: inline-block; padding: 3px 9px; margin: 0 0 0 5px; font-size: 13px; box-shadow: inset 0 -2px 0 rgba(0,0,0,.35); }
+  .panel .mini.ok { background: #0f7a45; } .panel .mini.fight { background: #b7301e; } .panel .mini.x { background: #444; padding: 3px 7px; }
+  .panel .mini:disabled { background: #333 !important; color: #777; cursor: default; }
+  .acc .me { font-size: 17px; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; }
+  .acc .sec { margin: 12px 0 4px; color: var(--gold); font-family: "Black Han Sans", sans-serif; font-size: 15px; border-bottom: 1px solid #3a4a9a; padding-bottom: 3px; }
+  .acc .fr { display: flex; justify-content: space-between; align-items: center; padding: 5px 2px; border-bottom: 1px dashed #2a356f; font-size: 16px; }
+  .acc .fr small { color: #9aa6d6; margin-left: 6px; font-size: 12px; }
+  .acc .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #666; margin-right: 4px; }
+  .acc .dot.on { background: #3dff8a; box-shadow: 0 0 6px #3dff8a; } .acc .dot.busy { background: #ffb02e; }
+  .acc .empty { color: #9aa6d6; padding: 8px 0; font-size: 14px; }
+  .acc .wait { background: #3a1410; border: 1px solid #ff6b4a; padding: 8px; margin: 8px 0; font-size: 15px; }
+  .acc .msg { margin-top: 10px; font-size: 14px; } .acc .msg.good { color: #7dff9a; } .acc .msg.bad { color: #ff8a8a; }
+  #invitePop { position: absolute; top: 3%; left: 50%; transform: translateX(-50%); z-index: 20; background: linear-gradient(180deg, #5a1010, #2a0808); border: 3px solid var(--gold); box-shadow: 0 0 0 3px #000, 0 8px 30px rgba(0,0,0,.6); padding: 10px 14px; font-size: clamp(14px, 2vw, 18px); white-space: nowrap; animation: pop .3s ease-out; }
+  #invitePop .mini { font-family: "Black Han Sans", sans-serif; color: #fff; border: 2px solid #000; background: #444; padding: 4px 12px; margin-left: 8px; cursor: pointer; }
+  #invitePop .mini.ok { background: #0f7a45; }
+  @keyframes pop { from { transform: translateX(-50%) scale(.7); opacity: 0; } to { transform: translateX(-50%) scale(1); opacity: 1; } }
   .hint { font-size: 12px; color: #889; text-align: center; padding: 4px; }
   body.touch .hint { display: none; }
 </style>
@@ -55,6 +76,14 @@
 <div id="wrap">
   <div id="stage">
     <canvas id="screen" width="960" height="540"></canvas>
+    <div id="invitePop" class="hidden"></div>
+    <div id="account" class="overlay hidden">
+      <div class="panel acc">
+        <h2>👥 친구 대전</h2>
+        <div id="accBody"></div>
+        <button id="btnAccBack" class="back">◀ 뒤로</button>
+      </div>
+    </div>
     <div id="lobby" class="overlay hidden">
       <div class="panel">
         <h2>🌐 온라인 대전</h2>
@@ -167,7 +196,8 @@ const BAL = {   // v2 밸런스 패치 (AI 대전 시뮬레이션 기반)
   1: { hp: 96, toothN: 4, toothDmg: 3, cutPct: 0.045, regen: 10, regenSec: 8 },
   2: { hp: 150, dashT: 6, parryT: 30, reviveHp: 0.5 },
   3: { hp: 108, bambooDmg: 12, shootDmg: 9, shootMax: 3, spd: 1.2, cdRed: 0.2 },
-  4: { hp: 95, ddHeal: 0.07, ddEvery: 4, ddMax: 0.1, dicePer: 5, angerEvery: 3, angerAdd: 0.05, friend: 0.1 },
+  4: { hp: 95, ddHeal: 0.07, ddEvery: 4, ddMax: 0.1, dicePer: 5, angerEvery: 3, angerAdd: 0.05, friend: 0.1,
+    momPct: 0.318, momSec: 31.8, curseSec: 31.8, curseDR: 0.318, curseAtk: 0.318, curseRefl: 0.318 },
   5: { hp: 86, nunDmg: 4, nunRoot: 40, prep: 120, act: 84, atkUp: 0.1 },
   6: { hp: 95, meokT: 36, manT: 54 },
   7: { hp: 96, gaeDmg: 5, gaeRoot: 60, poisT: 300, poisTick: 1, footExt: 60 },
@@ -177,7 +207,7 @@ const BAL = {   // v2 밸런스 패치 (AI 대전 시뮬레이션 기반)
   11: { hp: 95, painMax: 5, painRoot: 162, majRoot: 54, majBoost: 180, majSpd: 0.1 },
   12: { hp: 110, sealSec: 8, headDmg: 13, spikeT: 300, spikeDR: 0.1 },
 };
-function skillDef(c, slot) { return slot < 2 ? CHARS[c]['s' + (slot + 1)] : null; }
+function skillDef(c, slot) { return CHARS[c]['s' + (slot + 1)] || null; }
 function skillInfo(c, slot) { const d = skillDef(c, slot); return d ? d.info(BAL[c]) : '비어 있는 슬롯 (추후 추가 예정)'; }
 function passiveInfo(c) { return CHARS[c].passive.desc(BAL[c]); }
 
@@ -232,6 +262,8 @@ const CHARS = [
     desc: ['체력 회복 및 주사위', '운명의 힘을 다룸 (체지방률 31.8%)'],
     s1: { name: '더블다운', info: (b) => `최대 체력 ${Math.round(b.ddHeal * 100)}% 회복 / ${b.ddEvery}회마다 최대 체력 ${Math.round(b.ddMax * 100)}% 증가` },
     s2: { name: '하츠 스테리오', info: (b) => `주사위 눈 x ${b.dicePer} 데미지 / ${b.angerEvery}번마다 공격력 +${Math.round(b.angerAdd * 100)}% & 분노` },
+    s3: { name: '은맘', info: (b) => `현재 체력의 ${(b.momPct * 100).toFixed(1)}% 체력을 가진 은맘 소환. 모든 피해·방해효과를 대신 받음 (파괴되거나 ${b.momSec}초 후 사라짐)` },
+    s4: { name: '31.8의 저주', info: (b) => `${b.curseSec}초간 받는 피해 ${(b.curseDR * 100).toFixed(1)}% 감소 · 공격력 ${(b.curseAtk * 100).toFixed(1)}% 증가 · 받은 피해의 ${(b.curseRefl * 100).toFixed(1)}% 반사` },
     passive: { name: '우리는 친구', desc: (b) => `상대가 mola나 JJjin일 때 능력 +${Math.round(b.friend * 100)}%` },
     look: {
       H: 1.0, b: build({ torsoW: 18, waistW: 19, belly: 0.75, thigh: 8, shin: 6.5, arm: 6, fore: 5.5, headR: 9.6 }), skin: '#f0c49a',
@@ -374,6 +406,7 @@ function makeFighter(side, c) {
     ddN: 0, diceN: 0, mul: 1, angerT: 0, awake: false, revived: false, pain: 0,
     maemOwn: false, maemEnemy: false, regenT: 0,
     spikeT: 0, dashT: 0, dashDir: 1, headT: 0, headHit: false, castT: 0,
+    momHp: 0, momMax: 0, momT: 0, curseT: 0,
     ko: false, wins: 0, combo_recv: 0, comboShowT: 0,
   };
 }
@@ -411,10 +444,26 @@ function resetRound(G) {
 function ev(G, ...a) { G.ev.push(a); }
 function note(G, text, color, life) { G.notes.push({ t: text, c: color || '#fff', life: life || 100, max: life || 100 }); if (G.notes.length > 4) G.notes.shift(); }
 
+// ---------- 은맘: 피해·방해효과 대신 받기 ----------
+function momAlive(F) { return F.momHp > 0 && F.momT > 0; }
+function momTake(G, F, dmg, label) {
+  F.momHp -= dmg;
+  ev(G, 'spark', F.x - F.f * 20, F.y + 45, 'guard');
+  ev(G, 'float', F.x - F.f * 20, F.y + 92, label || ('-' + (Math.round(dmg * 10) / 10)), '#ffb3d1');
+  if (F.momHp <= 0) { F.momHp = 0; F.momT = 0; note(G, '은맘이 쓰러졌다!', '#ff8fb3', 80); ev(G, 'sfx', 'clash'); }
+}
+// 구속·감속·봉인 같은 방해효과를 받기 전에 호출 → true면 은맘이 대신 받아서 무효
+function disrupt(G, T) {
+  if (!momAlive(T)) return false;
+  momTake(G, T, 0, '방해 무효!');
+  return true;
+}
+
 // ---------- 데미지 처리 ----------
 function applyDamage(G, A, D, dmg, type, o) {
   o = o || {};
   if (D.ko) return 'immune';
+  if (A && A !== D && A.curseT > 0 && !o.reflect) dmg *= 1 + BAL[4].curseAtk;   // 31.8의 저주: 공격력 증가
   const proj = PROJ_TYPES.has(type);
   const hy = D.y + 50 * lookOf(D).H;
   // 1. 힙찔 강 보드: 공격 1회 완전 방어 후 파괴
@@ -446,7 +495,7 @@ function applyDamage(G, A, D, dmg, type, o) {
   if (D.c === TIRON) {
     D.pain++;
     if (D.pain >= BAL[11].painMax) {
-      D.pain = 0; A.rootT = Math.max(A.rootT, BAL[11].painRoot);
+      D.pain = 0; if (!disrupt(G, A)) A.rootT = Math.max(A.rootT, BAL[11].painRoot);
       note(G, `⚡ Tirón 괴룡 패시브 발동! 적 ${BAL[11].painRoot / 60}초 구속! ⚡`, '#ff9f43', 90); ev(G, 'shake', 12, 6); ev(G, 'sfx', 'roar');
     }
   }
@@ -456,9 +505,20 @@ function applyDamage(G, A, D, dmg, type, o) {
     dmg *= 0.3; blocked = true;
   }
   // 9. 경감 효과 (고정 피해는 무시)
+  // 31.8의 저주: 받은 피해 일부 반사 (고정 피해)
+  if (D.curseT > 0 && !o.reflect && A !== D && dmg > 0) {
+    const refl = dmg * BAL[4].curseRefl;
+    applyDamage(G, D, A, refl, 'REFLECT', { fixed: true, reflect: true });
+  }
   if (!o.fixed) {
+    if (D.curseT > 0) dmg *= 1 - BAL[4].curseDR;
     if (D.c === 8 && A.c !== 8) dmg *= 1 - BAL[8].dr;      // 힙찔 강 불협화음 (받는 피해 10% 감소)
     if (D.spikeT > 0) dmg *= 1 - BAL[12].spikeDR;                // 힌참휴 뾰족한 머리 (받는 피해 10% 감소)
+  }
+  // 은맘이 피해와 방해효과를 모두 대신 받음
+  if (momAlive(D)) {
+    if (dmg > 0) momTake(G, D, dmg); else momTake(G, D, 0, '막음!');
+    return 'mom';
   }
   if (dmg > 0) {
     D.hp -= dmg;
@@ -635,6 +695,20 @@ const SK = {
       ev(G, 'sfx', 'dice');
       return true;
     },
+    (G, F, O) => {   // E: 은맘 소환
+      if (momAlive(F)) return false;
+      F.momMax = F.momHp = Math.max(1, Math.round(F.hp * BAL[4].momPct * 10) / 10);
+      F.momT = Math.round(BAL[4].momSec * SEC);
+      note(G, `은맘 등장! (체력 ${F.momHp}) 모든 피해와 방해를 대신 받는다`, '#ff8fb3', 110);
+      ev(G, 'sfx', 'revive'); ev(G, 'spark', F.x - F.f * 20, F.y + 50, 'immune');
+      return true;
+    },
+    (G, F, O) => {   // R: 31.8의 저주
+      F.curseT = Math.round(BAL[4].curseSec * SEC);
+      note(G, '☠ 31.8의 저주 ☠ 피해 -31.8% · 공격 +31.8% · 반사 31.8%', '#c06bff', 130);
+      ev(G, 'sfx', 'roar'); ev(G, 'shake', 12, 6); ev(G, 'aura', F.side, 'press');
+      return true;
+    },
   ],
   5: [
     (G, F, O) => { spawnProj(G, F, 'nunchaku', 9, 25, 10); return true; },
@@ -657,10 +731,10 @@ const SK = {
   ],
   9: [
     (G, F, O) => {
-      O.rootT = Math.max(O.rootT, BAL[9].pressRoot); O.slowT = BAL[9].pressSlow; O.delayT = BAL[9].pressSlow;
+      if (!disrupt(G, O)) { O.rootT = Math.max(O.rootT, BAL[9].pressRoot); O.slowT = BAL[9].pressSlow; O.delayT = BAL[9].pressSlow; }
       ev(G, 'shake', 10, 5); ev(G, 'aura', F.side, 'press'); note(G, '압도!', '#c38bff', 60); return true;
     },
-    (G, F, O) => { O.guardOffT = BAL[9].forceT; ev(G, 'aura', F.side, 'force'); note(G, `포스! ${BAL[9].forceT / 60}초간 가드 불가`, '#c38bff', 80); return true; },
+    (G, F, O) => { if (!disrupt(G, O)) O.guardOffT = BAL[9].forceT; ev(G, 'aura', F.side, 'force'); note(G, `포스! ${BAL[9].forceT / 60}초간 가드 불가`, '#c38bff', 80); return true; },
   ],
   10: [
     (G, F, O) => { spawnProj(G, F, 'fart', 6, 24, 14); ev(G, 'sfx', 'fart'); return true; },
@@ -685,12 +759,14 @@ const SK = {
       note(G, `Tirón ai 딸깍! [${CHARS[c].name}]의 '${nm}' 카피 발동!`, '#ff9f43', 100);
       return true;
     },
-    (G, F, O) => { O.rootT = Math.max(O.rootT, BAL[11].majRoot); F.boostT = BAL[11].majBoost; ev(G, 'shake', 10, 5); ev(G, 'sfx', 'roar'); return true; },
+    (G, F, O) => { if (!disrupt(G, O)) O.rootT = Math.max(O.rootT, BAL[11].majRoot); F.boostT = BAL[11].majBoost; ev(G, 'shake', 10, 5); ev(G, 'sfx', 'roar'); return true; },
   ],
   12: [
     (G, F, O) => {
-      let avail = [0, 1].filter((s) => O.seal[s] <= 0);
-      if (!avail.length) avail = [0, 1];
+      if (disrupt(G, O)) { note(G, '해킹 실패! 은맘이 막았다', '#ff8fb3', 80); return true; }
+      const own = [0, 1, 2, 3].filter((s) => skillDef(O.c, s));
+      let avail = own.filter((s) => O.seal[s] <= 0);
+      if (!avail.length) avail = own;
       const s = avail[Math.floor(rnd() * avail.length)];
       O.seal[s] = BAL[12].sealSec * SEC;
       F.copy = { c: O.c, s };
@@ -774,6 +850,8 @@ function meleeHit(G, F, O) {
       ev(G, 'spark', hx, hy, isK ? 'big' : 'hit'); ev(G, 'sfx', isK ? 'hitK' : 'hitP');
       ev(G, 'shake', isK ? 6 : 3, isK ? 4 : 2);
       O.hitFlash = 4;
+    } else if (res === 'mom') {
+      G.hitStop = 3; ev(G, 'sfx', 'block');
     } else if (res === 'block') {
       O.blockT = 8;
       if (O.c !== 0) O.kb = F.f * (isK ? 3.4 : 1.4);
@@ -794,12 +872,14 @@ function stepFighter(G, F, O, inp) {
   for (let s = 0; s < 4; s++) { if (F.cd[s] > 0) F.cd[s]--; if (F.seal[s] > 0) F.seal[s]--; }
   if (F.comboT > 0) { F.comboT--; if (F.comboT === 0) F.combo = 0; }
   if (F.jeongP > 0) { F.jeongP--; if (F.jeongP === 0) { F.jeongA = BAL[5].act; note(G, `正義 발동! ${(BAL[5].act / 60).toFixed(1)}초간 공격 무효`, '#48e0c0', 80); ev(G, 'sfx', 'powerup'); } }
-  dec(F, 'jeongA');
+  dec(F, 'jeongA'); dec(F, 'curseT');
+  if (F.momT > 0) { F.momT--; if (F.momT === 0 && F.momHp > 0) { F.momHp = 0; note(G, '은맘이 돌아갔다', '#ff8fb3', 60); } }
   // 독
   if (F.poisT > 0) {
     F.poisT--; F.poisTick++;
     if (F.poisTick >= 60) {
-      F.poisTick = 0; F.hp -= F.poisDmg; ev(G, 'poison', F.x, F.y + 50 * H); ev(G, 'float', F.x, F.y + 80 * H, String(F.poisDmg), '#7dff4d');
+      F.poisTick = 0;
+      if (momAlive(F)) { momTake(G, F, F.poisDmg); } else F.hp -= F.poisDmg; ev(G, 'poison', F.x, F.y + 50 * H); ev(G, 'float', F.x, F.y + 80 * H, String(F.poisDmg), '#7dff4d');
       checkKO(G, F);
     }
   }
@@ -1016,7 +1096,7 @@ function endCheck(G) {
   }
   for (const F of G.F) {
     F.atk = null; F.guard = false; F.dashT = 0; F.headT = 0;
-    for (const k of ['hitFlash', 'stimT', 'meokT', 'manT', 'jeongA', 'jeongP', 'parryT', 'rootT', 'guardOffT', 'slowT', 'poisT', 'hitT', 'blockT', 'castT', 'spikeT', 'angerT', 'rushN', 'noteN']) F[k] = 0;
+    for (const k of ['hitFlash', 'stimT', 'meokT', 'manT', 'jeongA', 'jeongP', 'parryT', 'rootT', 'guardOffT', 'slowT', 'poisT', 'hitT', 'blockT', 'castT', 'spikeT', 'angerT', 'rushN', 'noteN', 'momHp', 'momT', 'curseT']) F[k] = 0;
     if (F.ko) { F.vy = 4; F.vx = -F.f * 2.2; F.y = Math.max(F.y, 0.1); }
   }
   ev(G, 'announce', G.koType === 'KO' ? 'ko' : 'time');
@@ -1039,7 +1119,7 @@ const AI_SKILL = {
   1: [(F, O, d) => d < 140, (F, O, d) => d > 70 && d < 230],
   2: [(F, O, d) => d > 95 && d < 260, () => false],
   3: [(F, O, d) => d > 50 && d < 190, (F, O, d) => d < 90],
-  4: [(F, O, d) => F.hp < F.maxHp * 0.9, (F, O, d) => true],
+  4: [(F, O, d) => F.hp < F.maxHp * 0.9, (F, O, d) => true, (F, O, d) => d < 220, (F, O, d) => d < 200],
   5: [(F, O, d) => d < 210, (F, O, d) => F.hp < F.maxHp * 0.55 && d > 90],
   6: [(F, O, d) => O.atk && d < 90, (F, O, d) => F.hp < F.maxHp * 0.75 && d < 100],
   7: [(F, O, d) => d < 180, (F, O, d) => O.poisT <= 0 && d < 230],
@@ -1086,12 +1166,13 @@ function aiInput(G, F, O, mem, diffLv) {
     mem.t = D.interval + Math.floor(rnd() * D.interval);
     const r = rnd();
     // 스킬 사용 시도
-    const slots = [0, 1].filter((s) => {
+    const slots = [0, 1, 2, 3].filter((s) => {
+      if (!skillDef(F.c, s) || !AI_SKILL[F.c][s]) return false;
       const ready = (F.cd[s] <= 0 && F.seal[s] <= 0) || (s === 0 && F.c === HINCHAM && F.copy);
       return ready && AI_SKILL[F.c][s](F, O, dist);
     });
     if (slots.length && r < D.skill) {
-      p |= slots[Math.floor(rnd() * slots.length)] === 0 ? B_S1 : B_S2;
+      p |= B_SK[slots[Math.floor(rnd() * slots.length)]];
       if (F.c === 2 && (p & B_S1)) h |= toward;
       mem.plan = 'wait'; mem.planT = 6;
     } else if (dist > 150) {
@@ -2809,6 +2890,8 @@ function renderWorld(b, G, t) {
     b.strokeStyle = r.kind === 'force' ? `rgba(255,80,80,${1 - k})` : `rgba(200,120,255,${1 - k})`;
     b.lineWidth = 2; b.beginPath(); b.ellipse(sx, sy, 10 + k * 60, 6 + k * 30, 0, 0, Math.PI * 2); b.stroke();
   }
+  // 은맘 (소환물)
+  for (const F of G.F) if (F.momHp > 0 && F.momT > 0) drawMom(b, F, t);
   // 캐릭터 (공격 중인 쪽을 위에)
   const order = [...G.F].sort((p, q) => (p.atk ? 1 : 0) - (q.atk ? 1 : 0));
   for (const F of order) drawFighterInGame(b, F, G, t);
@@ -2879,10 +2962,14 @@ function drawFighterInGame(b, F, G, t) {
   if (tint) { tc.globalCompositeOperation = 'source-atop'; tc.fillStyle = tint; tc.fillRect(0, 0, TMP.width, TMP.height); tc.globalCompositeOperation = 'source-over'; }
   const ox = Math.round(sx - 110), oy = Math.round(sy - 178);
   // 각성/자극제 외곽 광채
-  if (F.awake || F.stimT > 0 || F.spikeT > 0) {
+  if (F.curseT > 0 && (t % 4) === 0) {
+    FX.parts.push({ k: 'flame', x: F.x + (Math.random() - 0.5) * 30, y: F.y + Math.random() * 90, vx: 0, vy: 0.6, life: 18, c: Math.random() < 0.5 ? '#9b30ff' : '#2a0040', r: 2.5 });
+    if ((t % 90) === 0) FX.floats.push({ x: F.x + (Math.random() - 0.5) * 30, y: F.y + 110, t: '31.8', c: '#c06bff', life: 50 });
+  }
+  if (F.awake || F.stimT > 0 || F.spikeT > 0 || F.curseT > 0) {
     b.save(); b.globalAlpha = 0.5 + 0.2 * Math.sin(t * 0.3);
     b.filter = 'none';
-    const glow = F.awake ? '#c86bff' : F.stimT > 0 ? '#ff3b3b' : '#00e676';
+    const glow = F.curseT > 0 ? '#7a00ff' : F.awake ? '#c86bff' : F.stimT > 0 ? '#ff3b3b' : '#00e676';
     for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
       b.drawImage(silhouette(glow), ox + dx * 1.5, oy + dy * 1.5);
     }
@@ -2911,6 +2998,42 @@ function drawFighterInGame(b, F, G, t) {
     b.fillStyle = '#ffe14d'; b.beginPath(); b.moveTo(sx - 4, top - 14); b.lineTo(sx + 4, top - 14); b.lineTo(sx, top - 9); b.fill();
   }
 }
+// 은맘: 파마머리 + 앞치마 + 국자를 든 든든한 엄마
+function drawMom(b, F, t) {
+  const [sx, sy] = worldToScreen(F.x - F.f * 26, 0);
+  const f = F.f, bob = Math.sin(t * 0.1) * 1;
+  b.save(); b.translate(Math.round(sx), Math.round(sy)); b.scale(f * 1.05, 1.05);
+  b.globalAlpha = F.momT < 90 && (t >> 2) % 2 ? 0.5 : 1;
+  b.fillStyle = 'rgba(0,0,0,0.3)'; b.beginPath(); b.ellipse(0, 1, 14, 3, 0, 0, Math.PI * 2); b.fill();
+  // 다리, 신발
+  seg(b, -4, -26, -5, -3, 5, '#e9c09a'); seg(b, 4, -26, 5, -3, 5, '#e9c09a');
+  seg(b, -7, -2, -1, -2, 4, '#7a3b5a', false); seg(b, 3, -2, 9, -2, 4, '#7a3b5a', false);
+  // 원피스 + 앞치마
+  poly(b, [[-12, -27], [12, -27], [9, -58 + bob], [-9, -58 + bob]], '#8e5bb5');
+  poly(b, [[-7, -28], [9, -28], [7, -50 + bob], [-5, -50 + bob]], '#ffd1e3');
+  b.fillStyle = '#ff7fb0'; b.fillRect(-3, -42 + bob, 6, 5);
+  b.strokeStyle = '#ff7fb0'; b.lineWidth = 1; b.beginPath(); b.moveTo(-5, -50 + bob); b.lineTo(-7, -58 + bob); b.moveTo(7, -50 + bob); b.lineTo(8, -58 + bob); b.stroke();
+  // 팔 + 국자
+  const sw = F.momHp < F.momMax ? Math.sin(t * 0.3) * 0.4 : 0;
+  seg(b, -7, -55 + bob, -10, -40 + bob, 4.5, '#8e5bb5');
+  seg(b, 7, -55 + bob, 14, -60 + bob - sw * 6, 4.5, '#8e5bb5');
+  circ(b, 15, -62 + bob - sw * 6, 2.5, '#e9c09a');
+  seg(b, 15, -62 + bob - sw * 6, 20, -76 + bob - sw * 6, 1.5, '#b0b6c0', false);
+  ell(b, 21, -78 + bob - sw * 6, 4, 3, '#c9ced6');
+  // 얼굴 + 파마머리
+  ell(b, 1, -66 + bob, 7, 8, '#f1c8a0');
+  b.fillStyle = '#3a2418';
+  for (const [x, y, rr] of [[-6, -72], [-3, -76], [2, -77], [6, -74], [-8, -67], [-6, -62], [8, -69]].map((p, i) => [p[0], p[1], 3.2 + (i % 2) * 0.6])) { b.beginPath(); b.arc(x, y + bob, rr, 0, Math.PI * 2); b.fill(); }
+  b.fillStyle = '#111'; b.fillRect(3, -67 + bob, 1.5, 1.5);
+  b.strokeStyle = '#a0405a'; b.lineWidth = 1; b.beginPath(); b.arc(3.5, -62.5 + bob, 2, 0.2, Math.PI - 0.2); b.stroke();
+  b.fillStyle = 'rgba(255,120,150,0.5)'; b.fillRect(5, -64 + bob, 2, 1.5);
+  b.restore();
+  // 체력바
+  const w = 26, k = clamp(F.momHp / F.momMax, 0, 1);
+  b.fillStyle = '#000'; b.fillRect(Math.round(sx) - w / 2 - 1, Math.round(sy) - 95, w + 2, 4);
+  b.fillStyle = '#ff7fb0'; b.fillRect(Math.round(sx) - w / 2, Math.round(sy) - 94, w * k, 2);
+}
+
 const _sil = {};
 function silhouette(col) {
   let c = _sil[col];
@@ -3045,7 +3168,10 @@ function renderHUD(ctx, G, t) {
     const nx = s === 0 ? 30 : 450;
     txt(ctx, CHARS[F.c].name, nx, 32, 9, '#fff', s === 0 ? 'left' : 'right');
     drawFlag(ctx, CHARS[F.c].country, s === 0 ? 30 + measure(ctx, CHARS[F.c].name, 9) + 4 : 450 - measure(ctx, CHARS[F.c].name, 9) - 16, 25, 12, 8);
-    if (APP.mode === 'online') txt(ctx, s === APP.mySide ? 'YOU' : 'RIVAL', s === 0 ? bx + bw : bx, 32, 6, s === APP.mySide ? '#ffe14d' : '#9fd0ff', s === 0 ? 'right' : 'left', FONT_EN);
+    if (APP.mode === 'online') {
+      const lab = s === APP.mySide ? (ACC.token ? ACC.nick : 'YOU') : (NET.oppNick || 'RIVAL');
+      txt(ctx, (s === APP.mySide ? '▶ ' : '') + lab, s === 0 ? bx + bw - 28 : bx + 28, 32, 7, s === APP.mySide ? '#ffe14d' : '#9fd0ff', s === 0 ? 'right' : 'left', FONT_KR2);
+    }
     // 라운드 승리 표시
     for (let i = 0; i < WIN_ROUNDS; i++) {
       const wx = s === 0 ? bx + bw - 8 - i * 10 : bx + 8 + i * 10;
@@ -3139,6 +3265,8 @@ function drawStatus(ctx, F, s, t) {
   if (F.slowT > 0) tags.push(['감속', '#8fb3ff']);
   if (F.boostT > 0) tags.push(['이속↑', '#ffb347']);
   if (F.spikeT > 0) tags.push(['피해-10%', '#00e676']);
+  if (F.momHp > 0 && F.momT > 0) tags.push([`은맘 ${Math.ceil(F.momHp)}/${Math.ceil(F.momMax)}`, '#ff8fb3']);
+  if (F.curseT > 0) tags.push([`31.8의 저주 ${Math.ceil(F.curseT / SEC)}s`, '#c06bff']);
   if (F.c === TIRON) tags.push(['고통 ' + F.pain + '/' + BAL[11].painMax, '#ff9f43']);
   if (F.c === 2 && !F.revived) tags.push(['부활 대기', '#f5c542']);
   if (F.mul > 1.001) tags.push(['공격 +' + Math.round((F.mul - 1) * 100) + '%', '#ff7b3b']);
@@ -3154,7 +3282,7 @@ function drawStatus(ctx, F, s, t) {
 }
 
 function drawDice(ctx, d, t) {
-  const v = d.val, x = 240, y = 130, s = 34 + (d.t > 0 ? Math.sin(t) * 2 : 0);
+  const v = d.val, x = 240, y = 150, s = 34 + (d.t > 0 ? Math.sin(t) * 2 : 0);
   ctx.save(); ctx.translate(x, y); if (d.t > 0) ctx.rotate(Math.sin(t * 0.7) * 0.3);
   ctx.fillStyle = '#000'; ctx.fillRect(-s / 2 - 2, -s / 2 - 2, s + 4, s + 4);
   ctx.fillStyle = '#fffaf0'; ctx.fillRect(-s / 2, -s / 2, s, s);
@@ -3162,8 +3290,8 @@ function drawDice(ctx, d, t) {
   ctx.fillStyle = v === 1 ? '#d32f2f' : '#111';
   for (const [a, b2] of pip) { ctx.beginPath(); ctx.arc(a * s * 0.27, b2 * s * 0.27, s * 0.09, 0, Math.PI * 2); ctx.fill(); }
   ctx.restore();
-  txt(ctx, '하츠 스테리오!', 240, 100, 11, '#ffcc33', 'center');
-  if (d.t === 0) txt(ctx, `${d.res} x 5 = ${d.res * 5}`, 240, 165, 12, '#fff', 'center', FONT_EN);
+  txt(ctx, '하츠 스테리오!', 240, 124, 11, '#ffcc33', 'center');
+  if (d.t === 0) txt(ctx, `${d.res} x ${BAL[4].dicePer} = ${d.res * BAL[4].dicePer}`, 240, 185, 12, '#fff', 'center', FONT_EN);
 }
 
 function drawAnnouncer(ctx, G, t) {
@@ -3573,7 +3701,7 @@ function setupTouch() {
 //  - 방 코드: 어디서든 접속
 //  - 같은 와이파이 자동 매칭: 같은 공인 IP끼리 같은 로비 ID를 사용
 // ============================================================
-const NET_VER = 4;
+const NET_VER = 5;
 const NET = {
   peer: null, conn: null, role: null, status: '', onMsg: null, ping: 0, lastRecv: 0,
   guestHeld: 0, guestCounts: null, lastCounts: { U: 0, P: 0, K: 0, S1: 0, S2: 0, S3: 0, S4: 0 }, outEv: [], inEv: [], snap: null,
@@ -3590,7 +3718,7 @@ function netStatus(s) { NET.status = s; const el = document.getElementById('netS
 function netReset() {
   try { if (NET.conn) NET.conn.close(); } catch (e) { /* 무시 */ }
   try { if (NET.peer) NET.peer.destroy(); } catch (e) { /* 무시 */ }
-  NET.peer = null; NET.conn = null; NET.role = null; NET.snap = null; NET.inEv = []; NET.outEv = [];
+  NET.peer = null; NET.conn = null; NET.role = null; NET.snap = null; NET.oppNick = null; NET.inEv = []; NET.outEv = [];
   NET.lastCounts = { U: 0, P: 0, K: 0, S1: 0, S2: 0, S3: 0, S4: 0 }; NET.guestCounts = null; NET.guestHeld = 0;
   clearTimeout(NET._timer);
 }
@@ -3600,12 +3728,14 @@ function genCode() { const a = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; let s = ''; fo
 function wireConn(conn, role) {
   NET.conn = conn; NET.role = role;
   conn.on('data', (m) => { NET.lastRecv = performance.now(); onNetMsg(m); });
+  const early = conn._pending || []; conn._pending = null;
   conn.on('close', () => onNetClosed());
   conn.on('error', () => onNetClosed());
   const ready = () => {
     clearTimeout(NET._timer);
-    conn.send({ t: 'hi', v: NET_VER });
+    conn.send({ t: 'hi', v: NET_VER, nick: (typeof ACC !== 'undefined' && ACC.token) ? ACC.nick : null });
     onNetConnected(role);
+    for (const m of early) onNetMsg(m);
   };
   if (conn.open) ready(); else conn.on('open', ready);
 }
@@ -3615,7 +3745,8 @@ function hostOn(id, onOpen, onTaken, onFail) {
   const peer = new Peer(id, peerOpts());
   NET.peer = peer;
   let opened = false;
-  peer.on('open', () => { opened = true; onOpen(peer); });
+  const tm = setTimeout(() => { if (!opened && NET.peer === peer) { try { peer.destroy(); } catch (e) { /* 무시 */ } NET.peer = null; onFail('중계 서버에 연결하지 못했어요 (잠시 후 다시 시도)'); } }, 12000);
+  peer.on('open', () => { opened = true; clearTimeout(tm); onOpen(peer); });
   peer.on('connection', (c) => {
     if (NET.conn && NET.conn.open) { c.on('open', () => { c.send({ t: 'busy' }); setTimeout(() => c.close(), 300); }); return; }
     wireConn(c, 'host');
@@ -3636,7 +3767,8 @@ function joinTo(id, onFail, timeoutMs) {
   const fail = (msg) => { if (done) return; done = true; clearTimeout(NET._timer); try { peer.destroy(); } catch (e) { /* 무시 */ } NET.peer = null; NET.conn = null; onFail(msg); };
   peer.on('open', () => {
     const c = peer.connect(id, { reliable: true, serialization: 'json' });
-    c.on('data', (m) => { if (m && m.t === 'busy') fail('busy'); });
+    c._pending = [];
+    c.on('data', (m) => { if (m && m.t === 'busy') fail('busy'); else if (c._pending) c._pending.push(m); });
     c.on('open', () => { if (done) return; done = true; wireConn(c, 'guest'); });
     NET._timer = setTimeout(() => fail('timeout'), timeoutMs || 8000);
   });
@@ -3701,8 +3833,10 @@ function onNetConnected(role) {
   netStatus('✅ 연결 완료!');
   APP.mode = 'online';
   APP.mySide = role === 'host' ? 0 : 1;
-  hideLobby();
+  hideLobby(); hideAccount();
+  ACC.waiting = null;
   goSelect();
+  renderInvitePop();
   NET._ping = setInterval(() => netSend({ t: 'ping', ts: performance.now() }), 1000);
 }
 function onNetClosed() {
@@ -3716,7 +3850,7 @@ function onNetClosed() {
 function onNetMsg(m) {
   if (!m || typeof m !== 'object') return;
   switch (m.t) {
-    case 'hi': if (m.v !== NET_VER) toast('게임 버전이 달라요. 둘 다 새로고침해 주세요'); break;
+    case 'hi': NET.oppNick = m.nick || null; if (m.v !== NET_VER) toast('게임 버전이 달라요. 둘 다 새로고침해 주세요'); break;
     case 'ping': netSend({ t: 'pong', ts: m.ts }); break;
     case 'pong': NET.ping = Math.round(performance.now() - m.ts); break;
     case 'sel': APP.sel.opp = { cur: m.cur, ready: m.ready, c: m.c }; if (NET.role === 'host') maybeStartOnline(); break;
@@ -3773,6 +3907,200 @@ function unpack(s) {
   return s;
 }
 
+// ---- 55_account.js ----
+// ============================================================
+//  계정 / 친구 / 대전 신청 (서버: /api/game)
+// ============================================================
+const ACC = {
+  token: safeLS('t2d_token') || null, nick: safeLS('t2d_nick') || null,
+  friends: [], requests: [], invites: [], lastPoll: 0, polling: false, offline: false,
+  waiting: null,          // 내가 보낸 대전 신청 { to, room, t0 }
+  dismissed: new Set(),   // 닫은 초대
+  msg: '', msgOk: false, busyBtn: false,
+};
+const API_URL = '/api/game';
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+async function api(a, data) {
+  let r;
+  try {
+    r = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ a, token: ACC.token }, data || {})) });
+  } catch (e) { ACC.offline = true; throw new Error('서버에 연결할 수 없어요 (인터넷 연결 확인)'); }
+  let j = null;
+  try { j = await r.json(); } catch (e) { j = null; }
+  if (!j) { ACC.offline = true; throw new Error(location.protocol === 'file:' ? '파일로 열면 로그인을 쓸 수 없어요. 배포된 사이트에서 접속해 주세요' : '서버 응답 오류 (' + r.status + ')'); }
+  ACC.offline = false;
+  if (r.status === 401 && a !== 'login') { setSession(null, null); }
+  if (!r.ok) throw new Error(j.error || '오류');
+  return j;
+}
+function setSession(token, nick) {
+  ACC.token = token; ACC.nick = nick;
+  try { if (token) { localStorage.setItem('t2d_token', token); localStorage.setItem('t2d_nick', nick); } else { localStorage.removeItem('t2d_token'); localStorage.removeItem('t2d_nick'); } } catch (e) { /* 무시 */ }
+  if (!token) { ACC.friends = []; ACC.requests = []; ACC.invites = []; ACC.waiting = null; }
+  renderAccount();
+}
+function accMsg(s, ok) { ACC.msg = s; ACC.msgOk = !!ok; renderAccount(); }
+
+// ---------- 주기적 상태 확인 ----------
+function myStatus() { return APP.mode === 'online' && NET.conn ? 'busy' : APP.state === 'fight' ? 'busy' : 'idle'; }
+async function pollNow() {
+  if (!ACC.token || ACC.polling) return;
+  ACC.polling = true; ACC.lastPoll = Date.now();
+  try {
+    const j = await api('poll', { status: myStatus() });
+    ACC.nick = j.nick; ACC.friends = j.friends; ACC.requests = j.requests; ACC.invites = j.invites;
+    for (const r of j.responses) {
+      if (ACC.waiting && ACC.waiting.to === r.to && r.r === 'declined') { cancelWaiting(false); toast(`${r.to}님이 대전 신청을 거절했어요`); }
+    }
+    renderAccount(); renderInvitePop();
+  } catch (e) { /* 다음 주기에 재시도 */ }
+  ACC.polling = false;
+}
+setInterval(() => {
+  if (!ACC.token || document.hidden) return;
+  const open = APP.state === 'account' || ACC.waiting;
+  const iv = open ? 4000 : APP.state === 'fight' ? 25000 : 12000;
+  if (Date.now() - ACC.lastPoll > iv) pollNow();
+  if (ACC.waiting && Date.now() - ACC.waiting.t0 > 60000) { cancelWaiting(true); toast('응답이 없어서 대전 신청을 취소했어요'); }
+  if (ACC.waiting) renderAccount();
+}, 1000);
+
+// ---------- 동작 ----------
+async function doLogin(register) {
+  const nick = document.getElementById('accNick').value.trim(), pw = document.getElementById('accPw').value;
+  if (!nick || !pw) { accMsg('닉네임과 비밀번호를 입력해 주세요'); return; }
+  accMsg(register ? '가입 중...' : '로그인 중...', true);
+  try {
+    const j = await api(register ? 'register' : 'login', { nick, pw });
+    setSession(j.token, j.nick);
+    accMsg(register ? `가입 완료! 환영해요, ${j.nick}님` : `${j.nick}님, 환영해요!`, true);
+    pollNow();
+  } catch (e) { accMsg(e.message); }
+}
+async function doLogout() { try { await api('logout'); } catch (e) { /* 무시 */ } setSession(null, null); accMsg('로그아웃했어요', true); }
+async function addFriend() {
+  const el = document.getElementById('accFriend'), nick = el.value.trim();
+  if (!nick) return;
+  try {
+    const j = await api('friendAdd', { nick });
+    el.value = '';
+    accMsg(j.result === 'friends' ? `${j.nick}님과 친구가 되었어요!` : `${j.nick}님에게 친구 요청을 보냈어요`, true);
+    pollNow();
+  } catch (e) { accMsg(e.message); }
+}
+async function respondFriend(nick, accept) { try { await api('friendRespond', { nick, accept }); accMsg(accept ? `${nick}님과 친구가 되었어요!` : '요청을 거절했어요', true); pollNow(); } catch (e) { accMsg(e.message); } }
+async function removeFriend(nick) { if (!confirmBox(`${nick}님을 친구에서 삭제할까요?`)) return; try { await api('friendRemove', { nick }); pollNow(); } catch (e) { accMsg(e.message); } }
+function confirmBox(s) { try { return window.confirm(s); } catch (e) { return true; } }
+
+function inviteFriend(nick) {
+  if (ACC.waiting || ACC.busyBtn) return;
+  ACC.busyBtn = true;
+  netReset();
+  const code = genCode();
+  accMsg(`${nick}님에게 대전 신청 준비 중...`, true);
+  hostOn('tk2d-room-' + code, async () => {
+    try {
+      await api('invite', { nick, room: code });
+      ACC.waiting = { to: nick, room: code, t0: Date.now() };
+      accMsg('', true);
+    } catch (e) { netReset(); accMsg(e.message); }
+    ACC.busyBtn = false; renderAccount();
+  }, () => { ACC.busyBtn = false; inviteFriend(nick); }, (msg) => { ACC.busyBtn = false; accMsg('❌ ' + msg); });
+}
+function cancelWaiting(tellServer) {
+  const w = ACC.waiting; if (!w) return;
+  ACC.waiting = null;
+  if (tellServer) api('inviteCancel', { nick: w.to }).catch(() => {});
+  if (!NET.conn) netReset();
+  renderAccount();
+}
+async function answerInvite(inv, accept) {
+  ACC.dismissed.add(inv.from + inv.ts);
+  ACC.invites = ACC.invites.filter((x) => x !== inv);
+  renderInvitePop();
+  try { await api('inviteRespond', { nick: inv.from, accept }); } catch (e) { /* 무시 */ }
+  if (!accept) return;
+  if (APP.state === 'fight' && APP.mode === 'cpu') goTitle();
+  toast(`${inv.nick}님의 방에 접속하는 중...`);
+  netJoinRoom(inv.room);
+  const t0 = Date.now();
+  const chk = setInterval(() => {
+    if (NET.conn) { clearInterval(chk); return; }
+    if (Date.now() - t0 > 12000) { clearInterval(chk); toast('접속에 실패했어요. 친구에게 다시 신청해 달라고 해 주세요'); }
+  }, 500);
+}
+
+// ---------- 화면 (HTML 패널) ----------
+function showAccount() {
+  setState('account');
+  document.getElementById('account').classList.remove('hidden');
+  ACC.msg = ''; renderAccount(); pollNow();
+}
+function hideAccount() { const el = document.getElementById('account'); if (el) el.classList.add('hidden'); }
+
+function renderAccount() {
+  const box = document.getElementById('accBody');
+  if (!box || document.getElementById('account').classList.contains('hidden')) return;
+  const focusId = document.activeElement && document.activeElement.id;
+  const keep = {};
+  for (const id of ['accNick', 'accPw', 'accFriend']) { const el = document.getElementById(id); if (el) keep[id] = el.value; }
+  let h = '';
+  if (!ACC.token) {
+    h += `<p class="sub">닉네임으로 가입하고 친구를 추가해서 대전해요.</p>
+      <input id="accNick" maxlength="12" placeholder="닉네임 (2~12자)" autocomplete="username">
+      <input id="accPw" type="password" maxlength="64" placeholder="비밀번호 (4자 이상)" autocomplete="current-password">
+      <div class="row"><button id="accLogin">로그인</button><button id="accReg" class="lan">회원가입</button></div>`;
+  } else {
+    h += `<div class="me"><span>👤 <b>${esc(ACC.nick)}</b> 님</span><button id="accOut" class="mini">로그아웃</button></div>`;
+    h += `<div class="row"><input id="accFriend" maxlength="12" placeholder="친구 닉네임" autocomplete="off"><button id="accAdd">친구 추가</button></div>`;
+    if (ACC.waiting) {
+      const left = Math.max(0, 60 - Math.floor((Date.now() - ACC.waiting.t0) / 1000));
+      h += `<div class="wait">⚔ <b>${esc(ACC.waiting.to)}</b>님의 수락을 기다리는 중... (${left}초) <button id="accCancel" class="mini">취소</button></div>`;
+    }
+    if (ACC.requests.length) {
+      h += '<div class="sec">받은 친구 요청</div>';
+      for (const n of ACC.requests) h += `<div class="fr"><span>${esc(n)}</span><span><button class="mini ok" data-req="${esc(n)}" data-acc="1">수락</button><button class="mini" data-req="${esc(n)}" data-acc="0">거절</button></span></div>`;
+    }
+    h += `<div class="sec">친구 ${ACC.friends.length}명</div><div class="flist">`;
+    if (!ACC.friends.length) h += '<div class="empty">아직 친구가 없어요. 친구 닉네임을 추가해 보세요!</div>';
+    for (const f of ACC.friends) {
+      const st = f.online ? (f.status === 'busy' ? '<i class="dot busy"></i>대전 중' : '<i class="dot on"></i>접속 중') : '<i class="dot"></i>오프라인';
+      const can = f.online && f.status !== 'busy' && !ACC.waiting;
+      h += `<div class="fr"><span>${esc(f.nick)} <small>${st}</small></span><span><button class="mini fight" data-inv="${esc(f.nick)}" ${can ? '' : 'disabled'}>⚔ 대전 신청</button><button class="mini x" data-del="${esc(f.nick)}" title="친구 삭제">✕</button></span></div>`;
+    }
+    h += '</div>';
+  }
+  if (ACC.msg) h += `<div class="msg ${ACC.msgOk ? 'good' : 'bad'}">${esc(ACC.msg)}</div>`;
+  if (ACC.offline) h += '<div class="msg bad">서버에 연결할 수 없어요</div>';
+  box.innerHTML = h;
+  for (const id in keep) { const el = document.getElementById(id); if (el) el.value = keep[id]; }
+  if (focusId) { const el = document.getElementById(focusId); if (el) el.focus(); }
+  const on = (id, fn) => { const el = document.getElementById(id); if (el) el.onclick = fn; };
+  on('accLogin', () => doLogin(false)); on('accReg', () => doLogin(true)); on('accOut', doLogout); on('accAdd', addFriend);
+  on('accCancel', () => cancelWaiting(true));
+  for (const id of ['accNick', 'accPw']) { const el = document.getElementById(id); if (el) el.onkeydown = (e) => { e.stopPropagation(); if (e.key === 'Enter') doLogin(false); }; }
+  const fe = document.getElementById('accFriend'); if (fe) fe.onkeydown = (e) => { e.stopPropagation(); if (e.key === 'Enter') addFriend(); };
+  box.querySelectorAll('[data-req]').forEach((b) => (b.onclick = () => respondFriend(b.dataset.req, b.dataset.acc === '1')));
+  box.querySelectorAll('[data-inv]').forEach((b) => (b.onclick = () => inviteFriend(b.dataset.inv)));
+  box.querySelectorAll('[data-del]').forEach((b) => (b.onclick = () => removeFriend(b.dataset.del)));
+}
+
+function renderInvitePop() {
+  const el = document.getElementById('invitePop'); if (!el) return;
+  const busy = (APP.mode === 'online' && NET.conn) || ACC.waiting;
+  const inv = ACC.invites.find((x) => !ACC.dismissed.has(x.from + x.ts));
+  if (!inv || busy) { el.classList.add('hidden'); ACC.shownInv = null; return; }
+  el.classList.remove('hidden');
+  const k = inv.from + inv.ts;
+  if (ACC.shownInv === k) return;
+  ACC.shownInv = k;
+  el.innerHTML = `⚔ <b>${esc(inv.nick)}</b>님이 대전을 신청했어요! <button id="invYes" class="mini ok">수락</button><button id="invNo" class="mini">거절</button>`;
+  document.getElementById('invYes').onclick = () => answerInvite(inv, true);
+  document.getElementById('invNo').onclick = () => answerInvite(inv, false);
+  playSfx('confirm');
+}
+
 // ---- 60_app.js ----
 // ============================================================
 //  앱 상태 머신 / 화면 (타이틀, 선택, VS, 대전, 도감, 결과)
@@ -3818,7 +4146,7 @@ const BUF = mkCanvas(VW, VH), bctx = BUF.getContext('2d');
 function saveSettings() { safeLS('tekken2d_settings', JSON.stringify({ diff: APP.diff, music: AUD.musicOn, sfx: AUD.sfxOn, voice: AUD.voiceOn })); }
 
 // ---------- 화면 전환 ----------
-function setState(s) { APP.state = s; APP.st = 0; IN.clear(); }
+function setState(s) { APP.state = s; APP.st = 0; IN.clear(); if (s !== 'account') hideAccount(); setTimeout(renderInvitePop, 0); }
 function goTitle() {
   if (NET.conn && APP.mode === 'online') { netReset(); }
   APP.mode = 'cpu'; APP.mySide = 0; APP.G = null; APP.paused = false;
@@ -3876,6 +4204,7 @@ function tick() {
     case 'fight': updFight(); break;
     case 'dict': updDict(); break;
     case 'lobby': if (IN.take('BACK')) { netReset(); goTitle(); } break;
+    case 'account': if (IN.take('BACK')) { if (!ACC.waiting) goTitle(); } break;
     default: break;
   }
   updateFX();
@@ -3883,7 +4212,7 @@ function tick() {
 }
 
 const TITLE_MENU = () => [
-  'CPU 대전', '온라인 대전', '캐릭터 도감',
+  'CPU 대전', ACC.token ? `친구 대전 (${ACC.nick})` : '친구 대전 (로그인)', '온라인 대전 (방 코드)', '캐릭터 도감',
   '난이도 : ' + DIFF[APP.diff].name,
   'BGM : ' + (AUD.musicOn ? 'ON' : 'OFF'),
   '효과음 : ' + (AUD.sfxOn ? 'ON' : 'OFF'),
@@ -3895,15 +4224,16 @@ function updTitle() {
   if (IN.take('D')) { APP.menu = (APP.menu + 1) % n; playSfx('cursor'); }
   const lr = IN.take('L') ? -1 : IN.take('R') ? 1 : 0;
   const go = IN.take('START') || IN.take('S1') || IN.take('P');
-  if (APP.menu === 3 && (lr || go)) { APP.diff = (APP.diff + (lr || 1) + 3) % 3; playSfx('cursor'); saveSettings(); return; }
-  if (APP.menu === 4 && (lr || go)) { AUD.setMusic(!AUD.musicOn); if (AUD.musicOn) { MUSIC.key = null; playMusic('title'); } playSfx('cursor'); saveSettings(); return; }
-  if (APP.menu === 5 && (lr || go)) { AUD.setSfx(!AUD.sfxOn); playSfx('cursor'); saveSettings(); return; }
-  if (APP.menu === 6 && (lr || go)) { AUD.voiceOn = !AUD.voiceOn; playSfx('cursor'); saveSettings(); return; }
+  if (APP.menu === 4 && (lr || go)) { APP.diff = (APP.diff + (lr || 1) + 3) % 3; playSfx('cursor'); saveSettings(); return; }
+  if (APP.menu === 5 && (lr || go)) { AUD.setMusic(!AUD.musicOn); if (AUD.musicOn) { MUSIC.key = null; playMusic('title'); } playSfx('cursor'); saveSettings(); return; }
+  if (APP.menu === 6 && (lr || go)) { AUD.setSfx(!AUD.sfxOn); playSfx('cursor'); saveSettings(); return; }
+  if (APP.menu === 7 && (lr || go)) { AUD.voiceOn = !AUD.voiceOn; playSfx('cursor'); saveSettings(); return; }
   if (!go) return;
   playSfx('confirm');
   if (APP.menu === 0) { APP.mode = 'cpu'; APP.mySide = 0; APP.sel.cur = APP.sel.cur || 0; goSelect(); }
-  else if (APP.menu === 1) { showLobby(); }
-  else if (APP.menu === 2) { APP.dict = 0; setState('dict'); }
+  else if (APP.menu === 1) { showAccount(); }
+  else if (APP.menu === 2) { showLobby(); }
+  else if (APP.menu === 3) { APP.dict = 0; setState('dict'); }
 }
 
 function updSelect() {
@@ -3997,7 +4327,7 @@ function render() {
   bctx.imageSmoothingEnabled = false;
   bctx.clearRect(0, 0, VW, VH);
   switch (APP.state) {
-    case 'title': case 'lobby': rTitleBuf(t); break;
+    case 'title': case 'lobby': case 'account': rTitleBuf(t); break;
     case 'select': rSelectBuf(t); break;
     case 'vs': rVSBuf(t); break;
     case 'fight': if (APP.G) renderWorld(bctx, APP.G, t); break;
@@ -4014,7 +4344,7 @@ function render() {
   ctx.setTransform(cv.width / VW, 0, 0, cv.height / VH, 0, 0);
   ctx.imageSmoothingEnabled = true;
   switch (APP.state) {
-    case 'title': case 'lobby': rTitleHUD(t); break;
+    case 'title': case 'lobby': case 'account': rTitleHUD(t); break;
     case 'select': rSelectHUD(t); break;
     case 'vs': rVSHUD(t); break;
     case 'fight': if (APP.G) { renderHUD(ctx, APP.G, t); rFightOverlay(t); } break;
@@ -4051,10 +4381,11 @@ function rTitleHUD(t) {
   bigText(ctx, 'TEKKEN 2D', 240, y0, 30, '#fffbe0', '#ff8c00');
   bigText(ctx, 'BATTLE', 240, y0 + 32, 26, '#ffffff', '#ff3d00');
   txt(ctx, 'GLOBAL CHAMPIONSHIP EDITION', 240, y0 + 46, 7, '#9fe6ff', 'center', FONT_EN, '#000');
-  if (APP.state === 'lobby') return;
+  if (APP.state === 'lobby' || APP.state === 'account') return;
+  txt(ctx, ACC.token ? '👤 ' + ACC.nick : '로그인하면 친구와 대전할 수 있어요', 474, 12, 7.5, ACC.token ? '#ffe14d' : '#aab', 'right', FONT_KR2);
   const items = TITLE_MENU();
   items.forEach((s, i) => {
-    const y = 132 + i * 15, on = i === APP.menu;
+    const y = 128 + i * 14, on = i === APP.menu;
     if (on) { ctx.fillStyle = 'rgba(255,200,0,0.25)'; ctx.fillRect(160, y - 11, 160, 14); txt(ctx, '▶', 166, y, 9, '#ffe14d', 'left', FONT_KR2); }
     txt(ctx, s, 240, y, on ? 11 : 9.5, on ? '#ffe14d' : '#dfe6ff', 'center', FONT_KR);
   });
@@ -4301,6 +4632,8 @@ function frame(now) {
 function boot() {
   setupTouch();
   setupLobby();
+  document.getElementById('btnAccBack').onclick = () => { if (ACC.waiting) cancelWaiting(true); goTitle(); };
+  if (ACC.token) setTimeout(pollNow, 500);
   const touch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
   document.body.classList.toggle('touch', touch);
   goTitle();

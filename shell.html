@@ -47,6 +47,27 @@
     body.touch .acts { grid-template-columns: repeat(4, 46px); grid-template-rows: repeat(2, 44px); }
     body.touch .pad { grid-template-columns: repeat(3, 42px); grid-template-rows: repeat(3, 36px); }
   }
+  /* 계정 / 친구 */
+  .panel.acc { max-height: 94%; overflow-y: auto; text-align: left; }
+  .panel.acc h2 { text-align: center; }
+  .panel.acc input { width: 100%; font-family: "Do Hyeon", sans-serif; font-size: 16px; letter-spacing: 0; text-transform: none; text-align: left; color: #fff; }
+  .panel.acc .row input { width: auto; }
+  .panel .mini { width: auto; display: inline-block; padding: 3px 9px; margin: 0 0 0 5px; font-size: 13px; box-shadow: inset 0 -2px 0 rgba(0,0,0,.35); }
+  .panel .mini.ok { background: #0f7a45; } .panel .mini.fight { background: #b7301e; } .panel .mini.x { background: #444; padding: 3px 7px; }
+  .panel .mini:disabled { background: #333 !important; color: #777; cursor: default; }
+  .acc .me { font-size: 17px; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; }
+  .acc .sec { margin: 12px 0 4px; color: var(--gold); font-family: "Black Han Sans", sans-serif; font-size: 15px; border-bottom: 1px solid #3a4a9a; padding-bottom: 3px; }
+  .acc .fr { display: flex; justify-content: space-between; align-items: center; padding: 5px 2px; border-bottom: 1px dashed #2a356f; font-size: 16px; }
+  .acc .fr small { color: #9aa6d6; margin-left: 6px; font-size: 12px; }
+  .acc .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #666; margin-right: 4px; }
+  .acc .dot.on { background: #3dff8a; box-shadow: 0 0 6px #3dff8a; } .acc .dot.busy { background: #ffb02e; }
+  .acc .empty { color: #9aa6d6; padding: 8px 0; font-size: 14px; }
+  .acc .wait { background: #3a1410; border: 1px solid #ff6b4a; padding: 8px; margin: 8px 0; font-size: 15px; }
+  .acc .msg { margin-top: 10px; font-size: 14px; } .acc .msg.good { color: #7dff9a; } .acc .msg.bad { color: #ff8a8a; }
+  #invitePop { position: absolute; top: 3%; left: 50%; transform: translateX(-50%); z-index: 20; background: linear-gradient(180deg, #5a1010, #2a0808); border: 3px solid var(--gold); box-shadow: 0 0 0 3px #000, 0 8px 30px rgba(0,0,0,.6); padding: 10px 14px; font-size: clamp(14px, 2vw, 18px); white-space: nowrap; animation: pop .3s ease-out; }
+  #invitePop .mini { font-family: "Black Han Sans", sans-serif; color: #fff; border: 2px solid #000; background: #444; padding: 4px 12px; margin-left: 8px; cursor: pointer; }
+  #invitePop .mini.ok { background: #0f7a45; }
+  @keyframes pop { from { transform: translateX(-50%) scale(.7); opacity: 0; } to { transform: translateX(-50%) scale(1); opacity: 1; } }
   .hint { font-size: 12px; color: #889; text-align: center; padding: 4px; }
   body.touch .hint { display: none; }
 </style>
@@ -55,6 +76,14 @@
 <div id="wrap">
   <div id="stage">
     <canvas id="screen" width="960" height="540"></canvas>
+    <div id="invitePop" class="hidden"></div>
+    <div id="account" class="overlay hidden">
+      <div class="panel acc">
+        <h2>👥 친구 대전</h2>
+        <div id="accBody"></div>
+        <button id="btnAccBack" class="back">◀ 뒤로</button>
+      </div>
+    </div>
     <div id="lobby" class="overlay hidden">
       <div class="panel">
         <h2>🌐 온라인 대전</h2>

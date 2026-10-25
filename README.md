@@ -8,6 +8,7 @@
 - 나라별 오리지널 칩튠 BGM (Web Audio로 실시간 합성)
 - CPU 대전 (난이도 3단계), 캐릭터 도감, 승리 기록
 - 온라인 대전: 방 코드 / 같은 와이파이 자동 매칭 (WebRTC, PeerJS)
+- 로그인(닉네임+비밀번호) · 친구 추가 · 친구에게 대전 신청
 - 모바일 터치 조작 지원
 
 ## 조작
@@ -35,6 +36,9 @@ src/              ← 게임 코드 (번호 순서대로 합쳐짐)
   40_input.js     키보드·터치 입력
   50_net.js       온라인 대전
   60_app.js       화면 전환·메인 루프
+  55_account.js   로그인·친구·대전 신청 화면
+api/game.js           ← 서버 API (Vercel 함수): 회원가입/로그인/친구/접속 상태/대전 신청
+package.json          ← api 폴더를 ES 모듈로 실행하기 위한 설정 (의존성 없음)
 vendor/peerjs.min.js  ← 온라인 대전 라이브러리 (MIT)
 tools/balance.js      ← AI끼리 대전시켜 승률을 계산하는 도구
 ```
@@ -49,3 +53,8 @@ git add . && git commit -m "업데이트" && git push   # Vercel이 자동 재�
 ```bash
 node tools/balance.js 4 "" matrix
 ```
+
+## 서버 (로그인 · 친구)
+- Vercel 프로젝트에 **Upstash Redis**(Vercel Marketplace)를 연결하면 `KV_REST_API_URL`, `KV_REST_API_TOKEN` 환경변수가 자동으로 생기고 `api/game.js`가 이를 사용합니다.
+- 비밀번호는 scrypt로 해시해서 저장하고, 로그인 시도는 횟수 제한이 걸려 있습니다.
+- 접속 상태는 게임이 몇 초마다 서버에 신호를 보내서 표시합니다. 실제 대전 연결은 PeerJS(WebRTC)로 기기끼리 직접 합니다.

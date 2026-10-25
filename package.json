@@ -1,0 +1,7 @@
+{
+  "name": "tekken-2d-battle",
+  "private": true,
+  "type": "module",
+  "description": "브라우저 2D 격투 게임 + 로그인/친구 대전 API (Vercel)",
+  "engines": { "node": ">=18" }
+}
