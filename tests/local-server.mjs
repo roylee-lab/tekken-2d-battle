@@ -21,6 +21,7 @@ function command(c){const [op,k,...args]=c;
  if(op==='SCARD')return db.get(k)?.size||0;
  if(op==='SMEMBERS')return [...(db.get(k)||[])];
  if(op==='MGET')return [k,...args].map(x=>db.get(x)??null);
+ if(op==='EVAL'&&/HSET/.test(c[1])){const h=db.get(c[4])||{};h[c[6]]=c[7];db.set(c[4],h);return 1;}
  if(op==='EVAL'){const owner=JSON.parse(db.get(c[3])||'null');if(owner?.owner!==c[6])return 0;let n=0;for(const key of c.slice(3,6))if(db.delete(key))n++;return n;}
  throw Error('unsupported fake Redis '+op);
 }

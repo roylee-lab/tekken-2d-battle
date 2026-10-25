@@ -5,7 +5,7 @@ const host='a'.repeat(48),guest='b'.repeat(48),other='c'.repeat(48);
 async function request(op,token,extra={}){const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({op,room,token,...extra})});return {status:r.status,data:await r.json()};}
 assert.equal((await request('host',host)).status,200);
 assert.equal((await request('host',other)).status,409);
-assert.equal((await request('poll',other)).status,403);
+assert.equal((await request('poll',other)).status,410);   // 접속 요청이 없으면 410 (방장이 이전 시도를 정리한 경우와 같음)
 const description={type:'offer',sdp:'test-offer'};
 assert.equal((await request('offer',guest,{description})).status,200);
 assert.equal((await request('offer',other,{description})).status,409);
