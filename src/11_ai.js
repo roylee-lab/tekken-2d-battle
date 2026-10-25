@@ -13,7 +13,7 @@ const AI_SKILL = {
   1: [(F, O, d) => d < 140, (F, O, d) => d > 70 && d < 230],
   2: [(F, O, d) => d > 95 && d < 260, () => false],
   3: [(F, O, d) => d > 50 && d < 190, (F, O, d) => d < 90],
-  4: [(F, O, d) => F.hp < F.maxHp * 0.9, (F, O, d) => true],
+  4: [(F, O, d) => F.hp < F.maxHp * 0.9, (F, O, d) => true, (F, O, d) => d < 220, (F, O, d) => d < 200],
   5: [(F, O, d) => d < 210, (F, O, d) => F.hp < F.maxHp * 0.55 && d > 90],
   6: [(F, O, d) => O.atk && d < 90, (F, O, d) => F.hp < F.maxHp * 0.75 && d < 100],
   7: [(F, O, d) => d < 180, (F, O, d) => O.poisT <= 0 && d < 230],
@@ -60,12 +60,13 @@ function aiInput(G, F, O, mem, diffLv) {
     mem.t = D.interval + Math.floor(rnd() * D.interval);
     const r = rnd();
     // 스킬 사용 시도
-    const slots = [0, 1].filter((s) => {
+    const slots = [0, 1, 2, 3].filter((s) => {
+      if (!skillDef(F.c, s) || !AI_SKILL[F.c][s]) return false;
       const ready = (F.cd[s] <= 0 && F.seal[s] <= 0) || (s === 0 && F.c === HINCHAM && F.copy);
       return ready && AI_SKILL[F.c][s](F, O, dist);
     });
     if (slots.length && r < D.skill) {
-      p |= slots[Math.floor(rnd() * slots.length)] === 0 ? B_S1 : B_S2;
+      p |= B_SK[slots[Math.floor(rnd() * slots.length)]];
       if (F.c === 2 && (p & B_S1)) h |= toward;
       mem.plan = 'wait'; mem.planT = 6;
     } else if (dist > 150) {

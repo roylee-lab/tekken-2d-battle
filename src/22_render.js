@@ -137,6 +137,8 @@ function renderWorld(b, G, t) {
     b.strokeStyle = r.kind === 'force' ? `rgba(255,80,80,${1 - k})` : `rgba(200,120,255,${1 - k})`;
     b.lineWidth = 2; b.beginPath(); b.ellipse(sx, sy, 10 + k * 60, 6 + k * 30, 0, 0, Math.PI * 2); b.stroke();
   }
+  // 은맘 (소환물)
+  for (const F of G.F) if (F.momHp > 0 && F.momT > 0) drawMom(b, F, t);
   // 캐릭터 (공격 중인 쪽을 위에)
   const order = [...G.F].sort((p, q) => (p.atk ? 1 : 0) - (q.atk ? 1 : 0));
   for (const F of order) drawFighterInGame(b, F, G, t);
@@ -207,10 +209,14 @@ function drawFighterInGame(b, F, G, t) {
   if (tint) { tc.globalCompositeOperation = 'source-atop'; tc.fillStyle = tint; tc.fillRect(0, 0, TMP.width, TMP.height); tc.globalCompositeOperation = 'source-over'; }
   const ox = Math.round(sx - 110), oy = Math.round(sy - 178);
   // 각성/자극제 외곽 광채
-  if (F.awake || F.stimT > 0 || F.spikeT > 0) {
+  if (F.curseT > 0 && (t % 4) === 0) {
+    FX.parts.push({ k: 'flame', x: F.x + (Math.random() - 0.5) * 30, y: F.y + Math.random() * 90, vx: 0, vy: 0.6, life: 18, c: Math.random() < 0.5 ? '#9b30ff' : '#2a0040', r: 2.5 });
+    if ((t % 90) === 0) FX.floats.push({ x: F.x + (Math.random() - 0.5) * 30, y: F.y + 110, t: '31.8', c: '#c06bff', life: 50 });
+  }
+  if (F.awake || F.stimT > 0 || F.spikeT > 0 || F.curseT > 0) {
     b.save(); b.globalAlpha = 0.5 + 0.2 * Math.sin(t * 0.3);
     b.filter = 'none';
-    const glow = F.awake ? '#c86bff' : F.stimT > 0 ? '#ff3b3b' : '#00e676';
+    const glow = F.curseT > 0 ? '#7a00ff' : F.awake ? '#c86bff' : F.stimT > 0 ? '#ff3b3b' : '#00e676';
     for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
       b.drawImage(silhouette(glow), ox + dx * 1.5, oy + dy * 1.5);
     }
@@ -239,6 +245,42 @@ function drawFighterInGame(b, F, G, t) {
     b.fillStyle = '#ffe14d'; b.beginPath(); b.moveTo(sx - 4, top - 14); b.lineTo(sx + 4, top - 14); b.lineTo(sx, top - 9); b.fill();
   }
 }
+// 은맘: 파마머리 + 앞치마 + 국자를 든 든든한 엄마
+function drawMom(b, F, t) {
+  const [sx, sy] = worldToScreen(F.x - F.f * 26, 0);
+  const f = F.f, bob = Math.sin(t * 0.1) * 1;
+  b.save(); b.translate(Math.round(sx), Math.round(sy)); b.scale(f * 1.05, 1.05);
+  b.globalAlpha = F.momT < 90 && (t >> 2) % 2 ? 0.5 : 1;
+  b.fillStyle = 'rgba(0,0,0,0.3)'; b.beginPath(); b.ellipse(0, 1, 14, 3, 0, 0, Math.PI * 2); b.fill();
+  // 다리, 신발
+  seg(b, -4, -26, -5, -3, 5, '#e9c09a'); seg(b, 4, -26, 5, -3, 5, '#e9c09a');
+  seg(b, -7, -2, -1, -2, 4, '#7a3b5a', false); seg(b, 3, -2, 9, -2, 4, '#7a3b5a', false);
+  // 원피스 + 앞치마
+  poly(b, [[-12, -27], [12, -27], [9, -58 + bob], [-9, -58 + bob]], '#8e5bb5');
+  poly(b, [[-7, -28], [9, -28], [7, -50 + bob], [-5, -50 + bob]], '#ffd1e3');
+  b.fillStyle = '#ff7fb0'; b.fillRect(-3, -42 + bob, 6, 5);
+  b.strokeStyle = '#ff7fb0'; b.lineWidth = 1; b.beginPath(); b.moveTo(-5, -50 + bob); b.lineTo(-7, -58 + bob); b.moveTo(7, -50 + bob); b.lineTo(8, -58 + bob); b.stroke();
+  // 팔 + 국자
+  const sw = F.momHp < F.momMax ? Math.sin(t * 0.3) * 0.4 : 0;
+  seg(b, -7, -55 + bob, -10, -40 + bob, 4.5, '#8e5bb5');
+  seg(b, 7, -55 + bob, 14, -60 + bob - sw * 6, 4.5, '#8e5bb5');
+  circ(b, 15, -62 + bob - sw * 6, 2.5, '#e9c09a');
+  seg(b, 15, -62 + bob - sw * 6, 20, -76 + bob - sw * 6, 1.5, '#b0b6c0', false);
+  ell(b, 21, -78 + bob - sw * 6, 4, 3, '#c9ced6');
+  // 얼굴 + 파마머리
+  ell(b, 1, -66 + bob, 7, 8, '#f1c8a0');
+  b.fillStyle = '#3a2418';
+  for (const [x, y, rr] of [[-6, -72], [-3, -76], [2, -77], [6, -74], [-8, -67], [-6, -62], [8, -69]].map((p, i) => [p[0], p[1], 3.2 + (i % 2) * 0.6])) { b.beginPath(); b.arc(x, y + bob, rr, 0, Math.PI * 2); b.fill(); }
+  b.fillStyle = '#111'; b.fillRect(3, -67 + bob, 1.5, 1.5);
+  b.strokeStyle = '#a0405a'; b.lineWidth = 1; b.beginPath(); b.arc(3.5, -62.5 + bob, 2, 0.2, Math.PI - 0.2); b.stroke();
+  b.fillStyle = 'rgba(255,120,150,0.5)'; b.fillRect(5, -64 + bob, 2, 1.5);
+  b.restore();
+  // 체력바
+  const w = 26, k = clamp(F.momHp / F.momMax, 0, 1);
+  b.fillStyle = '#000'; b.fillRect(Math.round(sx) - w / 2 - 1, Math.round(sy) - 95, w + 2, 4);
+  b.fillStyle = '#ff7fb0'; b.fillRect(Math.round(sx) - w / 2, Math.round(sy) - 94, w * k, 2);
+}
+
 const _sil = {};
 function silhouette(col) {
   let c = _sil[col];
@@ -373,7 +415,10 @@ function renderHUD(ctx, G, t) {
     const nx = s === 0 ? 30 : 450;
     txt(ctx, CHARS[F.c].name, nx, 32, 9, '#fff', s === 0 ? 'left' : 'right');
     drawFlag(ctx, CHARS[F.c].country, s === 0 ? 30 + measure(ctx, CHARS[F.c].name, 9) + 4 : 450 - measure(ctx, CHARS[F.c].name, 9) - 16, 25, 12, 8);
-    if (APP.mode === 'online') txt(ctx, s === APP.mySide ? 'YOU' : 'RIVAL', s === 0 ? bx + bw : bx, 32, 6, s === APP.mySide ? '#ffe14d' : '#9fd0ff', s === 0 ? 'right' : 'left', FONT_EN);
+    if (APP.mode === 'online') {
+      const lab = s === APP.mySide ? (ACC.token ? ACC.nick : 'YOU') : (NET.oppNick || 'RIVAL');
+      txt(ctx, (s === APP.mySide ? '▶ ' : '') + lab, s === 0 ? bx + bw - 28 : bx + 28, 32, 7, s === APP.mySide ? '#ffe14d' : '#9fd0ff', s === 0 ? 'right' : 'left', FONT_KR2);
+    }
     // 라운드 승리 표시
     for (let i = 0; i < WIN_ROUNDS; i++) {
       const wx = s === 0 ? bx + bw - 8 - i * 10 : bx + 8 + i * 10;
@@ -467,6 +512,8 @@ function drawStatus(ctx, F, s, t) {
   if (F.slowT > 0) tags.push(['감속', '#8fb3ff']);
   if (F.boostT > 0) tags.push(['이속↑', '#ffb347']);
   if (F.spikeT > 0) tags.push(['피해-10%', '#00e676']);
+  if (F.momHp > 0 && F.momT > 0) tags.push([`은맘 ${Math.ceil(F.momHp)}/${Math.ceil(F.momMax)}`, '#ff8fb3']);
+  if (F.curseT > 0) tags.push([`31.8의 저주 ${Math.ceil(F.curseT / SEC)}s`, '#c06bff']);
   if (F.c === TIRON) tags.push(['고통 ' + F.pain + '/' + BAL[11].painMax, '#ff9f43']);
   if (F.c === 2 && !F.revived) tags.push(['부활 대기', '#f5c542']);
   if (F.mul > 1.001) tags.push(['공격 +' + Math.round((F.mul - 1) * 100) + '%', '#ff7b3b']);
@@ -482,7 +529,7 @@ function drawStatus(ctx, F, s, t) {
 }
 
 function drawDice(ctx, d, t) {
-  const v = d.val, x = 240, y = 130, s = 34 + (d.t > 0 ? Math.sin(t) * 2 : 0);
+  const v = d.val, x = 240, y = 150, s = 34 + (d.t > 0 ? Math.sin(t) * 2 : 0);
   ctx.save(); ctx.translate(x, y); if (d.t > 0) ctx.rotate(Math.sin(t * 0.7) * 0.3);
   ctx.fillStyle = '#000'; ctx.fillRect(-s / 2 - 2, -s / 2 - 2, s + 4, s + 4);
   ctx.fillStyle = '#fffaf0'; ctx.fillRect(-s / 2, -s / 2, s, s);
@@ -490,8 +537,8 @@ function drawDice(ctx, d, t) {
   ctx.fillStyle = v === 1 ? '#d32f2f' : '#111';
   for (const [a, b2] of pip) { ctx.beginPath(); ctx.arc(a * s * 0.27, b2 * s * 0.27, s * 0.09, 0, Math.PI * 2); ctx.fill(); }
   ctx.restore();
-  txt(ctx, '하츠 스테리오!', 240, 100, 11, '#ffcc33', 'center');
-  if (d.t === 0) txt(ctx, `${d.res} x 5 = ${d.res * 5}`, 240, 165, 12, '#fff', 'center', FONT_EN);
+  txt(ctx, '하츠 스테리오!', 240, 124, 11, '#ffcc33', 'center');
+  if (d.t === 0) txt(ctx, `${d.res} x ${BAL[4].dicePer} = ${d.res * BAL[4].dicePer}`, 240, 185, 12, '#fff', 'center', FONT_EN);
 }
 
 function drawAnnouncer(ctx, G, t) {

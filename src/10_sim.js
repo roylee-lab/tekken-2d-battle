@@ -28,6 +28,7 @@ function makeFighter(side, c) {
     ddN: 0, diceN: 0, mul: 1, angerT: 0, awake: false, revived: false, pain: 0,
     maemOwn: false, maemEnemy: false, regenT: 0,
     spikeT: 0, dashT: 0, dashDir: 1, headT: 0, headHit: false, castT: 0,
+    momHp: 0, momMax: 0, momT: 0, curseT: 0,
     ko: false, wins: 0, combo_recv: 0, comboShowT: 0,
   };
 }
@@ -65,10 +66,26 @@ function resetRound(G) {
 function ev(G, ...a) { G.ev.push(a); }
 function note(G, text, color, life) { G.notes.push({ t: text, c: color || '#fff', life: life || 100, max: life || 100 }); if (G.notes.length > 4) G.notes.shift(); }
 
+// ---------- 은맘: 피해·방해효과 대신 받기 ----------
+function momAlive(F) { return F.momHp > 0 && F.momT > 0; }
+function momTake(G, F, dmg, label) {
+  F.momHp -= dmg;
+  ev(G, 'spark', F.x - F.f * 20, F.y + 45, 'guard');
+  ev(G, 'float', F.x - F.f * 20, F.y + 92, label || ('-' + (Math.round(dmg * 10) / 10)), '#ffb3d1');
+  if (F.momHp <= 0) { F.momHp = 0; F.momT = 0; note(G, '은맘이 쓰러졌다!', '#ff8fb3', 80); ev(G, 'sfx', 'clash'); }
+}
+// 구속·감속·봉인 같은 방해효과를 받기 전에 호출 → true면 은맘이 대신 받아서 무효
+function disrupt(G, T) {
+  if (!momAlive(T)) return false;
+  momTake(G, T, 0, '방해 무효!');
+  return true;
+}
+
 // ---------- 데미지 처리 ----------
 function applyDamage(G, A, D, dmg, type, o) {
   o = o || {};
   if (D.ko) return 'immune';
+  if (A && A !== D && A.curseT > 0 && !o.reflect) dmg *= 1 + BAL[4].curseAtk;   // 31.8의 저주: 공격력 증가
   const proj = PROJ_TYPES.has(type);
   const hy = D.y + 50 * lookOf(D).H;
   // 1. 힙찔 강 보드: 공격 1회 완전 방어 후 파괴
@@ -100,7 +117,7 @@ function applyDamage(G, A, D, dmg, type, o) {
   if (D.c === TIRON) {
     D.pain++;
     if (D.pain >= BAL[11].painMax) {
-      D.pain = 0; A.rootT = Math.max(A.rootT, BAL[11].painRoot);
+      D.pain = 0; if (!disrupt(G, A)) A.rootT = Math.max(A.rootT, BAL[11].painRoot);
       note(G, `⚡ Tirón 괴룡 패시브 발동! 적 ${BAL[11].painRoot / 60}초 구속! ⚡`, '#ff9f43', 90); ev(G, 'shake', 12, 6); ev(G, 'sfx', 'roar');
     }
   }
@@ -110,9 +127,20 @@ function applyDamage(G, A, D, dmg, type, o) {
     dmg *= 0.3; blocked = true;
   }
   // 9. 경감 효과 (고정 피해는 무시)
+  // 31.8의 저주: 받은 피해 일부 반사 (고정 피해)
+  if (D.curseT > 0 && !o.reflect && A !== D && dmg > 0) {
+    const refl = dmg * BAL[4].curseRefl;
+    applyDamage(G, D, A, refl, 'REFLECT', { fixed: true, reflect: true });
+  }
   if (!o.fixed) {
+    if (D.curseT > 0) dmg *= 1 - BAL[4].curseDR;
     if (D.c === 8 && A.c !== 8) dmg *= 1 - BAL[8].dr;      // 힙찔 강 불협화음 (받는 피해 10% 감소)
     if (D.spikeT > 0) dmg *= 1 - BAL[12].spikeDR;                // 힌참휴 뾰족한 머리 (받는 피해 10% 감소)
+  }
+  // 은맘이 피해와 방해효과를 모두 대신 받음
+  if (momAlive(D)) {
+    if (dmg > 0) momTake(G, D, dmg); else momTake(G, D, 0, '막음!');
+    return 'mom';
   }
   if (dmg > 0) {
     D.hp -= dmg;
@@ -289,6 +317,20 @@ const SK = {
       ev(G, 'sfx', 'dice');
       return true;
     },
+    (G, F, O) => {   // E: 은맘 소환
+      if (momAlive(F)) return false;
+      F.momMax = F.momHp = Math.max(1, Math.round(F.hp * BAL[4].momPct * 10) / 10);
+      F.momT = Math.round(BAL[4].momSec * SEC);
+      note(G, `은맘 등장! (체력 ${F.momHp}) 모든 피해와 방해를 대신 받는다`, '#ff8fb3', 110);
+      ev(G, 'sfx', 'revive'); ev(G, 'spark', F.x - F.f * 20, F.y + 50, 'immune');
+      return true;
+    },
+    (G, F, O) => {   // R: 31.8의 저주
+      F.curseT = Math.round(BAL[4].curseSec * SEC);
+      note(G, '☠ 31.8의 저주 ☠ 피해 -31.8% · 공격 +31.8% · 반사 31.8%', '#c06bff', 130);
+      ev(G, 'sfx', 'roar'); ev(G, 'shake', 12, 6); ev(G, 'aura', F.side, 'press');
+      return true;
+    },
   ],
   5: [
     (G, F, O) => { spawnProj(G, F, 'nunchaku', 9, 25, 10); return true; },
@@ -311,10 +353,10 @@ const SK = {
   ],
   9: [
     (G, F, O) => {
-      O.rootT = Math.max(O.rootT, BAL[9].pressRoot); O.slowT = BAL[9].pressSlow; O.delayT = BAL[9].pressSlow;
+      if (!disrupt(G, O)) { O.rootT = Math.max(O.rootT, BAL[9].pressRoot); O.slowT = BAL[9].pressSlow; O.delayT = BAL[9].pressSlow; }
       ev(G, 'shake', 10, 5); ev(G, 'aura', F.side, 'press'); note(G, '압도!', '#c38bff', 60); return true;
     },
-    (G, F, O) => { O.guardOffT = BAL[9].forceT; ev(G, 'aura', F.side, 'force'); note(G, `포스! ${BAL[9].forceT / 60}초간 가드 불가`, '#c38bff', 80); return true; },
+    (G, F, O) => { if (!disrupt(G, O)) O.guardOffT = BAL[9].forceT; ev(G, 'aura', F.side, 'force'); note(G, `포스! ${BAL[9].forceT / 60}초간 가드 불가`, '#c38bff', 80); return true; },
   ],
   10: [
     (G, F, O) => { spawnProj(G, F, 'fart', 6, 24, 14); ev(G, 'sfx', 'fart'); return true; },
@@ -339,12 +381,14 @@ const SK = {
       note(G, `Tirón ai 딸깍! [${CHARS[c].name}]의 '${nm}' 카피 발동!`, '#ff9f43', 100);
       return true;
     },
-    (G, F, O) => { O.rootT = Math.max(O.rootT, BAL[11].majRoot); F.boostT = BAL[11].majBoost; ev(G, 'shake', 10, 5); ev(G, 'sfx', 'roar'); return true; },
+    (G, F, O) => { if (!disrupt(G, O)) O.rootT = Math.max(O.rootT, BAL[11].majRoot); F.boostT = BAL[11].majBoost; ev(G, 'shake', 10, 5); ev(G, 'sfx', 'roar'); return true; },
   ],
   12: [
     (G, F, O) => {
-      let avail = [0, 1].filter((s) => O.seal[s] <= 0);
-      if (!avail.length) avail = [0, 1];
+      if (disrupt(G, O)) { note(G, '해킹 실패! 은맘이 막았다', '#ff8fb3', 80); return true; }
+      const own = [0, 1, 2, 3].filter((s) => skillDef(O.c, s));
+      let avail = own.filter((s) => O.seal[s] <= 0);
+      if (!avail.length) avail = own;
       const s = avail[Math.floor(rnd() * avail.length)];
       O.seal[s] = BAL[12].sealSec * SEC;
       F.copy = { c: O.c, s };
@@ -428,6 +472,8 @@ function meleeHit(G, F, O) {
       ev(G, 'spark', hx, hy, isK ? 'big' : 'hit'); ev(G, 'sfx', isK ? 'hitK' : 'hitP');
       ev(G, 'shake', isK ? 6 : 3, isK ? 4 : 2);
       O.hitFlash = 4;
+    } else if (res === 'mom') {
+      G.hitStop = 3; ev(G, 'sfx', 'block');
     } else if (res === 'block') {
       O.blockT = 8;
       if (O.c !== 0) O.kb = F.f * (isK ? 3.4 : 1.4);
@@ -448,12 +494,14 @@ function stepFighter(G, F, O, inp) {
   for (let s = 0; s < 4; s++) { if (F.cd[s] > 0) F.cd[s]--; if (F.seal[s] > 0) F.seal[s]--; }
   if (F.comboT > 0) { F.comboT--; if (F.comboT === 0) F.combo = 0; }
   if (F.jeongP > 0) { F.jeongP--; if (F.jeongP === 0) { F.jeongA = BAL[5].act; note(G, `正義 발동! ${(BAL[5].act / 60).toFixed(1)}초간 공격 무효`, '#48e0c0', 80); ev(G, 'sfx', 'powerup'); } }
-  dec(F, 'jeongA');
+  dec(F, 'jeongA'); dec(F, 'curseT');
+  if (F.momT > 0) { F.momT--; if (F.momT === 0 && F.momHp > 0) { F.momHp = 0; note(G, '은맘이 돌아갔다', '#ff8fb3', 60); } }
   // 독
   if (F.poisT > 0) {
     F.poisT--; F.poisTick++;
     if (F.poisTick >= 60) {
-      F.poisTick = 0; F.hp -= F.poisDmg; ev(G, 'poison', F.x, F.y + 50 * H); ev(G, 'float', F.x, F.y + 80 * H, String(F.poisDmg), '#7dff4d');
+      F.poisTick = 0;
+      if (momAlive(F)) { momTake(G, F, F.poisDmg); } else F.hp -= F.poisDmg; ev(G, 'poison', F.x, F.y + 50 * H); ev(G, 'float', F.x, F.y + 80 * H, String(F.poisDmg), '#7dff4d');
       checkKO(G, F);
     }
   }
@@ -670,7 +718,7 @@ function endCheck(G) {
   }
   for (const F of G.F) {
     F.atk = null; F.guard = false; F.dashT = 0; F.headT = 0;
-    for (const k of ['hitFlash', 'stimT', 'meokT', 'manT', 'jeongA', 'jeongP', 'parryT', 'rootT', 'guardOffT', 'slowT', 'poisT', 'hitT', 'blockT', 'castT', 'spikeT', 'angerT', 'rushN', 'noteN']) F[k] = 0;
+    for (const k of ['hitFlash', 'stimT', 'meokT', 'manT', 'jeongA', 'jeongP', 'parryT', 'rootT', 'guardOffT', 'slowT', 'poisT', 'hitT', 'blockT', 'castT', 'spikeT', 'angerT', 'rushN', 'noteN', 'momHp', 'momT', 'curseT']) F[k] = 0;
     if (F.ko) { F.vy = 4; F.vx = -F.f * 2.2; F.y = Math.max(F.y, 0.1); }
   }
   ev(G, 'announce', G.koType === 'KO' ? 'ko' : 'time');

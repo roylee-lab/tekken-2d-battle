@@ -42,7 +42,7 @@ const BUF = mkCanvas(VW, VH), bctx = BUF.getContext('2d');
 function saveSettings() { safeLS('tekken2d_settings', JSON.stringify({ diff: APP.diff, music: AUD.musicOn, sfx: AUD.sfxOn, voice: AUD.voiceOn })); }
 
 // ---------- 화면 전환 ----------
-function setState(s) { APP.state = s; APP.st = 0; IN.clear(); }
+function setState(s) { APP.state = s; APP.st = 0; IN.clear(); if (s !== 'account') hideAccount(); setTimeout(renderInvitePop, 0); }
 function goTitle() {
   if (NET.conn && APP.mode === 'online') { netReset(); }
   APP.mode = 'cpu'; APP.mySide = 0; APP.G = null; APP.paused = false;
@@ -100,6 +100,7 @@ function tick() {
     case 'fight': updFight(); break;
     case 'dict': updDict(); break;
     case 'lobby': if (IN.take('BACK')) { netReset(); goTitle(); } break;
+    case 'account': if (IN.take('BACK')) { if (!ACC.waiting) goTitle(); } break;
     default: break;
   }
   updateFX();
@@ -107,7 +108,7 @@ function tick() {
 }
 
 const TITLE_MENU = () => [
-  'CPU 대전', '온라인 대전', '캐릭터 도감',
+  'CPU 대전', ACC.token ? `친구 대전 (${ACC.nick})` : '친구 대전 (로그인)', '온라인 대전 (방 코드)', '캐릭터 도감',
   '난이도 : ' + DIFF[APP.diff].name,
   'BGM : ' + (AUD.musicOn ? 'ON' : 'OFF'),
   '효과음 : ' + (AUD.sfxOn ? 'ON' : 'OFF'),
@@ -119,15 +120,16 @@ function updTitle() {
   if (IN.take('D')) { APP.menu = (APP.menu + 1) % n; playSfx('cursor'); }
   const lr = IN.take('L') ? -1 : IN.take('R') ? 1 : 0;
   const go = IN.take('START') || IN.take('S1') || IN.take('P');
-  if (APP.menu === 3 && (lr || go)) { APP.diff = (APP.diff + (lr || 1) + 3) % 3; playSfx('cursor'); saveSettings(); return; }
-  if (APP.menu === 4 && (lr || go)) { AUD.setMusic(!AUD.musicOn); if (AUD.musicOn) { MUSIC.key = null; playMusic('title'); } playSfx('cursor'); saveSettings(); return; }
-  if (APP.menu === 5 && (lr || go)) { AUD.setSfx(!AUD.sfxOn); playSfx('cursor'); saveSettings(); return; }
-  if (APP.menu === 6 && (lr || go)) { AUD.voiceOn = !AUD.voiceOn; playSfx('cursor'); saveSettings(); return; }
+  if (APP.menu === 4 && (lr || go)) { APP.diff = (APP.diff + (lr || 1) + 3) % 3; playSfx('cursor'); saveSettings(); return; }
+  if (APP.menu === 5 && (lr || go)) { AUD.setMusic(!AUD.musicOn); if (AUD.musicOn) { MUSIC.key = null; playMusic('title'); } playSfx('cursor'); saveSettings(); return; }
+  if (APP.menu === 6 && (lr || go)) { AUD.setSfx(!AUD.sfxOn); playSfx('cursor'); saveSettings(); return; }
+  if (APP.menu === 7 && (lr || go)) { AUD.voiceOn = !AUD.voiceOn; playSfx('cursor'); saveSettings(); return; }
   if (!go) return;
   playSfx('confirm');
   if (APP.menu === 0) { APP.mode = 'cpu'; APP.mySide = 0; APP.sel.cur = APP.sel.cur || 0; goSelect(); }
-  else if (APP.menu === 1) { showLobby(); }
-  else if (APP.menu === 2) { APP.dict = 0; setState('dict'); }
+  else if (APP.menu === 1) { showAccount(); }
+  else if (APP.menu === 2) { showLobby(); }
+  else if (APP.menu === 3) { APP.dict = 0; setState('dict'); }
 }
 
 function updSelect() {
@@ -221,7 +223,7 @@ function render() {
   bctx.imageSmoothingEnabled = false;
   bctx.clearRect(0, 0, VW, VH);
   switch (APP.state) {
-    case 'title': case 'lobby': rTitleBuf(t); break;
+    case 'title': case 'lobby': case 'account': rTitleBuf(t); break;
     case 'select': rSelectBuf(t); break;
     case 'vs': rVSBuf(t); break;
     case 'fight': if (APP.G) renderWorld(bctx, APP.G, t); break;
@@ -238,7 +240,7 @@ function render() {
   ctx.setTransform(cv.width / VW, 0, 0, cv.height / VH, 0, 0);
   ctx.imageSmoothingEnabled = true;
   switch (APP.state) {
-    case 'title': case 'lobby': rTitleHUD(t); break;
+    case 'title': case 'lobby': case 'account': rTitleHUD(t); break;
     case 'select': rSelectHUD(t); break;
     case 'vs': rVSHUD(t); break;
     case 'fight': if (APP.G) { renderHUD(ctx, APP.G, t); rFightOverlay(t); } break;
@@ -275,10 +277,11 @@ function rTitleHUD(t) {
   bigText(ctx, 'TEKKEN 2D', 240, y0, 30, '#fffbe0', '#ff8c00');
   bigText(ctx, 'BATTLE', 240, y0 + 32, 26, '#ffffff', '#ff3d00');
   txt(ctx, 'GLOBAL CHAMPIONSHIP EDITION', 240, y0 + 46, 7, '#9fe6ff', 'center', FONT_EN, '#000');
-  if (APP.state === 'lobby') return;
+  if (APP.state === 'lobby' || APP.state === 'account') return;
+  txt(ctx, ACC.token ? '👤 ' + ACC.nick : '로그인하면 친구와 대전할 수 있어요', 474, 12, 7.5, ACC.token ? '#ffe14d' : '#aab', 'right', FONT_KR2);
   const items = TITLE_MENU();
   items.forEach((s, i) => {
-    const y = 132 + i * 15, on = i === APP.menu;
+    const y = 128 + i * 14, on = i === APP.menu;
     if (on) { ctx.fillStyle = 'rgba(255,200,0,0.25)'; ctx.fillRect(160, y - 11, 160, 14); txt(ctx, '▶', 166, y, 9, '#ffe14d', 'left', FONT_KR2); }
     txt(ctx, s, 240, y, on ? 11 : 9.5, on ? '#ffe14d' : '#dfe6ff', 'center', FONT_KR);
   });
@@ -525,6 +528,8 @@ function frame(now) {
 function boot() {
   setupTouch();
   setupLobby();
+  document.getElementById('btnAccBack').onclick = () => { if (ACC.waiting) cancelWaiting(true); goTitle(); };
+  if (ACC.token) setTimeout(pollNow, 500);
   const touch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
   document.body.classList.toggle('touch', touch);
   goTitle();
