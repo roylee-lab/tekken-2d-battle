@@ -242,7 +242,7 @@ function packFighter(F) {
   for (const k in F) {
     const v = F[k];
     if (k === 'cd' || k === 'seal') { if (v.some((x) => x)) o[k] = v; continue; }
-    if (v === _FDEF[k] && k !== 'side' && k !== 'c') continue;
+    if (v === _FDEF[k] && k !== 'side' && k !== 'c' && k !== 'f') continue;   // f는 진영마다 기본값이 달라 항상 보냄
     o[k] = typeof v === 'number' ? Math.round(v * 100) / 100 : v;
   }
   return o;
