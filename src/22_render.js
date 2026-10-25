@@ -94,6 +94,12 @@ function updateFX() {
 
 // ---------- 월드 렌더 ----------
 function worldToScreen(x, y) { return [x - FX.cam, GROUND - y]; }
+// 영역 전개(투명) 중인 캐릭터를 이 화면의 플레이어가 볼 수 있는지 (자기 캐릭터는 반투명으로 보임)
+function invisAlpha(F, t) {
+  if (!(F.invisT > 0)) return 1;
+  if (F.side === APP.mySide && !APP.autoP1) return 0.35;
+  return (t % 40) < 2 ? 0.08 : 0;
+}
 
 function renderWorld(b, G, t) {
   const [A, Bf] = G.F;
@@ -115,6 +121,7 @@ function renderWorld(b, G, t) {
   }
   // 그림자
   for (const F of G.F) {
+    if (invisAlpha(F, t) < 0.3) continue;
     const [sx] = worldToScreen(F.x, 0);
     const w = radius(F) * (1.3 - Math.min(0.6, F.y / 120));
     b.fillStyle = 'rgba(0,0,0,0.32)'; b.beginPath(); b.ellipse(sx, GROUND + 1, w, 3, 0, 0, Math.PI * 2); b.fill();
@@ -139,6 +146,8 @@ function renderWorld(b, G, t) {
   }
   // 은맘 (소환물)
   for (const F of G.F) if (F.momHp > 0 && F.momT > 0) drawMom(b, F, t);
+  // mola 분신
+  for (const F of G.F) if (F.clone) drawClone(b, F, G, t);
   // 캐릭터 (공격 중인 쪽을 위에)
   const order = [...G.F].sort((p, q) => (p.atk ? 1 : 0) - (q.atk ? 1 : 0));
   for (const F of order) drawFighterInGame(b, F, G, t);
@@ -182,7 +191,7 @@ function renderWorld(b, G, t) {
   const fl = Math.max(FX.flash, G.flash || 0);
   if (fl > 0) { b.fillStyle = `rgba(255,255,240,${fl / 20})`; b.fillRect(0, 0, VW, VH); }
   // 주사위 연출 중 어둡게
-  if (G.dice || (G.freezeT > 0 && G.phase === 'fight')) { b.fillStyle = 'rgba(0,0,0,0.35)'; b.fillRect(0, 0, VW, VH); }
+  if (G.dice || G.qte || (G.freezeT > 0 && G.phase === 'fight')) { b.fillStyle = 'rgba(0,0,0,0.35)'; b.fillRect(0, 0, VW, VH); }
 }
 
 function drawFighterInGame(b, F, G, t) {
@@ -194,9 +203,12 @@ function drawFighterInGame(b, F, G, t) {
   tc.clearRect(0, 0, TMP.width, TMP.height);
   tc.save();
   tc.translate(110, 178);
-  tc.scale(F.f * FSCALE, FSCALE);
-  drawCharacter(tc, F.c, pose, F.anim, {});
+  const sz = F.sz || 1;
+  tc.scale(F.f * FSCALE * sz, FSCALE * sz);
+  drawCharacter(tc, F.c, pose, F.anim, { look: lookOf(F) });
   tc.restore();
+  const alpha = invisAlpha(F, t);
+  if (alpha <= 0) { drawSkillFX(b, F, G, t, sx, sy); return; }
   // 색조 효과
   let tint = null;
   if (F.hitFlash > 0) tint = 'rgba(255,255,255,0.85)';
@@ -206,6 +218,9 @@ function drawFighterInGame(b, F, G, t) {
   else if (F.parryT > 0) tint = 'rgba(150,220,255,0.45)';
   else if (F.poisT > 0 && (t >> 3) % 2) tint = 'rgba(80,255,60,0.22)';
   else if (F.angerT > 0 && (t >> 2) % 2) tint = 'rgba(255,60,30,0.35)';
+  else if (F.earT > 0 && (t >> 4) % 2) tint = 'rgba(195,139,255,0.18)';
+  else if (F.mods.some((m) => m.id === 'form') && (t >> 2) % 2) tint = 'rgba(255,90,180,0.25)';
+  else if (F.mods.some((m) => m.id === 'debuff')) tint = 'rgba(60,40,120,0.3)';
   if (tint) { tc.globalCompositeOperation = 'source-atop'; tc.fillStyle = tint; tc.fillRect(0, 0, TMP.width, TMP.height); tc.globalCompositeOperation = 'source-over'; }
   const ox = Math.round(sx - 110), oy = Math.round(sy - 178);
   // 각성/자극제 외곽 광채
@@ -223,9 +238,16 @@ function drawFighterInGame(b, F, G, t) {
     b.restore();
     if ((t % 3) === 0) FX.parts.push({ k: 'flame', x: F.x + (Math.random() - 0.5) * 24, y: F.y + Math.random() * 80, vx: 0, vy: 0.8, life: 14, c: F.awake ? '#d580ff' : F.stimT > 0 ? '#ff5a3c' : '#5dff9e', r: 2 });
   }
-  b.drawImage(TMP, ox, oy);
+  if (alpha < 1) { b.save(); b.globalAlpha = alpha; b.drawImage(TMP, ox, oy); b.restore(); }
+  else b.drawImage(TMP, ox, oy);
+  drawSkillFX(b, F, G, t, sx, sy);
   // 상태 아이콘
-  const top = sy - 110 * lookOf(F).H * FSCALE;
+  const top = sy - 110 * lookOf(F).H * FSCALE * (F.sz || 1);
+  if (F.stunT > 0 && !F.ko) {
+    for (let i = 0; i < 4; i++) { const a = t * 0.15 + (i * Math.PI) / 2; star(b, sx + Math.cos(a) * 12, top + 2 + Math.sin(a) * 3, 2.5, i % 2 ? '#ffe14d' : '#fff'); }
+  }
+  if (F.drunkT > 0 && !F.ko && (t % 50) < 25) txt(b, '딸꾹', sx + F.f * 12, top - 2 - (t % 50) * 0.2, 6, '#ffd27f', 'center', FONT_KR2, '#000');
+  if ((F.hbT > 0 || F.ttaT > 0) && !F.ko) { b.strokeStyle = '#ff5050'; b.lineWidth = 1.5; b.beginPath(); b.arc(sx - 14, top + 6, 4, 0, Math.PI * 2); b.moveTo(sx - 17, top + 9); b.lineTo(sx - 11, top + 3); b.stroke(); b.fillStyle = '#7dff9a'; b.fillRect(sx - 15, top + 5.5, 2, 1); }
   if (F.rootT > 0 && !F.ko) {
     for (let i = 0; i < 3; i++) { const a = t * 0.12 + (i * Math.PI * 2) / 3; b.fillStyle = '#ffe14d'; star(b, sx + Math.cos(a) * 10, top + 4 + Math.sin(a) * 3, 2.5, '#ffe14d'); }
     b.strokeStyle = '#9aa4b0'; b.lineWidth = 1.5; b.beginPath(); b.ellipse(sx, sy - 2, 14, 4, 0, 0, Math.PI * 2); b.stroke();
@@ -244,6 +266,35 @@ function drawFighterInGame(b, F, G, t) {
   if (APP.mode === 'online' && F.side === APP.mySide && G.phase !== 'end') {
     b.fillStyle = '#ffe14d'; b.beginPath(); b.moveTo(sx - 4, top - 14); b.lineTo(sx + 4, top - 14); b.lineTo(sx, top - 9); b.fill();
   }
+}
+// 지속형 스킬 연출 (불, 입냄새, 웃음, KC, 초크 게이지)
+function drawSkillFX(b, F, G, t, sx, sy) {
+  const H = lookOf(F).H * (F.sz || 1), my = sy - 74 * H * FSCALE, mx = sx + F.f * 16 * H;
+  if (F.fireT > 0) {
+    for (let i = 0; i < 4; i++) FX.parts.push({ k: 'flame', x: F.x + F.f * (18 + Math.random() * 10), y: F.y + 74 * H, vx: F.f * (3 + Math.random() * 2.5), vy: (Math.random() - 0.4) * 0.8, life: 16 + Math.random() * 10, c: ['#ff3d00', '#ffab00', '#ffe14d', '#ff6d00'][i], r: 3 + Math.random() * 3 });
+  }
+  if (F.breathN > 0 && (t % 2) === 0) {
+    FX.parts.push({ k: 'bub', x: F.x + F.f * 18, y: F.y + 72 * H, vx: F.f * (2 + Math.random() * 1.5), vy: (Math.random() - 0.5) * 0.5, life: 22, c: Math.random() < 0.5 ? '#a8ff60' : '#6dbf2a', r: 2 + Math.random() * 3 });
+  }
+  if (F.laughT > 0) txt(b, 'ㅋ'.repeat(1 + ((t >> 2) % 4)), mx + F.f * 6, my - 8, 8, '#ff66b3', 'center', FONT_KR, '#000');
+  if (F.kcT > 0 && (t % 12) < 8) txt(b, 'K C K C', sx, sy - 120 * H * FSCALE, 6, '#ff66b3', 'center', FONT_EN, '#000');
+  if (F.chokeT > 0) {
+    const k = clamp(F.chokeN / BAL[5].chokeNeed, 0, 1), w = 40, y0 = sy - 128 * H;
+    b.fillStyle = '#000'; b.fillRect(sx - w / 2 - 1, y0 - 1, w + 2, 6);
+    b.fillStyle = '#7dff9a'; b.fillRect(sx - w / 2, y0, w * k, 4);
+    txt(b, F.side === APP.mySide && APP.mode !== 'cpu' || (APP.mode === 'cpu' && F.side === 0) ? '연타!!' : '탈출 중', sx, y0 - 3, 6, '#fff', 'center', FONT_KR2, '#000');
+  }
+}
+function drawClone(b, F, G, t) {
+  const C = F.clone;
+  const fake = Object.assign(makeFighter(F.side, F.c), { x: C.x, y: C.y, vx: C.vx, f: C.f, anim: C.anim, hitT: C.hit > 0 ? 1 : 0 });
+  const vs = C.hit > 0 ? 'hit' : C.y > 0.5 ? 'jump' : Math.abs(C.vx) > 0.1 ? 'walk' : 'idle';
+  const [sx, sy] = worldToScreen(C.x, C.y);
+  b.fillStyle = 'rgba(0,0,0,0.32)'; b.beginPath(); b.ellipse(sx, GROUND + 1, radius(F) * 1.2, 3, 0, 0, Math.PI * 2); b.fill();
+  b.save(); b.translate(Math.round(sx), Math.round(sy)); b.scale(C.f * FSCALE, FSCALE);
+  b.globalAlpha = F.side === APP.mySide && !APP.autoP1 ? 0.55 : (C.t < 90 && (t >> 2) % 2 ? 0.6 : 1);
+  drawCharacter(b, F.c, poseOf(fake, vs, G), C.anim, {});
+  b.restore();
 }
 // 은맘: 파마머리 + 앞치마 + 국자를 든 든든한 엄마
 function drawMom(b, F, t) {
@@ -347,6 +398,34 @@ function drawProjectile(b, p, t, G) {
       b.fillRect(3, -8, 5, 2);
       break;
     }
+    case 'vacuum2': {
+      const w = 1.4 + Math.sin(t * 0.6) * 0.2;
+      b.fillStyle = 'rgba(80,170,255,0.35)'; b.beginPath(); b.ellipse(-d * 8, 0, 20 * w, 15, 0, 0, Math.PI * 2); b.fill();
+      b.fillStyle = '#6fc8ff'; b.beginPath(); b.ellipse(0, 0, 15 * w, 11, 0, 0, Math.PI * 2); b.fill();
+      b.fillStyle = '#ffffff'; b.beginPath(); b.ellipse(d * 3, 0, 8, 7, 0, 0, Math.PI * 2); b.fill();
+      b.strokeStyle = '#ffe14d'; b.lineWidth = 1.2; for (let i = 0; i < 4; i++) { b.beginPath(); b.moveTo(-d * (14 + i * 5), -9 + i * 6); b.lineTo(-d * (28 + i * 5), -9 + i * 6); b.stroke(); }
+      break;
+    }
+    case 'crystal':
+      b.rotate(t * 0.35 * d);
+      b.fillStyle = OUT; b.beginPath(); b.moveTo(0, -9); b.lineTo(8, 0); b.lineTo(0, 9); b.lineTo(-8, 0); b.closePath(); b.fill();
+      b.fillStyle = '#9ff6ff'; b.beginPath(); b.moveTo(0, -7.5); b.lineTo(6.5, 0); b.lineTo(0, 7.5); b.lineTo(-6.5, 0); b.closePath(); b.fill();
+      b.fillStyle = '#ffffff'; b.fillRect(-2, -4, 2, 3);
+      b.fillStyle = 'rgba(120,255,240,0.25)'; b.beginPath(); b.arc(0, 0, 12, 0, Math.PI * 2); b.fill();
+      break;
+    case 'shuttle':
+      b.strokeStyle = 'rgba(255,255,255,0.6)'; b.lineWidth = 1; for (let i = 1; i < 4; i++) { b.beginPath(); b.moveTo(-d * i * 8, -2); b.lineTo(-d * (i * 8 + 10), -2); b.stroke(); }
+      b.fillStyle = OUT; b.beginPath(); b.moveTo(d * 6, -3); b.lineTo(-d * 7, -6); b.lineTo(-d * 7, 5); b.lineTo(d * 6, 2); b.fill();
+      b.fillStyle = '#ffffff'; b.beginPath(); b.moveTo(d * 4, -2); b.lineTo(-d * 6, -5); b.lineTo(-d * 6, 4); b.lineTo(d * 4, 1); b.fill();
+      b.fillStyle = '#c0392b'; b.beginPath(); b.arc(d * 5, -0.5, 2.5, 0, Math.PI * 2); b.fill();
+      break;
+    case 'makgeolli':
+      b.rotate(t * 0.3 * d);
+      b.fillStyle = OUT; b.beginPath(); b.ellipse(0, 1, 8, 5, 0, 0, Math.PI); b.fill(); b.fillRect(-8, -1, 16, 2);
+      b.fillStyle = '#d9c9a3'; b.beginPath(); b.ellipse(0, 1, 7, 4, 0, 0, Math.PI); b.fill();
+      b.fillStyle = '#f5f0e0'; b.fillRect(-7, -1, 14, 2);
+      b.fillStyle = 'rgba(245,240,224,0.7)'; b.fillRect(-d * 9, -3, 2, 2);
+      break;
     case 'fart':
       for (let i = 0; i < 5; i++) {
         const a = i * 1.3 + t * 0.1;
@@ -401,6 +480,7 @@ function renderHUD(ctx, G, t) {
     gr.addColorStop(0, low ? '#ffffff' : '#fff27a'); gr.addColorStop(0.5, low ? '#ffd0d0' : '#ffd400'); gr.addColorStop(1, low ? '#ff8080' : '#d49b00');
     ctx.fillStyle = gr;
     if (s === 0) ctx.fillRect(bx + bw - fillW(r), by, fillW(r), bh); else ctx.fillRect(bx, by, fillW(r), bh);
+    if (r > 1) { ctx.fillStyle = (t >> 3) % 2 ? '#7dfcff' : '#3fd8ff'; const ow = fillW(r - 1); if (s === 0) ctx.fillRect(bx + bw - ow, by + 2, ow, bh - 4); else ctx.fillRect(bx, by + 2, ow, bh - 4); }
     ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.fillRect(bx, by + 1, bw, 1);
     // 체력 숫자
     txt(ctx, `${Math.ceil(F.hp)}/${F.maxHp}`, s === 0 ? bx + bw - 2 : bx + 2, by + 8.5, 7, '#fff', s === 0 ? 'right' : 'left', FONT_EN, '#000');
@@ -459,8 +539,10 @@ function renderHUD(ctx, G, t) {
     else txt(ctx, f.t, sx, sy, f.t.length > 3 ? 7 : 9, f.c, 'center', /[가-힣]/.test(f.t) ? FONT_KR : FONT_EN, '#000');
     ctx.globalAlpha = 1;
   }
-  // 주사위
+  // 주사위 / 윷 / 패드립 배틀
   if (G.dice) drawDice(ctx, G.dice, t);
+  if (G.yut) drawYut(ctx, G.yut, t);
+  if (G.qte) drawQTE(ctx, G, t);
   // 아나운서
   drawAnnouncer(ctx, G, t);
 }
@@ -517,6 +599,22 @@ function drawStatus(ctx, F, s, t) {
   if (F.c === TIRON) tags.push(['고통 ' + F.pain + '/' + BAL[11].painMax, '#ff9f43']);
   if (F.c === 2 && !F.revived) tags.push(['부활 대기', '#f5c542']);
   if (F.mul > 1.001) tags.push(['공격 +' + Math.round((F.mul - 1) * 100) + '%', '#ff7b3b']);
+  if (F.stunT > 0) tags.push(['기절', '#ffe14d']);
+  if (F.drunkT > 0) tags.push(['취함 ' + Math.ceil(F.drunkT / SEC) + 's', '#ffd27f']);
+  if (F.hbT > 0) tags.push(['회복불가', '#ff6b6b']);
+  if (F.ttaT > 0) tags.push(['ㄸ방해 ' + Math.ceil(F.ttaT / SEC) + 's', '#ff9f43']);
+  if (F.earT > 0) tags.push(['귀마개 ' + Math.ceil(F.earT / SEC) + 's', '#c38bff']);
+  if (F.invisT > 0) tags.push(['영역 전개', '#f5c542']);
+  if (F.kcT > 0) tags.push(['KC ' + Math.ceil(F.kcT / SEC) + 's', '#ff66b3']);
+  if (F.clone) tags.push(['분신 ' + Math.ceil(F.clone.hp), '#c38bff']);
+  if (F.c === 7) tags.push(['불쾌지수 ' + F.stk, '#a8ff60']);
+  if (F.yank) tags.push(['양크', '#ff9f43']);
+  if (F.c === 4 && F.ddFree) tags.push(['더블다운 1회 더', '#ffb36b']);
+  for (const m of F.mods) {
+    const lab = { focus: '공속↑', debuff: '능력치-20%', rage: '반장의 분노', pen: '벌점', leg1: '다리 회복', grow1: '거대화', form: '폼 미쳤다', burp: '트름 공격↑' }[m.id];
+    if (lab) tags.push([lab + (m.t < 1e8 ? ' ' + Math.ceil(m.t / SEC) + 's' : ''), m.id === 'debuff' || m.id === 'pen' ? '#9f8fff' : '#ffb347']);
+  }
+  if ((F.pm || 1) > 1.001) tags.push(['패시브 +' + Math.round((F.pm - 1) * 100) + '%', '#ffb3e6']);
   let x = s === 0 ? 30 : 450;
   for (const [label, col] of tags) {
     ctx.font = `7px ${FONT_KR2}`;
@@ -539,6 +637,47 @@ function drawDice(ctx, d, t) {
   ctx.restore();
   txt(ctx, '하츠 스테리오!', 240, 124, 11, '#ffcc33', 'center');
   if (d.t === 0) txt(ctx, `${d.res} x ${BAL[4].dicePer} = ${d.res * BAL[4].dicePer}`, 240, 185, 12, '#fff', 'center', FONT_EN);
+}
+
+function drawYut(ctx, y, t) {
+  ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.fillRect(150, 100, 180, 100);
+  txt(ctx, '모 아니면 도!', 240, 118, 12, '#00e676', 'center');
+  for (let i = 0; i < 4; i++) {
+    ctx.save();
+    const fly = y.t > 0;
+    ctx.translate(198 + i * 28, 152 + (fly ? Math.sin(t * 0.5 + i) * 12 : 0));
+    ctx.rotate(fly ? t * 0.3 + i : 0.1 * (i - 1.5));
+    const flat = fly ? (t + i * 3) % 8 < 4 : y.res === 5 ? true : i > 0;
+    ctx.fillStyle = '#000'; ctx.fillRect(-5, -16, 10, 32);
+    ctx.fillStyle = flat ? '#f5deb3' : '#a0522d'; ctx.fillRect(-4, -15, 8, 30);
+    if (!flat) { ctx.fillStyle = '#5d2e0f'; for (let k = -10; k <= 10; k += 10) ctx.fillRect(-2, k - 1, 4, 2); }
+    ctx.restore();
+  }
+  if (y.t === 0) {
+    if (y.res === 5) bigText(ctx, '모!!!', 240, 196, 18, '#fffbe0', '#ffb000', FONT_KR);
+    else bigText(ctx, '도...', 240, 196, 14, '#ffffff', '#888888', FONT_KR);
+  }
+}
+function drawQTE(ctx, G, t) {
+  const q = G.qte;
+  ctx.fillStyle = 'rgba(30,0,0,0.45)'; ctx.fillRect(0, 98, VW, 96);
+  txt(ctx, `🔥 패드립 배틀 ${Math.min(q.i + 1, q.n)} / ${q.n} 🔥`, 240, 112, 11, '#ff9f43', 'center');
+  txt(ctx, String(q.wins[0]), 150, 150, 22, G.F[0].side === APP.mySide ? '#ffe14d' : '#fff', 'center', FONT_EN);
+  txt(ctx, String(q.wins[1]), 330, 150, 22, G.F[1].side === APP.mySide ? '#ffe14d' : '#fff', 'center', FONT_EN);
+  if (q.st === 'wait') txt(ctx, (t >> 3) % 2 ? '준비...' : '', 240, 148, 14, '#fff', 'center');
+  else if (q.st === 'show') {
+    const k = Math.min(1, q.t / 6), sc = 1 + (1 - k) * 0.8;
+    ctx.save(); ctx.translate(240, 152); ctx.scale(sc, sc);
+    ctx.fillStyle = '#000'; ctx.fillRect(-26, -34, 52, 48); ctx.fillStyle = '#ffe14d'; ctx.fillRect(-24, -32, 48, 44);
+    bigText(ctx, q.L, 0, 2, 30, '#ffffff', '#ff3d00');
+    ctx.restore();
+    const me = APP.mySide;
+    if (q.lock[me] > 0) txt(ctx, '틀렸다! 잠시 입력 불가', 240, 182, 8, '#ff7b7b', 'center', FONT_KR2);
+    else txt(ctx, document.body.classList.contains('touch') ? '화면을 터치!' : `키보드 ${q.L} 를 눌러라!`, 240, 182, 8, '#fff', 'center', FONT_KR2);
+  } else {
+    const w = q.last;
+    txt(ctx, w < 0 ? '시간 초과!' : `${CHARS[G.F[w].c].name} 승! (-${BAL[2].qteDmg} / +${BAL[2].qteHeal})`, 240, 150, 12, w < 0 ? '#aaa' : '#7dff9a', 'center');
+  }
 }
 
 function drawAnnouncer(ctx, G, t) {

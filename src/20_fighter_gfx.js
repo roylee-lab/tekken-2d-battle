@@ -83,7 +83,16 @@ function visualState(F, G) {
     if ((G.phase === 'ko' && G.rw === F.side && G.pt > 70) || (G.phase === 'end' && G.mw === F.side)) return 'win';
     if ((G.phase === 'ko' && G.pt > 70 && G.rw !== F.side && G.rw !== -1) || (G.phase === 'end' && G.mw !== F.side && G.mw !== -1)) return 'lose';
   }
+  if (F.chokeT > 0) return 'choked';
+  if (F.chokeHold) return 'choke';
   if (F.hitT > 0) return 'hit';
+  if (F.stunT > 0) return 'dizzy';
+  if (F.flyT > 0) return 'fly';
+  if (F.rushT2 > 0) return 'dash';
+  if (F.laughT > 0) return 'laugh';
+  if (F.fireT > 0 || F.breathN > 0) return 'breathe';
+  if (F.kkT > 0) return 'kk';
+  if (F.shutT > 0) return 'smash';
   if (F.blockT > 0 || F.guard) return 'guard';
   if (F.headT > 0) return 'head';
   if (F.dashT > 0) return 'dash';
@@ -175,6 +184,27 @@ function poseOf(F, vs, G) {
     case 'head':
       p = P({ lean: 0.95, tilt: 0.25, fa: [-0.6, 0.5], ba: [-0.8, 0.4], fl: [0.7, 0.7], bl: [-0.6, 0.2], mouth: 'shout' });
       break;
+    case 'choked':
+      p = P({ lean: -0.3, tilt: -0.35 + Math.sin(t * 0.5) * 0.08, fa: [2.2 + Math.sin(t * 0.7) * 0.3, 0.5], ba: [1.9, 0.6], fl: [0.5, 0.6], bl: [-0.1, 0.4], eyes: 'hurt', mouth: 'open', hand: 'open', bhand: 'open' });
+      break;
+    case 'choke':
+      p = P({ lean: 0.3, fa: [1.9, 1.6], ba: [1.7, 1.7], fl: [0.6, 0.8], bl: [-0.5, 0.4], hand: 'open', bhand: 'open', mouth: 'shout' });
+      break;
+    case 'fly':
+      p = P({ lean: 0.5, air: true, fa: [2.6, 0.3], ba: [2.4, 0.4], fl: [1.2, 1.6], bl: [0.4, 1.4], mouth: 'shout' });
+      break;
+    case 'laugh':
+      p = P({ lean: -0.25 + Math.sin(t * 0.9) * 0.08, tilt: -0.3, fa: [0.4, 1.9], ba: [0.3, 2.0], fl: [0.2, 0.1], bl: [-0.2, 0.1], mouth: 'open', eyes: 'closed' });
+      break;
+    case 'breathe':
+      p.lean = 0.25; p.tilt = 0.1; p.mouth = 'shout'; p.fa = [0.6, 1.5]; p.ba = [0.4, 1.6];
+      break;
+    case 'kk':
+      p.tilt = 0.55 * Math.sin(t * 0.8); p.lean = 0.2; p.fa = [1.5, 0.3]; p.hand = 'open'; p.mouth = 'shout';
+      break;
+    case 'smash':
+      p.fa = [2.9, 0.4]; p.lean = -0.2; p.mouth = 'shout'; p.hand = 'fist';
+      break;
     default: break;
   }
   if (F.board && vs !== 'ko') p.board = true;
@@ -198,7 +228,7 @@ function winPose(c, t) {
 // (0,0) = 발 중앙, 오른쪽을 바라보는 기준으로 그림
 function drawCharacter(ctx, c, pose, t, opts) {
   opts = opts || {};
-  const L = CHARS[c].look, H = L.H, b = L.b, A = L.acc;
+  const L = opts.look || CHARS[c].look, H = L.H, b = L.b, A = L.acc;
   const thL = 21 * H, shL = 21 * H, toL = 27 * H, uaL = 16 * H, faL = 15 * H, hr = b.headR * H;
   const skin = L.skin;
   const longSleeve = ['hoodie', 'track', 'jacket', 'coat', 'robe', 'hackerHood', 'dragon'].includes(L.topStyle);
@@ -269,6 +299,11 @@ function drawCharacter(ctx, c, pose, t, opts) {
       ell(ctx, 4, -2, 4, 3, '#b5651d'); seg(ctx, 0, 0, -3, 3, 1.5, '#f5f0e0', false);
       ctx.restore();
     } else circ(ctx, AR.hx, AR.hy, foreW * 0.78, hc2);
+    if (isFront && A.mic && handType !== 'open' && handType !== 'food') {
+      const mx = AR.hx + Math.sin(AR.a2 + 2.6) * 7, my = AR.hy + Math.cos(AR.a2 + 2.6) * 7;
+      seg(ctx, AR.hx, AR.hy, mx, my, 1.6, '#333', false);
+      circ(ctx, mx, my, 2, '#bbb');
+    }
   };
 
   const pantsCol = L.pants;
@@ -465,6 +500,12 @@ function drawTorsoDetail(ctx, L, tw, cw, ww, toL, H, t) {
       line([[0, -1.5], [ww * 0.6, -1.5]], sh(L.pants, -0.2), 2.5);
       break;
   }
+  if (A.sequin) {
+    for (let i = 0; i < 9; i++) {
+      const q = tw(((i * 37) % 11 - 5) * 0.09 * cw, -toL * (0.15 + ((i * 53) % 10) * 0.075));
+      ctx.fillStyle = (i + (t >> 3)) % 3 === 0 ? '#ffffff' : '#ffd1ec'; ctx.fillRect(q[0] - 0.6, q[1] - 0.6, 1.3, 1.3);
+    }
+  }
   if (L.topStyle === 'dragon') {
     // 등 가시
     ctx.fillStyle = '#ffcc33';
@@ -477,7 +518,7 @@ function drawTorsoDetail(ctx, L, tw, cw, ww, toL, H, t) {
 
 // 머리 (로컬 좌표: 중심 0,0 / 오른쪽 바라봄)
 function drawHead(ctx, c, r, pose, t, opts) {
-  const L = CHARS[c].look, A = L.acc, hair = L.hair;
+  const L = (opts && opts.look) || CHARS[c].look, A = L.acc, hair = L.hair;
   const rx = r * (A.roundFace ? 1.1 : 0.96), ry = r;
   // 후드 (머리 뒤)
   if (L.topStyle === 'hoodie' || L.topStyle === 'hackerHood') ell(ctx, -r * 0.7, r * 0.75, r * 0.65, r * 0.45, sh(L.top, -0.15));
@@ -557,6 +598,16 @@ function drawHead(ctx, c, r, pose, t, opts) {
     ctx.fillStyle = OUT; ctx.fillRect(-r * 1.55, -r * 0.62, r * 0.75, 2.2);
     ctx.fillStyle = A.capBack; ctx.fillRect(-r * 1.5, -r * 0.6, r * 0.65, 1.2);
     ctx.fillStyle = '#ff007f'; ctx.fillRect(-r * 0.2, -r * 0.95, 2, 2);
+  }
+  if (A.earmuff) {
+    // 거꾸로 쓴 귀마개: 띠가 턱 아래로
+    ctx.strokeStyle = OUT; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(-r * 0.15, r * 0.2, r * 1.05, 0.15, Math.PI - 0.15); ctx.stroke();
+    ctx.strokeStyle = '#c38bff'; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.arc(-r * 0.15, r * 0.2, r * 1.05, 0.15, Math.PI - 0.15); ctx.stroke();
+    ell(ctx, -r * 0.18, r * 0.08, r * 0.38, r * 0.42, '#ff9ad5');
+  }
+  if (A.drunk) {
+    ctx.fillStyle = 'rgba(255,60,80,0.55)'; ctx.beginPath(); ctx.ellipse(r * 0.45, r * 0.3, r * 0.3, r * 0.18, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,60,80,0.35)'; ctx.fillRect(r * 0.9, -r * 0.05, r * 0.25, r * 0.3);
   }
   if (A.horns || L.topStyle === 'dragon') {
     // 드래곤 후드: 머리 윗부분/뒤를 덮음

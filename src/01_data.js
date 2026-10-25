@@ -25,21 +25,22 @@ const SLOT_CD = [5, 10, 30, 60];               // 슬롯별 쿨타임(초)
 const SLOT_CD_START = [5, 10, 20, 30];         // 라운드 시작 시 첫 쿨타임(초)
 function cdText(k) { return SLOT_CD_START[k] !== SLOT_CD[k] ? `첫 ${SLOT_CD_START[k]}초 · 이후 ${SLOT_CD[k]}초` : `${SLOT_CD[k]}초`; }
 const ATK = { pBase: 8, pStep: 3, kickMul: 0.5, pReach: 38, kReach: 60 };
-const BAL = {   // v2 밸런스 패치 (AI 대전 시뮬레이션 기반)
-  0: { hp: 100, vacPush: 8, vacStun: 30, stimT: 300, stimLS: 1.0 },
-  1: { hp: 96, toothN: 4, toothDmg: 3, cutPct: 0.045, regen: 10, regenSec: 8 },
-  2: { hp: 150, dashT: 6, parryT: 30, reviveHp: 0.5 },
-  3: { hp: 108, bambooDmg: 12, shootDmg: 9, shootMax: 3, spd: 1.2, cdRed: 0.2 },
-  4: { hp: 92, ddHeal: 0.06, ddEvery: 4, ddMax: 0.1, dicePer: 5, angerEvery: 3, angerAdd: 0.05, friend: 0.1,
+const BAL = {   // v3 밸런스 패치 (E/R 추가, AI 대전 시뮬레이션 기반)
+  0: { hp: 103, vacPush: 8, vacStun: 33, stimT: 330, stimLS: 1.0, focusT: 1200, focus: 1.2, vac2Dmg: 15, vac2Stun: 60 },
+  1: { hp: 96, toothN: 4, toothDmg: 3, cutPct: 0.045, regen: 10, regenSec: 8, cloneT: 1200, debuffT: 600, debuff: 0.2 },
+  2: { hp: 165, dashT: 6, parryT: 35, reviveHp: 0.65, qteN: 5, qteDmg: 10, qteHeal: 10, invisT: 300, invisSpd: 1.5 },
+  3: { hp: 103, bambooDmg: 10.5, shootDmg: 7.8, shootMax: 3, spd: 1.2, cdRed: 0.2, crystalDmg: 20, flyDmg: 50 },
+  4: { hp: 90, ddHeal: 0.057, ddEvery: 4, ddMax: 0.1, dicePer: 4.7, angerEvery: 3, angerAdd: 0.05, friend: 0.1, ddTwice: 0.318,
     momPct: 0.318, momSec: 31.8, curseSec: 31.8, curseDR: 0.318, curseAtk: 0.318, curseRefl: 0.318 },
-  5: { hp: 86, nunDmg: 4, nunRoot: 40, prep: 120, act: 84, atkUp: 0.1 },
-  6: { hp: 95, meokT: 36, manT: 54 },
-  7: { hp: 96, gaeDmg: 5, gaeRoot: 60, poisT: 300, poisTick: 1, footExt: 60 },
-  8: { hp: 90, noteDiff: 0.3, noteSame: 0.15, noteHeal: 4, boardSpd: 1.2, dr: 0.1 },
-  9: { hp: 100, pressRoot: 30, pressSlow: 90, forceT: 150, awakeSec: 30, awakeMul: 1.3, awakeCd: 1 },
-  10: { hp: 100, fartMul: 0.5, explMul: 2, poisT: 300, poisTick: 1, bombRed: 5 },
-  11: { hp: 95, painMax: 5, painRoot: 162, majRoot: 54, majBoost: 180, majSpd: 0.1 },
-  12: { hp: 110, sealSec: 8, headDmg: 13, spikeT: 300, spikeDR: 0.1 },
+  5: { hp: 85, nunDmg: 3.8, nunRoot: 38, prep: 120, act: 81, atkUp: 0.1, rushDmg: 12, rushStun: 60, chokeDps: 10, chokeNeed: 40, chokeMax: 360 },
+  6: { hp: 94, meokT: 35, manT: 53, ttaT: 1200, bellyHeal: 150, bellySpd: 1.3 },
+  7: { hp: 93, gaeDmg: 4.5, gaeRoot: 55, poisT: 270, poisTick: 1, footExt: 60, stackMax: 5, breathDmg: 5, breathStun: 60, breathHB: 180, burpAtk: 0.1, burpHeal: 10, burpStun: 60, burpT: 600 },
+  8: { hp: 94, noteDiff: 0.34, noteSame: 0.15, noteHeal: 5, boardSpd: 1.2, dr: 0.1, laughDmg: 300, laughWind: 24, laughReach: 12, kcT: 300, kcDmg: 1 },
+  9: { hp: 100, pressRoot: 30, pressSlow: 90, forceT: 150, awakeSec: 30, awakeMul: 1.3, awakeCd: 1, rageT: 1200, rage: 1.3, penT: 120, penSlow: 0.25, earT: 1800 },
+  10: { hp: 100, fartMul: 0.5, explMul: 2, poisT: 300, poisTick: 1, bombRed: 5, legT: 1200, leg: 1.3, shuttleHit: 50, shuttleBlock: 5 },
+  11: { hp: 98, painMax: 5, painRoot: 176, majRoot: 59, majBoost: 180, majSpd: 0.1, yankP: 0.5, fireT: 45, fireDmg: 1 },
+  12: { hp: 94, sealSec: 5, headDmg: 8.3, spikeT: 300, spikeDR: 0.1, otaku: 0.1, growT: 1200, grow: 1.3, moP: 0.5, moPct: 0.5 },
+  13: { hp: 86, late: 0.1, kkDmg: 5, drunkT: 300, jjinSelf: 10, jjinStun: 150, formT: 600, form: 1.3 },
 };
 function skillDef(c, slot) { return CHARS[c]['s' + (slot + 1)] || null; }
 function skillInfo(c, slot) { const d = skillDef(c, slot); return d ? d.info(BAL[c]) : '비어 있는 슬롯 (추후 추가 예정)'; }
@@ -51,7 +52,9 @@ const CHARS = [
     name: '일반인', en: 'ILBANIN', color: '#3498db', country: 'KR', stage: 'seoul',
     desc: ['유연한 표준형 파이터', '흡혈 자극제 보유'],
     s1: { name: '진공파', info: (b) => `데미지 0 / 상대를 크게 밀어내고 ${(b.vacStun / 60).toFixed(1)}초 경직` },
-    s2: { name: '전투자극제', info: (b) => `${b.stimT / 60}초간 입힌 피해 ${Math.round(b.stimLS * 100)}% 흡혈` },
+    s2: { name: '전투자극제', heal: true, info: (b) => `${b.stimT / 60}초간 입힌 피해 ${Math.round(b.stimLS * 100)}% 흡혈` },
+    s3: { name: '정신 집중', info: (b) => `${b.focusT / 60}초간 공격 속도 +${Math.round((b.focus - 1) * 100)}%` },
+    s4: { name: '강화 진공파', info: (b) => `거대 진공파 ${b.vac2Dmg} 데미지 + 맞으면 ${(b.vac2Stun / 60).toFixed(1)}초 기절` },
     passive: { name: '끈기', desc: () => '가드 중 밀려나지 않음 + 진공파 막기' },
     look: {
       H: 1.0, b: build({}), skin: '#f2c793', hair: { style: 'short', color: '#1b1b1f' },
@@ -63,6 +66,8 @@ const CHARS = [
     desc: ['어금니 특수 파이터', '체력 5% 확정 일격'],
     s1: { name: '어금니 러쉬', info: (b) => `어금니 ${b.toothN}연발 (발당 ${b.toothDmg}) / 가드 시 70% 경감` },
     s2: { name: '몰라컷', info: (b) => `후퇴 후 적 현재 체력 ${Math.round(b.cutPct * 100)}% 확정 피해` },
+    s3: { name: '현란한 드리블', info: (b) => `${b.cloneT / 60}초간 상대 반대편에 움직이는 분신 (mola와 같은 체력, 공격 안 함)` },
+    s4: { name: '디버프', info: (b) => `${b.debuffT / 60}초간 상대 모든 능력치 -${Math.round(b.debuff * 100)}%` },
     passive: { name: '확정적 어금니', desc: (b) => `${b.regenSec}초마다 체력 ${b.regen} 회복` },
     look: {
       H: 1.0, b: build({}), skin: '#efc28c', hair: { style: 'parted', color: '#141414' },
@@ -74,6 +79,8 @@ const CHARS = [
     desc: ['기동성과 방어 반사', '순간 대시와 패링'],
     s1: { name: '대시', info: (b) => `입력 방향으로 순간 고속 이동 (${b.dashT * 12}px)` },
     s2: { name: '패링', info: (b) => `${(b.parryT / 60).toFixed(2)}초간 공격 무효화 및 반사 밀어내기` },
+    s3: { name: '패드립 배틀', heal: true, info: (b) => `화면의 글자를 먼저 누른 쪽이 고정 ${b.qteDmg} 피해 + ${b.qteHeal} 회복 (${b.qteN}글자)` },
+    s4: { name: '영역 전개', info: (b) => `${b.invisT / 60}초간 상대에게 보이지 않음 + 이동속도 +${Math.round((b.invisSpd - 1) * 100)}%` },
     passive: { name: '부활', desc: (b) => `라운드마다 1회, 쓰러지면 체력 ${Math.round(b.reviveHp * 100)}%로 부활` },
     look: {
       H: 0.84, b: build({ torsoW: 14, waistW: 11.5, thigh: 6.2, shin: 5.2, arm: 4.8, fore: 4.3 }), skin: '#5e3a22',
@@ -85,6 +92,8 @@ const CHARS = [
     desc: ['대나무와 죽순 고수', '쿨타임 감소 패시브'],
     s1: { name: '죽림 베기', info: (b) => `대나무 찌르기 ${b.bambooDmg} 데미지 (가드 시 70% 경감)` },
     s2: { name: '죽순', info: (b) => `밟으면 데미지 ${b.shootDmg}를 주는 죽순 설치 (최대 ${b.shootMax}개)` },
+    s3: { name: '롤링 크리스탈 플래시', info: (b) => `굴러가는 크리스탈, 맞으면 고정 ${b.crystalDmg} 피해 (가드 무시)` },
+    s4: { name: '플라잉 바르셀로나 어택', info: (b) => `날아올라 내리꽂기, 착지 지점에 있으면 고정 ${b.flyDmg} 피해` },
     passive: { name: '죽림 고수', desc: (b) => `이동속도 +${Math.round((b.spd - 1) * 100)}% / 공격 적중 시 모든 쿨타임 ${b.cdRed}초 감소` },
     look: {
       H: 1.0, b: build({}), skin: '#e8b98a', hair: { style: 'topknot', color: '#202020' },
@@ -94,11 +103,11 @@ const CHARS = [
   {
     name: '이은뚱', en: 'EUNTTUNG', color: '#e67e22', country: 'CN', stage: 'greatwall',
     desc: ['체력 회복 및 주사위', '운명의 힘을 다룸 (체지방률 31.8%)'],
-    s1: { name: '더블다운', info: (b) => `최대 체력 ${Math.round(b.ddHeal * 100)}% 회복 / ${b.ddEvery}회마다 최대 체력 ${Math.round(b.ddMax * 100)}% 증가` },
+    s1: { name: '더블다운', heal: true, info: (b) => `최대 체력 ${Math.round(b.ddHeal * 100)}% 회복 / ${b.ddEvery}회마다 최대 체력 ${Math.round(b.ddMax * 100)}% 증가` },
     s2: { name: '하츠 스테리오', info: (b) => `주사위 눈 x ${b.dicePer} 데미지 / ${b.angerEvery}번마다 공격력 +${Math.round(b.angerAdd * 100)}% & 분노` },
-    s3: { name: '은맘', info: (b) => `현재 최대 체력의 ${(b.momPct * 100).toFixed(1)}% 체력을 가진 은맘 소환. 모든 피해·방해효과를 대신 받음 (파괴되거나 ${b.momSec}초 후 사라짐)` },
-    s4: { name: '31.8의 저주', info: (b) => `${b.curseSec}초간 받는 피해 ${(b.curseDR * 100).toFixed(1)}% 감소 · 공격력 ${(b.curseAtk * 100).toFixed(1)}% 증가 · 받은 피해의 ${(b.curseRefl * 100).toFixed(1)}% 반사` },
-    passive: { name: '우리는 친구', desc: (b) => `상대가 mola나 JJjin일 때 능력 +${Math.round(b.friend * 100)}%` },
+    s3: { name: '은맘', info: (b) => `최대 체력 ${(b.momPct * 100).toFixed(1)}%의 은맘 소환, 모든 피해·방해를 대신 받음 (${b.momSec}초)` },
+    s4: { name: '31.8의 저주', info: (b) => `${b.curseSec}초간 받는 피해 -${(b.curseDR * 100).toFixed(1)}% · 공격 +${(b.curseAtk * 100).toFixed(1)}% · 피해 ${(b.curseRefl * 100).toFixed(1)}% 반사` },
+    passive: { name: '우리는 친구 · 31.8', desc: (b) => `상대가 mola·JJjin이면 능력 +${Math.round(b.friend * 100)}% / 더블다운 ${(b.ddTwice * 100).toFixed(1)}% 확률로 연속 2회` },
     look: {
       H: 1.0, b: build({ torsoW: 18, waistW: 19, belly: 0.75, thigh: 8, shin: 6.5, arm: 6, fore: 5.5, headR: 9.6 }), skin: '#f0c49a',
       hair: { style: 'short', color: '#18181a' }, top: '#e67e22', topStyle: 'tee', pants: '#5d4037', shoes: '#ddd', acc: { glasses: true, lips: true, roundFace: true },
@@ -109,6 +118,8 @@ const CHARS = [
     desc: ['유술(주짓수) 마스터', '쌍절곤 제압과 공격 무효화'],
     s1: { name: '客氣', info: (b) => `쌍절곤 투척 ${b.nunDmg} 데미지, 맞은 적 ${(b.nunRoot / 60).toFixed(1)}초 고정` },
     s2: { name: '正義', info: (b) => `${(b.prep / 60).toFixed(1)}초 자기 구속 후 ${(b.act / 60).toFixed(1)}초간 모든 공격 무효` },
+    s3: { name: '분노의 질주', info: (b) => `전력 돌진, 부딪히면 ${b.rushDmg} 피해 + ${(b.rushStun / 60).toFixed(1)}초 넘어뜨림` },
+    s4: { name: 'Jiu-jitsu', info: (b) => `근접 초크: 초당 고정 ${b.chokeDps} 피해, 아무 키 ${b.chokeNeed}번 연타 시 탈출` },
     passive: { name: '有段者', desc: (b) => `일반 공격 및 발차기 데미지 +${Math.round(b.atkUp * 100)}%` },
     look: {
       H: 1.15, b: build({ torsoW: 19, waistW: 13, thigh: 7.5, shin: 6, arm: 6.8, fore: 6, muscle: 1, headR: 8.6 }), skin: '#e9b98c',
@@ -119,7 +130,9 @@ const CHARS = [
     name: '안거녕', en: 'ANGEONYEONG', color: '#d35400', country: 'IT', stage: 'pisa',
     desc: ['원거리 무적 및 방어', '만물포용력 체력 흡수'],
     s1: { name: '먹부림', info: (b) => `${(b.meokT / 60).toFixed(1)}초간 무적 (체력 안 닳음)` },
-    s2: { name: '만물포용력', info: (b) => `${(b.manT / 60).toFixed(1)}초간 받는 데미지를 체력 회복으로 전환` },
+    s2: { name: '만물포용력', heal: true, info: (b) => `${(b.manT / 60).toFixed(1)}초간 받는 데미지를 체력 회복으로 전환` },
+    s3: { name: 'ㄸ방해', info: (b) => `${b.ttaT / 60}초간 상대의 회복 스킬 사용 불가 + 모든 회복 차단` },
+    s4: { name: '줄어든 뱃살', heal: true, info: (b) => `뱃살 제거! 체력 ${b.bellyHeal} 회복(최대 초과) + 이속 +${Math.round((b.bellySpd - 1) * 100)}% (라운드당 1회)` },
     passive: { name: '난 그렇게 생각 안 한다', desc: () => '어금니, 진공파 등 모든 원거리 투사체 완전 무적' },
     look: {
       H: 1.0, b: build({ torsoW: 21, waistW: 23, belly: 1.0, thigh: 9.2, shin: 7.2, arm: 6.8, fore: 6.2, headR: 10.2 }), skin: '#f1c8a0',
@@ -131,7 +144,9 @@ const CHARS = [
     desc: ['독과 구속의 특수 요원', '양치 안 한 입냄새의 위력'],
     s1: { name: '개구라', info: (b) => `${b.gaeDmg} 데미지 + ${(b.gaeRoot / 60).toFixed(1)}초 구속 및 밀어내기` },
     s2: { name: '독 탄환', info: (b) => `데미지 없는 독(${b.poisT / 60}초, 초당 ${b.poisTick}) 부여 탄환` },
-    passive: { name: '개쩌는발냄새', desc: (b) => `발차기 적중 시 상대가 독 상태라면 지속시간 ${b.footExt / 60}초 연장` },
+    s3: { name: '입냄새 공격', info: (b) => `입냄새 ${b.breathDmg} 피해 x3 → ${(b.breathStun / 60).toFixed(0)}초 기절 + ${b.breathHB / 60}초 회복 불가` },
+    s4: { name: '초거대 트름', heal: true, info: (b) => `불쾌지수 스택당 공격력 +${Math.round(b.burpAtk * 100)}%(${b.burpT / 60}초) · 체력 +${b.burpHeal} · 근처 상대 기절 ${(b.burpStun / 60).toFixed(1)}초` },
+    passive: { name: '개쩌는발냄새 · 불쾌지수', desc: (b) => `독 상태 상대 발차기 시 독 ${b.footExt / 60}초 연장 / 스킬마다 불쾌지수 +1 (최대 ${b.stackMax})` },
     look: {
       H: 1.13, b: build({ torsoW: 15.5, waistW: 12.5, thigh: 6.4, shin: 5.4, arm: 4.9, fore: 4.4 }), skin: '#e3b48a',
       hair: { style: 'shaggy', color: '#2b2416' }, top: '#27ae60', topStyle: 'jacket', pants: '#1c2833', shoes: '#556b2f', acc: { yellowTeeth: true, stink: true },
@@ -141,8 +156,10 @@ const CHARS = [
     name: '힙찔 강', en: 'HIPJJIL KANG', color: '#ff007f', country: 'BR', stage: 'copacabana',
     desc: ['음악과 불협화음의 파이터', '음파 연사와 보드 기동'],
     s1: { name: '음파', info: (b) => `음표 3연발 (모두 적중 시 체력 ${b.noteHeal} 회복)` },
-    s2: { name: '보드', info: (b) => `이속 +${Math.round((b.boardSpd - 1) * 100)}% & 더블 점프 / 공격 1회 방어 후 파괴 (파괴 후 쿨타임 시작)` },
-    passive: { name: '불협화음', desc: (b) => `상대와 캐릭터가 다르면 받는 피해 ${Math.round(b.dr * 100)}% 감소 & 음파 데미지 ${+(b.noteDiff / b.noteSame).toFixed(1)}배` },
+    s2: { name: '보드', info: (b) => `이속 +${Math.round((b.boardSpd - 1) * 100)}% & 더블 점프 / 공격 1회 방어 후 파괴` },
+    s3: { name: '특유의 웃음', info: (b) => `${(b.laughWind / 60).toFixed(1)}초 웃은 뒤 초근접 상대에게 고정 ${b.laughDmg} 피해 (맞으면 취소)` },
+    s4: { name: 'KC', info: (b) => `${b.kcT / 60}초간 K·C 누를 때마다 고정 ${b.kcDmg} 피해 (모바일: 화면 터치)` },
+    passive: { name: '불협화음', desc: (b) => `상대와 캐릭터가 다르면 받는 피해 -${Math.round(b.dr * 100)}% & 음파 ${+(b.noteDiff / b.noteSame).toFixed(1)}배` },
     look: {
       H: 1.06, b: build({ torsoW: 13, waistW: 10.5, thigh: 5.2, shin: 4.5, arm: 4, fore: 3.6, headR: 8.2 }), skin: '#f3c9a0',
       hair: { style: 'short', color: '#151515' }, top: '#ff007f', topStyle: 'hoodie', pants: '#222', shoes: '#fff', acc: { glasses: true, capBack: '#111', phones: true, chain: true },
@@ -153,6 +170,8 @@ const CHARS = [
     desc: ['가오가 지배하는 파이터', '압도와 포스 발산'],
     s1: { name: '압도', info: (b) => `적 ${(b.pressRoot / 60).toFixed(1)}초 구속, ${b.pressSlow / 60}초간 이속 50% 감소 & 공격 딜레이 증가` },
     s2: { name: '포스', info: (b) => `${b.forceT / 60}초간 상대 가드 불가` },
+    s3: { name: '반장의 분노', info: (b) => `${b.rageT / 60}초간 사거리 +${Math.round((b.rage - 1) * 100)}%, 적중 시 벌점(${b.penT / 60}초 이속 -${Math.round(b.penSlow * 100)}%)` },
+    s4: { name: '거꾸로 쓴 귀마개', info: (b) => `${b.earT / 60}초간 모든 방해 효과·상대 스킬 피해 무시` },
     passive: { name: '범접불가', desc: (b) => `라운드 ${b.awakeSec}초 후 가오 각성: 이속/공속 +${Math.round((b.awakeMul - 1) * 100)}%, 쿨타임 ${b.awakeCd}초 감소` },
     look: {
       H: 1.12, b: build({ torsoW: 17, waistW: 12.5, thigh: 6.8, shin: 5.6, arm: 5.6, fore: 5, muscle: 0.5 }), skin: '#eec39a',
@@ -164,6 +183,8 @@ const CHARS = [
     desc: ['독과 폭발의 마스터', '시한폭탄 패시브 보유'],
     s1: { name: '독방구', info: (b) => `발차기 2배 사거리 독구름 / ${Math.round(b.fartMul * 100)}% 데미지 + 독` },
     s2: { name: '독 폭발', info: (b) => `발차기 사거리 폭발 / ${b.explMul}배 데미지(가드 무시) + 독` },
+    s3: { name: '다리 회복', info: (b) => `${b.legT / 60}초간 이동속도·발차기 데미지·발차기 사거리 +${Math.round((b.leg - 1) * 100)}%` },
+    s4: { name: '배드민턴 스매시', info: (b) => `엄청 빠른 셔틀콕 1개! 맞으면 ${b.shuttleHit} 피해, 가드하면 ${b.shuttleBlock} 피해` },
     passive: { name: '시한폭탄', desc: (b) => `자신/적 체력 50% 이하가 될 때마다 W 쿨타임 ${b.bombRed}초 감소` },
     look: {
       H: 1.0, b: build({ torsoW: 15, waistW: 15, thigh: 10.5, shin: 8, hips: 6 }), skin: '#f0c697',
@@ -175,6 +196,8 @@ const CHARS = [
     desc: ['비밀의 히든 파이터', 'AI 딸깍과 괴룡의 힘'],
     s1: { name: 'ai 딸깍', info: () => '모든 캐릭터의 Q/W 스킬 중 무작위 1개 카피 발동' },
     s2: { name: '압도적위엄', info: (b) => `적 ${(b.majRoot / 60).toFixed(1)}초 고정 & ${b.majBoost / 60}초간 이동속도 ${Math.round(b.majSpd * 100)}% 증가` },
+    s3: { name: '양크', info: (b) => `이번 라운드 동안 모든 공격이 ${Math.round(b.yankP * 100)}% 확률로 2배 피해` },
+    s4: { name: '파이어 브레스', info: (b) => `${(b.fireT / 60).toFixed(2)}초간 불을 뿜음, 닿는 매 프레임 ${b.fireDmg} 피해 (가드 시 경감)` },
     passive: { name: '괴룡', desc: (b) => `피격 시 고통 1스택 (${b.painMax}스택 시 적 ${b.painRoot / 60}초 구속)` },
     look: {
       H: 1.08, b: build({ torsoW: 17, waistW: 13, thigh: 7, shin: 5.8, arm: 5.6, fore: 5, muscle: 0.4 }), skin: '#eab88a',
@@ -184,17 +207,33 @@ const CHARS = [
   {
     name: '힌참휴', en: 'HINCHAMHYU', color: '#00e676', country: 'JP', stage: 'tokyo',
     desc: ['천재 해커 파이터', '해킹과 뾰족한 머리'],
-    s1: { name: '해킹', info: (b) => `상대 스킬 1개 ${b.sealSec}초 봉인 + 그 스킬 1회 복제 (복제는 Q 다시 누르기)` },
-    s2: { name: '뾰족한 머리', info: (b) => `박치기로 고정 피해 ${b.headDmg} + ${b.spikeT / 60}초간 받는 피해 ${Math.round(b.spikeDR * 100)}% 경감` },
-    passive: { name: '없음', desc: () => '스킬 특화형 (패시브 없음)' },
+    s1: { name: '해킹', info: (b) => `상대 스킬 1개 ${b.sealSec}초 봉인 + 1회 복제 (Q 다시 누르기)` },
+    s2: { name: '뾰족한 머리', info: (b) => `박치기 고정 ${b.headDmg} 피해 + ${b.spikeT / 60}초간 받는 피해 -${Math.round(b.spikeDR * 100)}%` },
+    s3: { name: '난쟁이의 희망', info: (b) => `${b.growT / 60}초간 사거리·몸집 +${Math.round((b.grow - 1) * 100)}% (맞는 범위도 커짐)` },
+    s4: { name: '모 아니면 도', info: (b) => `윷! ${Math.round(b.moP * 100)}% 모: 상대 현재 체력 ${Math.round(b.moPct * 100)}% 고정 피해 / 도: 1 피해` },
+    passive: { name: '오타쿠', desc: (b) => `상대가 이은뚱이면 모든 능력치 +${Math.round(b.otaku * 100)}%, 일본 스테이지에서 +${Math.round(b.otaku * 100)}% (중첩)` },
     look: {
       H: 1.02, b: build({ torsoW: 14.5, waistW: 12, thigh: 6, shin: 5.2, arm: 4.6, fore: 4.2 }), skin: '#f2c99e',
       hair: { style: 'spiky', color: '#1a1a1a' }, top: '#111a14', topStyle: 'hackerHood', pants: '#0b0f0c', shoes: '#00e676', acc: { visor: true },
     },
   },
+  {
+    name: '영탁', en: 'YOUNGTAK', color: '#e84393', country: 'KR', stage: 'seoul',
+    desc: ['트로트 파이터', '키만 크고 몸은 약하다'],
+    s1: { name: '꺾어', info: (b) => `목을 꺾는 근접 일격, 고정 ${b.kkDmg} 피해 (가드 무시)` },
+    s2: { name: '막걸리 한잔', info: (b) => `막걸리 투척, 맞으면 ${b.drunkT / 60}초 취함 (←→ 반대, 가드↔점프 반대)` },
+    s3: { name: '찐이야', info: (b) => `자신이 ${b.jjinSelf} 피해를 입고 상대 ${(b.jjinStun / 60).toFixed(1)}초 기절` },
+    s4: { name: '폼 미쳤다', info: (b) => `${b.formT / 60}초간 모든 능력치 +${Math.round((b.form - 1) * 100)}%` },
+    passive: { name: '니가 왜 거기서 나와', desc: (b) => `상대가 먼저 고른 뒤에 영탁을 고르면 모든 능력치 +${Math.round(b.late * 100)}%` },
+    look: {
+      H: 1.08, b: build({ torsoW: 10.5, waistW: 8, thigh: 4, shin: 3.6, arm: 3.1, fore: 2.8, headR: 8.1 }), skin: '#f1c9a0',
+      hair: { style: 'slick', color: '#2a1a12' }, top: '#e84393', topStyle: 'coat', pants: '#1c1c28', shoes: '#f5f5f5', acc: { sequin: true, mic: true },
+    },
+  },
 ];
-const SELECT_ORDER = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12]; // 6x2 그리드 (Tirón은 K로)
-const TIRON = 11, HINCHAM = 12;
+const SELECT_ORDER = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 13]; // 7+6 그리드 (Tirón은 K로)
+const SEL_COLS = 7;
+const TIRON = 11, HINCHAM = 12, YOUNGTAK = 13;
 
 // 승리 기록
 function getRecords() {

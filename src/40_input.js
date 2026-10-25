@@ -10,9 +10,15 @@ const KEYMAP = {
 const BTN_BIT = { L: B_L, R: B_R, U: B_U, D: B_D, P: B_P, K: B_K, S1: B_S1, S2: B_S2, S3: B_S3, S4: B_S4 };
 const IN = {
   held: new Set(), pressed: new Set(), counts: { U: 0, P: 0, K: 0, S1: 0, S2: 0, S3: 0, S4: 0 },
+  // 글자 입력(패드립 배틀/KC)과 연타 횟수(초크 탈출)
+  keyLog: [], keySeq: 0, keyTaken: 0, anyN: 0, anyTaken: 0,
+  letter(L) { this.keySeq++; this.keyLog.push([this.keySeq, L]); if (this.keyLog.length > 40) this.keyLog.shift(); },
+  takeKeys() { let s = ''; for (const [q, L] of this.keyLog) if (q > this.keyTaken) s += L; this.keyTaken = this.keySeq; return s; },
+  takeAny() { const n = this.anyN - this.anyTaken; this.anyTaken = this.anyN; return n; },
+  syncTaken() { this.keyTaken = this.keySeq; this.anyTaken = this.anyN; },
   down(b) {
     AUD.resume();
-    if (!this.held.has(b)) { this.pressed.add(b); if (b in this.counts) this.counts[b]++; }
+    if (!this.held.has(b)) { this.pressed.add(b); if (b in this.counts) this.counts[b]++; this.anyN++; }
     this.held.add(b);
   },
   up(b) { this.held.delete(b); },
@@ -25,8 +31,10 @@ const IN = {
 function inTextField(e) { const t = e.target; return t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA'); }
 window.addEventListener('keydown', (e) => {
   if (inTextField(e)) return;
+  const m = /^Key([A-Z])$/.exec(e.code);
+  if (m && !e.repeat) IN.letter(m[1]);
   const b = KEYMAP[e.code];
-  if (!b) return;
+  if (!b) { if (!e.repeat && (m || /^(Digit|Numpad)/.test(e.code))) IN.anyN++; return; }
   e.preventDefault();
   if (e.repeat) return;
   IN.down(b);
@@ -34,6 +42,17 @@ window.addEventListener('keydown', (e) => {
 window.addEventListener('keyup', (e) => { const b = KEYMAP[e.code]; if (b) IN.up(b); });
 window.addEventListener('blur', () => IN.held.clear());
 
+// 모바일: 화면 터치 = 패드립 배틀 글자 / KC 연타 / 초크 탈출 연타
+function setupCanvasTap() {
+  const cvs = document.getElementById('screen');
+  cvs.addEventListener('pointerdown', () => {
+    if (typeof APP === 'undefined' || APP.state !== 'fight' || !APP.G) return;
+    const G = APP.G, me = G.F[APP.mySide];
+    IN.anyN++;
+    if (G.qte && G.qte.st === 'show') IN.letter(G.qte.L);
+    else if (me && me.kcT > 0) IN.letter(IN.keySeq % 2 ? 'K' : 'C');
+  });
+}
 function setupTouch() {
   document.querySelectorAll('[data-btn]').forEach((el) => {
     const b = el.dataset.btn;

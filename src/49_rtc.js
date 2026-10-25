@@ -9,7 +9,9 @@ async function rtcRequest(body) {
     return j;
   }finally{clearTimeout(timer);}
 }
-async function rtcConfig(){if(!RTC_CONFIG)RTC_CONFIG=await rtcRequest();return RTC_CONFIG;}
+let RTC_CONFIG_AT = 0;
+async function rtcConfig(){if(!RTC_CONFIG||Date.now()-RTC_CONFIG_AT>3600e3){RTC_CONFIG=await rtcRequest();RTC_CONFIG_AT=Date.now();}return RTC_CONFIG;}
+function rtcBlockedMsg(){return RTC_CONFIG&&RTC_CONFIG.relay?'기기 간 연결에 실패했어요. 잠시 후 다시 시도해주세요.':'기기 간 직접 연결이 막혀 있어요. (중계 TURN 서버 미설정 — 같은 와이파이에서 다시 시도해보세요)';}
 function rtcToken(){const a=new Uint8Array(24);crypto.getRandomValues(a);return Array.from(a,n=>n.toString(16).padStart(2,'0')).join('');}
 class RTCLink {
   constructor(pc){this.pc=pc;this.open=false;this.handlers={};this.closed=false;pc.onconnectionstatechange=()=>{if(['failed','closed'].includes(pc.connectionState))this.close();};}
@@ -46,7 +48,7 @@ async function rtcHost(id,onOpen,onTaken,onFail){
       await pc.setRemoteDescription(j.offer.description);
       const description=await rtcDescription(pc,await pc.createAnswer());if(peer.dead||NET.peer!==peer)return;
       await rtcRequest({op:'answer',room:id,token,guest:j.offer.guest,description});
-      rtcLater(peer,()=>{if(!link.open)fail(Error('기기 간 연결이 차단됐어요. 다른 네트워크 또는 TURN 중계를 확인해주세요.'));},25000);
+      rtcLater(peer,()=>{if(!link.open)fail(Error(rtcBlockedMsg()));},25000);
     }catch(e){fail(e);}};poll();
   }catch(e){if(peer.dead||NET.peer!==peer)return;if(e.code===409){peer.destroy();NET.peer=null;onTaken();}else fail(e);}
 }
@@ -61,7 +63,7 @@ async function rtcJoin(id,onFail){
     const start=Date.now();
     const poll=async()=>{try{
       const j=await rtcRequest({op:'poll',room:id,token});if(peer.dead||NET.peer!==peer)return;
-      if(j.answer){await pc.setRemoteDescription(j.answer);rtcLater(peer,()=>{if(!link.open)fail(Error('기기 간 연결이 차단됐어요. 다른 네트워크 또는 TURN 중계를 확인해주세요.'));},20000);}
+      if(j.answer){await pc.setRemoteDescription(j.answer);rtcLater(peer,()=>{if(!link.open)fail(Error(rtcBlockedMsg()));},20000);}
       else if(Date.now()-start>30000)fail(Error('상대의 응답 시간이 초과됐어요. 새 방으로 다시 시도해주세요.'));
       else rtcLater(peer,poll);
     }catch(e){fail(e);}};poll();

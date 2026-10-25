@@ -8,36 +8,74 @@ const DIFF = {
 };
 
 // 스킬별 AI 사용 조건 (dist = 거리, F = 자신, O = 상대)
+const close = (F, O, extra) => Math.abs(O.x - F.x) <= radius(F) + radius(O) + extra;
+const helpless = (O) => O.hitT > 0 || O.stunT > 0 || O.rootT > 0 || O.chokeT > 0;
 const AI_SKILL = {
-  0: [(F, O, d) => d > 70 && d < 240, (F, O, d) => d < 120],
-  1: [(F, O, d) => d < 140, (F, O, d) => d > 70 && d < 230],
-  2: [(F, O, d) => d > 95 && d < 260, () => false],
-  3: [(F, O, d) => d > 50 && d < 190, (F, O, d) => d < 90],
+  0: [(F, O, d) => d > 70 && d < 240, (F, O, d) => d < 120, (F, O, d) => d < 150, (F, O, d) => d > 60 && d < 240],
+  1: [(F, O, d) => d < 140, (F, O, d) => d > 70 && d < 230, (F, O, d) => d < 200, (F, O, d) => true],
+  2: [(F, O, d) => d > 95 && d < 260, () => false, (F, O, d) => true, (F, O, d) => d < 200],
+  3: [(F, O, d) => d > 50 && d < 190, (F, O, d) => d < 90, (F, O, d) => d > 50 && d < 230, (F, O, d) => d < 220 && (helpless(O) || O.atk || O.castT > 0)],
   4: [(F, O, d) => F.hp < F.maxHp * 0.9, (F, O, d) => true, (F, O, d) => d < 220, (F, O, d) => d < 200],
-  5: [(F, O, d) => d < 210, (F, O, d) => F.hp < F.maxHp * 0.55 && d > 90],
-  6: [(F, O, d) => O.atk && d < 90, (F, O, d) => F.hp < F.maxHp * 0.75 && d < 100],
-  7: [(F, O, d) => d < 180, (F, O, d) => O.poisT <= 0 && d < 230],
-  8: [(F, O, d) => d > 60 && d < 210, (F, O, d) => !F.board],
-  9: [(F, O, d) => d < 170, (F, O, d) => d < 140],
-  10: [(F, O, d) => d < 140, (F, O, d) => d < 78],
-  11: [(F, O, d) => d < 220, (F, O, d) => d < 140],
-  12: [(F, O, d) => (F.copy ? d < 190 : true), (F, O, d) => d < 62],
+  5: [(F, O, d) => d < 210, (F, O, d) => F.hp < F.maxHp * 0.55 && d > 90, (F, O, d) => d > 40 && d < 170, (F, O, d) => close(F, O, 18)],
+  6: [(F, O, d) => O.atk && d < 90, (F, O, d) => F.hp < F.maxHp * 0.75 && d < 100, (F, O, d) => true, (F, O, d) => F.hp < F.maxHp * 0.6],
+  7: [(F, O, d) => d < 180, (F, O, d) => O.poisT <= 0 && d < 230, (F, O, d) => close(F, O, 45), (F, O, d) => F.stk >= 4 && d < 160],
+  8: [(F, O, d) => d > 60 && d < 210, (F, O, d) => !F.board, (F, O, d) => close(F, O, 10) && (helpless(O) || rnd() < 0.35), (F, O, d) => true],
+  9: [(F, O, d) => d < 170, (F, O, d) => d < 140, (F, O, d) => d < 150, (F, O, d) => true],
+  10: [(F, O, d) => d < 140, (F, O, d) => d < 78, (F, O, d) => d < 200, (F, O, d) => d > 60 && d < 260],
+  11: [(F, O, d) => d < 220, (F, O, d) => d < 140, (F, O, d) => true, (F, O, d) => close(F, O, 90)],
+  12: [(F, O, d) => (F.copy ? d < 190 : true), (F, O, d) => d < 62, (F, O, d) => d < 180, (F, O, d) => true],
+  13: [(F, O, d) => close(F, O, 22), (F, O, d) => d > 50 && d < 220, (F, O, d) => d < 150 && F.hp > 20, (F, O, d) => d < 170],
 };
+const MASH = [5, 7, 9];          // AI 연타 속도 (초당)
+const QTE_REACT = [[45, 35], [32, 24], [22, 18]];   // AI 글자 반응 (최소, 랜덤 폭) 프레임
 
-function makeAIMem() { return { t: 10, plan: 'wait', planT: 0, guardT: 0, reacted: false, prevH: 0, atkCad: 0 }; }
+function makeAIMem() { return { t: 10, plan: 'wait', planT: 0, guardT: 0, reacted: false, prevH: 0, atkCad: 0, mash: 0, qL: '', qAt: 0, ghostX: 0, ghostT: 0 }; }
+function aiMash(mem, diffLv) { mem.mash += MASH[diffLv] / 60; const n = Math.floor(mem.mash); mem.mash -= n; return n; }
 
 function aiInput(G, F, O, mem, diffLv) {
   const D = DIFF[diffLv] || DIFF[1];
-  let h = 0, p = 0;
+  let h = 0, p = 0, keys = '', a = 0;
   if (G.phase !== 'fight') { mem.prevH = 0; return { h: 0, p: 0 }; }
-  const dx = O.x - F.x, dist = Math.abs(dx);
+  // 패드립 배틀: 글자 보고 반응
+  if (G.qte) {
+    const q = G.qte;
+    if (q.st === 'show') {
+      if (mem.qL !== q.L + q.i) { mem.qL = q.L + q.i; const r = QTE_REACT[diffLv] || QTE_REACT[1]; mem.qAt = r[0] + Math.floor(rnd() * r[1]); }
+      if (q.t === mem.qAt) keys = rnd() < 0.06 ? QTE_KEYS[Math.floor(rnd() * QTE_KEYS.length)] : q.L;
+    }
+    return { h: 0, p: 0, keys, a: 0 };
+  }
+  // 초크 탈출 연타
+  if (F.chokeT > 0) return { h: 0, p: 0, keys: '', a: aiMash(mem, diffLv) };
+  // KC 연타
+  if (F.kcT > 0) { const n = aiMash(mem, diffLv); keys = n ? (F.kcT % 2 ? 'K' : 'C').repeat(n) : ''; }
+  // 보이지 않는 상대(영역 전개)는 대략적인 위치만 추측
+  let ox = faceX(F, O);
+  if (O.invisT > 0) {
+    if (--mem.ghostT <= 0) { mem.ghostT = 30; mem.ghostX = O.x + (rnd() - 0.5) * 140; }
+    ox = mem.ghostX;
+  }
+  const dx = ox - F.x, dist = Math.abs(dx);
   const toward = dx > 0 ? B_R : B_L, away = dx > 0 ? B_L : B_R;
 
   // --- 위협 감지 ---
-  const pRange = radius(F) + radius(O) + ATK.pReach * lookOf(F).H - 14;
-  const kRange = radius(F) + radius(O) + ATK.kReach * lookOf(F).H - 14;
-  const oRange = radius(F) + radius(O) + (O.atk === 'K' ? ATK.kReach : ATK.pReach) * lookOf(O).H;
-  const meleeThreat = O.atk && O.atkT < O.atkAct + 1 && dist < oRange + 8;
+  const pRange = radius(F) + radius(O) + reachOf(F, 'P') - 14;
+  const kRange = radius(F) + radius(O) + reachOf(F, 'K') - 14;
+  const oRange = radius(F) + radius(O) + reachOf(O, O.atk === 'K' ? 'K' : 'P');
+  const meleeThreat = O.invisT <= 0 && O.atk && O.atkT < O.atkAct + 1 && dist < oRange + 8;
+  // 힙찔 웃음: 알아채면 (난이도별 확률, 한 번만 판정) 뒤로 빠짐
+  if (O.laughT > 0) {
+    if (mem.laughSeen !== O.anim - (BAL[8].laughWind - O.laughT)) { mem.laughSeen = O.anim - (BAL[8].laughWind - O.laughT); mem.laughDodge = rnd() < D.block * 0.8; }
+    if (mem.laughDodge && Math.abs(O.x - F.x) < radius(F) + radius(O) + 40) { h |= (O.x > F.x ? B_L : B_R); return { h, p, keys, a }; }
+  }
+  // 위험한 스킬 피하기 (플라잉/돌진/스매시/불)
+  if (rnd() < D.block + 0.1) {
+    const realD = Math.abs(O.x - F.x);
+
+    if (O.flyT > 0 && O.flyT < 30 && Math.abs(O.flyX - F.x) < 70) { h |= (O.flyX > F.x ? B_L : B_R); return { h, p, keys, a }; }
+    if ((O.shutT > 0 || O.rushT2 > 0) && F.y <= 0) { h |= B_D; return { h, p, keys, a }; }
+    if (O.fireT > 0 && realD < 150) { h |= (O.x > F.x ? B_L : B_R); return { h, p, keys, a }; }
+  }
   const projThreat = G.proj.find((q) => q.o === O.side && sign(F.x - q.x) === sign(q.vx) && Math.abs(F.x - q.x) < 85);
   if (mem.guardT > 0) {
     mem.guardT--; h |= B_D;
@@ -52,7 +90,7 @@ function aiInput(G, F, O, mem, diffLv) {
     }
   }
   if (!meleeThreat && !projThreat) mem.reacted = false;
-  if (h & B_D) { mem.prevH = h; return { h, p }; }
+  if (h & B_D) { mem.prevH = h; return { h, p, keys, a }; }
 
   // --- 계획 수립 ---
   mem.t--;
@@ -111,5 +149,5 @@ function aiInput(G, F, O, mem, diffLv) {
     default: break;
   }
   mem.prevH = h;
-  return { h, p };
+  return { h, p, keys, a };
 }

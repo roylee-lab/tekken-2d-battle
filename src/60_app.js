@@ -15,6 +15,7 @@ const WIN_QUOTES = {
   10: '시한폭탄은 이미 터졌어.',
   11: '괴룡의 고통을 맛보았느냐.',
   12: '너의 패턴은 이미 해킹 완료.',
+  13: '니가 왜 거기서 나와? 찐이야~',
 };
 
 const APP = {
@@ -50,7 +51,7 @@ function goTitle() {
 }
 function goSelect() {
   APP.G = null; APP.paused = false;
-  APP.sel.ready = false; APP.sel.hidden = false; APP.sel.cpuC = null; APP.sel.roulette = 0;
+  APP.sel.ready = false; APP.sel.readyAt = 0; APP.sel.hidden = false; APP.sel.cpuC = null; APP.sel.roulette = 0;
   APP.sel.opp = { cur: APP.mySide === 0 ? 6 : 0, ready: false, c: null };
   if (APP.mode === 'online') APP.sel.cur = APP.mySide === 0 ? 0 : 6;
   setState('select'); playMusic('select'); resetFX();
@@ -65,25 +66,29 @@ function maybeStartOnline() {
     const c0 = myChar(), c1 = APP.sel.opp.c;
     const seed = (Math.random() * 1e9) | 0;
     const stage = CHARS[[c0, c1][seed % 2]].stage;
-    netSend({ t: 'start', c0, c1, stage, seed });
-    startVS(c0, c1, stage, seed);
+    // 영탁 패시브: 나중에 고른 쪽 (호스트 기준 준비 완료 순서)
+    const hostLate = (APP.sel.readyAt || 0) > (APP.sel.opp.readyAt || 0);
+    const late = [hostLate, !hostLate];
+    netSend({ t: 'start', c0, c1, stage, seed, late });
+    startVS(c0, c1, stage, seed, late);
   }
 }
-function startVS(c0, c1, stage, seed) {
-  APP.vs = { c0, c1, stage, seed };
+function startVS(c0, c1, stage, seed, late) {
+  APP.vs = { c0, c1, stage, seed, late: late || [false, false] };
   setState('vs'); stopMusic(); playSfx('confirm');
   announce(`${CHARS[c0].en.toLowerCase()} versus ${CHARS[c1].en.toLowerCase()}`);
 }
 function startFight() {
   const v = APP.vs;
   rnd = mulberry32(v.seed || 1);
-  APP.G = newMatch(v.c0, v.c1, v.stage, APP.mode);
+  APP.G = newMatch(v.c0, v.c1, v.stage, APP.mode, v.late);
   APP.ai = [makeAIMem(), makeAIMem()];
   HPL[0] = HPL[1] = 1;
   resetFX(); FX.cam = ARENA_W / 2 - VW / 2;
   NET.snap = null; NET.inEv = []; NET.outEv = [];
   NET.lastCounts = { U: 0, P: 0, K: 0, S1: 0, S2: 0, S3: 0, S4: 0 };
   if (NET.guestCounts) NET.lastCounts = Object.assign({}, NET.guestCounts);
+  syncGuestInputBase(); IN.syncTaken();
   setState('fight');
   playMusic(STAGE_DEF[v.stage].bgm);
 }
@@ -136,11 +141,11 @@ function updSelect() {
   const S = APP.sel;
   if (S.roulette > 0) {
     S.roulette--;
-    if (S.roulette % 4 === 0) { S.opp.cur = Math.floor(Math.random() * 12); playSfx('cursor'); }
+    if (S.roulette % 4 === 0) { S.opp.cur = Math.floor(Math.random() * SELECT_ORDER.length); playSfx('cursor'); }
     if (S.roulette === 0) { S.opp.cur = SELECT_ORDER.indexOf(S.cpuC); playSfx('confirm'); APP._vsDelay = 30; }
     return;
   }
-  if (APP._vsDelay > 0) { if (--APP._vsDelay === 0) startVS(myChar(), S.cpuC, CHARS[S.cpuC].stage, (Math.random() * 1e9) | 0); return; }
+  if (APP._vsDelay > 0) { if (--APP._vsDelay === 0) startVS(myChar(), S.cpuC, CHARS[S.cpuC].stage, (Math.random() * 1e9) | 0, [false, true]); return; }
   if (IN.take('BACK')) {
     if (S.ready && APP.mode === 'online') { S.ready = false; sendSel(); playSfx('back'); return; }
     playSfx('back'); goTitle(); return;
@@ -148,17 +153,18 @@ function updSelect() {
   if (S.ready) return;
   if (IN.take('DICT')) { APP.dict = SELECT_ORDER[S.cur]; APP._dictFromSelect = true; setState('dict'); return; }
   let moved = false;
-  if (IN.take('L')) { S.cur = (S.cur + 11) % 12; moved = true; }
-  if (IN.take('R')) { S.cur = (S.cur + 1) % 12; moved = true; }
-  if (IN.take('U') || IN.take('D')) { S.cur = (S.cur + 6) % 12; moved = true; }
+  const N = SELECT_ORDER.length;
+  if (IN.take('L')) { S.cur = (S.cur + N - 1) % N; moved = true; }
+  if (IN.take('R')) { S.cur = (S.cur + 1) % N; moved = true; }
+  if (IN.take('U') || IN.take('D')) { S.cur = S.cur < SEL_COLS ? Math.min(N - 1, S.cur + SEL_COLS) : S.cur - SEL_COLS; moved = true; }
   if (moved) { S.hidden = false; playSfx('cursor'); if (APP.mode === 'online') sendSel(); }
   const hid = IN.take('HID');
   if (hid || IN.take('START') || IN.take('S1') || IN.take('P')) {
     S.hidden = hid;
-    S.ready = true; playSfx('confirm');
+    S.ready = true; S.readyAt = performance.now(); playSfx('confirm');
     announce(CHARS[myChar()].en.toLowerCase());
     if (APP.mode === 'cpu') {
-      S.cpuC = SELECT_ORDER[Math.floor(Math.random() * 12)];
+      S.cpuC = SELECT_ORDER[Math.floor(Math.random() * SELECT_ORDER.length)];
       S.roulette = 50;
     } else { sendSel(); maybeStartOnline(); }
   }
@@ -199,10 +205,10 @@ function updFight() {
     if (G.pt > 90) {
       if (IN.take('START')) { if (APP.mode === 'online') netSend({ t: 'menu', to: 'select' }); goSelect(); return; }
       if (IN.take('BACK')) { goTitle(); return; }
-      if (APP.mode === 'cpu' && IN.take('S4')) { startVS(G.F[0].c, G.F[1].c, G.stage, (Math.random() * 1e9) | 0); return; }
+      if (APP.mode === 'cpu' && IN.take('S4')) { startVS(G.F[0].c, G.F[1].c, G.stage, (Math.random() * 1e9) | 0, APP.vs && APP.vs.late); return; }
     }
   }
-  const me = APP.autoP1 ? aiInput(G, G.F[0], G.F[1], APP.ai[0], 2) : { h: IN.heldMask(), p: IN.pressMask() };
+  const me = APP.autoP1 ? aiInput(G, G.F[0], G.F[1], APP.ai[0], 2) : { h: IN.heldMask(), p: IN.pressMask(), keys: IN.takeKeys(), a: IN.takeAny() };
   let inputs;
   if (APP.mode === 'online') inputs = [me, guestInput()];
   else inputs = [me, aiInput(G, G.F[1], G.F[0], APP.ai[1], APP.diff)];
@@ -264,7 +270,7 @@ function rTitleBuf(t) {
   drawStage(bctx, key, cam, t, 0.3);
   bctx.fillStyle = 'rgba(5,5,25,0.55)'; bctx.fillRect(0, 0, VW, VH);
   // 두 캐릭터 실루엣
-  const a = SELECT_ORDER[idx % 12], b = SELECT_ORDER[(idx + 5) % 12];
+  const a = SELECT_ORDER[idx % SELECT_ORDER.length], b = SELECT_ORDER[(idx + 5) % SELECT_ORDER.length];
   for (const [c, x, f] of [[a, 70, 1], [b, 410, -1]]) {
     bctx.save(); bctx.translate(x, 250); bctx.scale(f * 1.7, 1.7);
     const pose = idlePose(c, t);
@@ -296,7 +302,14 @@ function selBg(t) {
   bctx.strokeStyle = 'rgba(120,140,255,0.12)'; bctx.lineWidth = 1;
   for (let x = -VH; x < VW; x += 16) { const o = (t * 0.3) % 16; bctx.beginPath(); bctx.moveTo(x + o, 0); bctx.lineTo(x + o + VH, VH); bctx.stroke(); }
 }
-function selTiles() { const out = []; for (let i = 0; i < 12; i++) out.push({ i, c: SELECT_ORDER[i], x: 240 - 3 * 37 + (i % 6) * 37, y: 190 + Math.floor(i / 6) * 38 }); return out; }
+function selTiles() {
+  const out = [], N = SELECT_ORDER.length;
+  for (let i = 0; i < N; i++) {
+    const row = Math.floor(i / SEL_COLS), inRow = row === 0 ? Math.min(SEL_COLS, N) : N - SEL_COLS, col = i % SEL_COLS;
+    out.push({ i, c: SELECT_ORDER[i], x: 240 - (inRow / 2) * 37 + col * 37 + 1, y: 190 + row * 38 });
+  }
+  return out;
+}
 function rSelectBuf(t) {
   selBg(t);
   const S = APP.sel;
@@ -361,11 +374,11 @@ function rSelectHUD(t) {
   }
   // 정보창 (내 커서 캐릭터)
   const C = CHARS[myChar()];
-  ctx.fillStyle = 'rgba(0,0,20,0.7)'; ctx.fillRect(150, 30, 180, 150);
-  ctx.strokeStyle = C.color; ctx.lineWidth = 1; ctx.strokeRect(150.5, 30.5, 179, 149);
-  txt(ctx, C.name + (C.hidden ? '  (HIDDEN)' : ''), 240, 45, 11, C.color === '#2c3e50' ? '#9fc3e6' : shade(C.color, 0.3), 'center');
-  txt(ctx, C.desc.join(' · '), 240, 56, 7, '#cdd', 'center', FONT_KR2, 0);
-  let y = 70;
+  ctx.fillStyle = 'rgba(0,0,20,0.7)'; ctx.fillRect(150, 27, 180, 160);
+  ctx.strokeStyle = C.color; ctx.lineWidth = 1; ctx.strokeRect(150.5, 27.5, 179, 159);
+  txt(ctx, C.name + (C.hidden ? '  (HIDDEN)' : ''), 240, 41, 11, C.color === '#2c3e50' ? '#9fc3e6' : shade(C.color, 0.3), 'center');
+  txt(ctx, C.desc.join(' · '), 240, 52, 7, '#cdd', 'center', FONT_KR2, 0);
+  let y = 65;
   const mc = myChar();
   for (let k = 0; k < 4; k++) {
     const sk = skillDef(mc, k);
@@ -373,12 +386,12 @@ function rSelectHUD(t) {
     txt(ctx, SLOT_KEYS[k], 160.5, y + 0.5, 6, '#000', 'center', FONT_EN, 0);
     if (!sk) { txt(ctx, `(비어 있음 · 쿨 ${cdText(k)})`, 169, y, 7.5, '#6b6f86', 'left', FONT_KR2, 0); y += 11; continue; }
     txt(ctx, sk.name + `  (${cdText(k)})`, 169, y, 8.5, '#fff', 'left', FONT_KR, 0);
-    y += wrapText(ctx, skillInfo(mc, k), 169, y + 9, 156, 6.5, '#b8c4dd') + 10;
+    y += wrapText(ctx, skillInfo(mc, k), 169, y + 8.5, 156, 6.5, '#b8c4dd') + 9;
   }
   txt(ctx, '패시브 · ' + C.passive.name, 156, y + 2, 8.5, '#ffb3e6', 'left', FONT_KR, 0);
   wrapText(ctx, passiveInfo(mc), 156, y + 11, 168, 6.5, '#b8c4dd');
   const rec = getRecords()[myChar()] || 0;
-  txt(ctx, `🏆 승리 ${rec}`, 324, 175, 7, '#ffe14d', 'right', FONT_KR2, 0);
+  txt(ctx, `🏆 ${rec}`, 326, 37, 7, '#ffe14d', 'right', FONT_KR2, 0);
   const hint = APP.mode === 'online' ? (S.ready ? '상대를 기다리는 중... (ESC 취소)' : '←→↑↓ 이동 · SPACE 결정 · K 히든 · C 도감')
     : '←→↑↓ 이동 · SPACE 결정 · K 히든(Tirón) · C 도감 · ESC 뒤로';
   txt(ctx, hint, 240, 268, 7, '#aab', 'center', FONT_KR2);
@@ -527,6 +540,7 @@ function frame(now) {
 
 function boot() {
   setupTouch();
+  setupCanvasTap();
   setupLobby();
   document.getElementById('btnAccBack').onclick = () => { if (ACC.waiting) cancelWaiting(true); goTitle(); };
   if (ACC.token) setTimeout(pollNow, 500);

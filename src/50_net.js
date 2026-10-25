@@ -3,10 +3,10 @@
 //  - 방 코드: 어디서든 접속
 //  - 같은 와이파이 자동 매칭: 같은 공인 IP끼리 같은 로비 ID를 사용
 // ============================================================
-const NET_VER = 6;
+const NET_VER = 7;
 const NET = {
   epoch: 0, peer: null, conn: null, role: null, status: '', onMsg: null, ping: 0, lastRecv: 0,
-  guestHeld: 0, guestCounts: null, lastCounts: { U: 0, P: 0, K: 0, S1: 0, S2: 0, S3: 0, S4: 0 }, outEv: [], inEv: [], snap: null,
+  guestHeld: 0, guestCounts: null, guestKs: [], guestAny: 0, lastKeySeq: 0, lastAny: 0, lastCounts: { U: 0, P: 0, K: 0, S1: 0, S2: 0, S3: 0, S4: 0 }, outEv: [], inEv: [], snap: null,
 };
 
 function peerOpts() {
@@ -25,7 +25,7 @@ function netReset() {
   try { peer?.destroy(); } catch (_) {}
   NET.snap = null; NET.oppNick = null; NET.inEv = []; NET.outEv = [];
   NET.lastCounts = { U: 0, P: 0, K: 0, S1: 0, S2: 0, S3: 0, S4: 0 };
-  NET.guestCounts = null; NET.guestHeld = 0; NET.lastRecv = performance.now();
+  NET.guestCounts = null; NET.guestHeld = 0; NET.guestKs = []; NET.guestAny = 0; NET.lastKeySeq = 0; NET.lastAny = 0; NET.lastRecv = performance.now();
   _lastSentIn = '';
 }
 async function hostOn(id, onOpen, onTaken, onFail) {
@@ -187,10 +187,18 @@ function onNetMsg(m) {
     case 'hi': NET.oppNick = typeof m.nick === 'string' ? m.nick.slice(0, 12) : null; if (m.v !== NET_VER) { onNetClosed(); toast('게임 버전이 달라요. 둘 다 새로고침해 주세요'); } break;
     case 'ping': netSend({ t: 'pong', ts: m.ts }); break;
     case 'pong': NET.ping = Math.round(performance.now() - m.ts); break;
-    case 'sel': APP.sel.opp = { cur: m.cur, ready: m.ready, c: m.c }; if (NET.role === 'host') maybeStartOnline(); break;
-    case 'start': if (NET.role === 'guest') startVS(m.c0, m.c1, m.stage, m.seed); break;
+    case 'sel': {
+      const was = APP.sel.opp.ready, at = APP.sel.opp.readyAt || 0;
+      APP.sel.opp = { cur: m.cur, ready: m.ready, c: m.c, readyAt: m.ready ? (was ? at : performance.now()) : 0 };
+      if (NET.role === 'host') maybeStartOnline();
+      break;
+    }
+    case 'start': if (NET.role === 'guest') startVS(m.c0, m.c1, m.stage, m.seed, Array.isArray(m.late) ? [!!m.late[0], !!m.late[1]] : null); break;
     case 'in': // 게스트 입력 (호스트 수신)
-      NET.guestHeld = m.h; NET.guestCounts = m.c; break;
+      NET.guestHeld = m.h; NET.guestCounts = m.c;
+      if (Array.isArray(m.ks)) NET.guestKs = m.ks.slice(-40);
+      if (typeof m.a === 'number') NET.guestAny = m.a;
+      break;
     case 'st': // 상태 스냅샷 (게스트 수신)
       if (NET.role === 'guest') { NET.snap = m.g; if (m.e && m.e.length) NET.inEv.push(...m.e); }
       break;
@@ -206,14 +214,25 @@ function guestInput() {
   if (c) {
     for (const k of ['U', 'P', 'K', 'S1', 'S2', 'S3', 'S4']) { if ((c[k] || 0) > NET.lastCounts[k]) p |= BTN_BIT[k]; NET.lastCounts[k] = c[k] || 0; }
   }
-  return { h: NET.guestHeld | 0, p };
+  let keys = '';
+  for (const e of NET.guestKs) {
+    if (!Array.isArray(e) || typeof e[0] !== 'number' || e[0] <= NET.lastKeySeq) continue;
+    if (typeof e[1] === 'string' && /^[A-Z]$/.test(e[1])) keys += e[1];
+    NET.lastKeySeq = e[0];
+  }
+  const a = Math.max(0, Math.min(20, (NET.guestAny | 0) - NET.lastAny)); NET.lastAny = Math.max(NET.lastAny, NET.guestAny | 0);
+  return { h: NET.guestHeld | 0, p, keys: keys.slice(0, 6), a };
+}
+function syncGuestInputBase() {
+  NET.lastKeySeq = NET.guestKs.reduce((m, e) => Math.max(m, (e && e[0]) || 0), 0);
+  NET.lastAny = NET.guestAny | 0;
 }
 // 게스트: 내 입력 보내기
 let _lastSentIn = '';
 function sendMyInput(force) {
   const h = IN.heldMask(), c = IN.counts;
-  const key = h + ':' + c.U + ':' + c.P + ':' + c.K + ':' + c.S1 + ':' + c.S2 + ':' + c.S3 + ':' + c.S4;
-  if (key !== _lastSentIn || force) { _lastSentIn = key; netSend({ t: 'in', h, c: { U: c.U, P: c.P, K: c.K, S1: c.S1, S2: c.S2, S3: c.S3, S4: c.S4 } }); }
+  const key = h + ':' + c.U + ':' + c.P + ':' + c.K + ':' + c.S1 + ':' + c.S2 + ':' + c.S3 + ':' + c.S4 + ':' + IN.keySeq + ':' + IN.anyN;
+  if (key !== _lastSentIn || force) { _lastSentIn = key; netSend({ t: 'in', h, c: { U: c.U, P: c.P, K: c.K, S1: c.S1, S2: c.S2, S3: c.S3, S4: c.S4 }, ks: IN.keyLog.slice(-16), a: IN.anyN }); }
 }
 
 // 스냅샷 (기본값과 같은 필드는 생략 → 용량 절감)
@@ -232,11 +251,11 @@ function snapshot(G) {
   return {
     phase: G.phase, pt: G.pt, round: G.round, timer: G.timer, roundF: G.roundF,
     F: G.F.map(packFighter), proj: G.proj.map((p) => ({ t: p.t, x: Math.round(p.x * 10) / 10, y: Math.round(p.y), vx: p.vx, o: p.o, age: p.age, k: p.k })),
-    traps: G.traps, freezeT: G.freezeT, dice: G.dice, notes: G.notes, stage: G.stage, rw: G.rw, mw: G.mw, koType: G.koType, perfect: G.perfect, flash: G.flash,
+    traps: G.traps, freezeT: G.freezeT, dice: G.dice, qte: G.qte, yut: G.yut, late: G.late, notes: G.notes, stage: G.stage, rw: G.rw, mw: G.mw, koType: G.koType, perfect: G.perfect, flash: G.flash,
   };
 }
 function unpack(s) {
-  s.F = s.F.map((f) => { const F = Object.assign(makeFighter(f.side, f.c), f); if (!f.cd) F.cd = [0, 0, 0, 0]; if (!f.seal) F.seal = [0, 0, 0, 0]; return F; });
+  s.F = s.F.map((f) => { const F = Object.assign(makeFighter(f.side, f.c), f); if (!f.cd) F.cd = [0, 0, 0, 0]; if (!f.seal) F.seal = [0, 0, 0, 0]; if (!Array.isArray(F.mods)) F.mods = []; return F; });
   s.ev = [];
   return s;
 }
