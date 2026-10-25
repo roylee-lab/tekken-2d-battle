@@ -526,7 +526,7 @@ function stepFighter(G, F, O, inp) {
   }
 
   const grounded = F.y <= 0;
-  if (grounded && !F.atk && F.dashT <= 0 && F.headT <= 0) F.f = O.x > F.x ? 1 : -1;
+  if (O.x !== F.x) F.f = O.x > F.x ? 1 : -1;
 
   const stunned = F.hitT > 0 || F.blockT > 0;
   const canMove = F.rootT <= 0 && F.jeongP <= 0;
@@ -615,6 +615,8 @@ function resolveBodies(G) {
     a.x += s * ex; b.x -= s * ex;
   }
   for (const F of G.F) clampX(F);
+  // 이동과 충돌이 끝난 동일한 좌표를 기준으로 두 방향을 함께 갱신한다.
+  if (a.x !== b.x) { a.f = b.x > a.x ? 1 : -1; b.f = -a.f; }
 }
 
 // ---------- 메인 스텝 ----------

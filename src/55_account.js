@@ -13,9 +13,10 @@ const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&
 
 async function api(a, data) {
   let r;
+  const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 12000);
   try {
-    r = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ a, token: ACC.token }, data || {})) });
-  } catch (e) { ACC.offline = true; throw new Error('서버에 연결할 수 없어요 (인터넷 연결 확인)'); }
+    r = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: ctl.signal, cache: 'no-store', body: JSON.stringify(Object.assign({ a, token: ACC.token }, data || {})) });
+  } catch (e) { ACC.offline = true; throw new Error(e.name === 'AbortError' ? '계정 서버 응답 시간이 초과됐어요. 다시 시도해주세요' : '계정 서버에 연결하지 못했어요. 잠시 후 다시 시도해주세요'); } finally { clearTimeout(timer); }
   let j = null;
   try { j = await r.json(); } catch (e) { j = null; }
   if (!j) { ACC.offline = true; throw new Error(location.protocol === 'file:' ? '파일로 열면 로그인을 쓸 수 없어요. 배포된 사이트에서 접속해 주세요' : '서버 응답 오류 (' + r.status + ')'); }
@@ -109,15 +110,15 @@ async function answerInvite(inv, accept) {
   ACC.dismissed.add(inv.from + inv.ts);
   ACC.invites = ACC.invites.filter((x) => x !== inv);
   renderInvitePop();
-  try { await api('inviteRespond', { nick: inv.from, accept }); } catch (e) { /* 무시 */ }
+  try { await api('inviteRespond', { nick: inv.from, accept }); } catch (e) { ACC.dismissed.delete(inv.from + inv.ts); toast(e.message); pollNow(); return; }
   if (!accept) return;
   if (APP.state === 'fight' && APP.mode === 'cpu') goTitle();
   toast(`${inv.nick}님의 방에 접속하는 중...`);
   netJoinRoom(inv.room);
   const t0 = Date.now();
   const chk = setInterval(() => {
-    if (NET.conn) { clearInterval(chk); return; }
-    if (Date.now() - t0 > 12000) { clearInterval(chk); toast('접속에 실패했어요. 친구에게 다시 신청해 달라고 해 주세요'); }
+    if (NET.conn && NET.conn.open) { clearInterval(chk); return; }
+    if (Date.now() - t0 > 45000) { clearInterval(chk); toast('접속에 실패했어요. 친구에게 다시 신청해 달라고 해 주세요'); }
   }, 500);
 }
 

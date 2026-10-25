@@ -58,3 +58,21 @@ node tools/balance.js 4 "" matrix
 - Vercel 프로젝트에 **Upstash Redis**(Vercel Marketplace)를 연결하면 `KV_REST_API_URL`, `KV_REST_API_TOKEN` 환경변수가 자동으로 생기고 `api/game.js`가 이를 사용합니다.
 - 비밀번호는 scrypt로 해시해서 저장하고, 로그인 시도는 횟수 제한이 걸려 있습니다.
 - 접속 상태는 게임이 몇 초마다 서버에 신호를 보내서 표시합니다. 실제 대전 연결은 PeerJS(WebRTC)로 기기끼리 직접 합니다.
+
+
+## 온라인 연결 수정 (2026-10-25)
+- `api/rtc.js`가 같은 사이트 HTTPS로 WebRTC 접속 정보를 교환합니다. 기존 Upstash 환경변수를 그대로 사용합니다.
+- PeerJS 공용 WebSocket이 차단돼도 방 코드/친구 초대로 접속 정보를 교환할 수 있습니다.
+- 자동 매칭의 네트워크 구분도 같은 사이트에서 계산하며 외부 IP 조회 서비스를 호출하지 않습니다.
+- 임시 방/SDP는 180초 뒤 만료됩니다. 연결 후 게임 프레임은 Redis를 거치지 않습니다.
+- `WEBRTC_ICE_SERVERS`에 ICE 서버 배열(JSON)을 지정하면 자체 TURN/STUN 구성을 사용할 수 있습니다.
+  설정하지 않으면 기존 게임에 포함돼 있던 PeerJS 기본 STUN/TURN 구성을 유지합니다.
+- 학교/공유기의 기기 격리 또는 UDP 차단 환경에서는 동작하는 TURN 중계가 필요합니다.
+  HTTPS 신호 교환 성공만으로 모든 네트워크에서 직접 통신이 보장되는 것은 아닙니다.
+- 같은 공인 IP를 사용하는 네트워크를 자동 매칭 대상으로 봅니다. IPv4/IPv6/VPN에 따라
+  같은 와이파이여도 구분될 수 있으며, 이때는 방 코드를 사용합니다.
+- 방향 갱신은 지상/공중/공격 상태 모두 적용하며 충돌 처리 후 두 캐릭터가 동시에 상대를 봅니다.
+
+검증: `node tests/regression.mjs`.
+로컬 통합 검증은 `tests/local-server.mjs`의 임시 저장소를 사용합니다(실제 계정 DB 미사용).
+`tests/browser.cjs`는 개발 환경의 Playwright 및 Chrome을 사용합니다.

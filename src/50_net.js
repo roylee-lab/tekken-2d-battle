@@ -3,9 +3,9 @@
 //  - 방 코드: 어디서든 접속
 //  - 같은 와이파이 자동 매칭: 같은 공인 IP끼리 같은 로비 ID를 사용
 // ============================================================
-const NET_VER = 5;
+const NET_VER = 6;
 const NET = {
-  peer: null, conn: null, role: null, status: '', onMsg: null, ping: 0, lastRecv: 0,
+  epoch: 0, peer: null, conn: null, role: null, status: '', onMsg: null, ping: 0, lastRecv: 0,
   guestHeld: 0, guestCounts: null, lastCounts: { U: 0, P: 0, K: 0, S1: 0, S2: 0, S3: 0, S4: 0 }, outEv: [], inEv: [], snap: null,
 };
 
@@ -18,22 +18,46 @@ function peerOpts() {
 function netStatus(s) { NET.status = s; const el = document.getElementById('netStatus'); if (el) el.innerHTML = s; }
 
 function netReset() {
-  try { if (NET.conn) NET.conn.close(); } catch (e) { /* 무시 */ }
-  try { if (NET.peer) NET.peer.destroy(); } catch (e) { /* 무시 */ }
-  NET.peer = null; NET.conn = null; NET.role = null; NET.snap = null; NET.oppNick = null; NET.inEv = []; NET.outEv = [];
-  NET.lastCounts = { U: 0, P: 0, K: 0, S1: 0, S2: 0, S3: 0, S4: 0 }; NET.guestCounts = null; NET.guestHeld = 0;
-  clearTimeout(NET._timer);
+  const conn = NET.conn, peer = NET.peer;
+  NET.epoch++; NET.conn = null; NET.peer = null; NET.role = null;
+  clearTimeout(NET._timer); clearInterval(NET._ping);
+  try { conn?.close(); } catch (_) {}
+  try { peer?.destroy(); } catch (_) {}
+  NET.snap = null; NET.oppNick = null; NET.inEv = []; NET.outEv = [];
+  NET.lastCounts = { U: 0, P: 0, K: 0, S1: 0, S2: 0, S3: 0, S4: 0 };
+  NET.guestCounts = null; NET.guestHeld = 0; NET.lastRecv = performance.now();
+  _lastSentIn = '';
+}
+async function hostOn(id, onOpen, onTaken, onFail) {
+  const epoch = NET.epoch;
+  if (new URLSearchParams(location.search).has('peerhost')) return hostOnPeer(id,onOpen,onTaken,onFail);
+  try {
+    const config = await rtcConfig(); if (NET.epoch !== epoch) return;
+    if (config.signaling) return rtcHost(id,onOpen,onTaken,onFail);
+    hostOnPeer(id,onOpen,onTaken,onFail);
+  } catch (e) { if (NET.epoch === epoch) onFail('접속 서버에 연결하지 못했어요. 잠시 후 다시 시도해주세요.'); }
+}
+async function joinTo(id, onFail, timeoutMs) {
+  const epoch = NET.epoch;
+  if (new URLSearchParams(location.search).has('peerhost')) return joinToPeer(id,onFail,timeoutMs);
+  try {
+    const config = await rtcConfig(); if (NET.epoch !== epoch) return;
+    if (config.signaling) return rtcJoin(id,onFail);
+    joinToPeer(id,onFail,timeoutMs);
+  } catch (e) { if (NET.epoch === epoch) onFail('접속 서버에 연결하지 못했어요. 잠시 후 다시 시도해주세요.'); }
 }
 
 function genCode() { const a = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; let s = ''; for (let i = 0; i < 4; i++) s += a[Math.floor(Math.random() * a.length)]; return s; }
 
 function wireConn(conn, role) {
   NET.conn = conn; NET.role = role;
-  conn.on('data', (m) => { NET.lastRecv = performance.now(); onNetMsg(m); });
+  conn.on('data', (m) => { if (NET.conn !== conn) return; NET.lastRecv = performance.now(); onNetMsg(m); });
   const early = conn._pending || []; conn._pending = null;
-  conn.on('close', () => onNetClosed());
-  conn.on('error', () => onNetClosed());
+  conn.on('close', () => { if (NET.conn === conn) onNetClosed(); });
+  conn.on('error', () => { if (NET.conn === conn) onNetClosed(); });
   const ready = () => {
+    if (NET.conn !== conn || conn._gameReady) return;
+    conn._gameReady = true; NET.lastRecv = performance.now();
     clearTimeout(NET._timer);
     conn.send({ t: 'hi', v: NET_VER, nick: (typeof ACC !== 'undefined' && ACC.token) ? ACC.nick : null });
     onNetConnected(role);
@@ -42,18 +66,20 @@ function wireConn(conn, role) {
   if (conn.open) ready(); else conn.on('open', ready);
 }
 
-function hostOn(id, onOpen, onTaken, onFail) {
+function hostOnPeer(id, onOpen, onTaken, onFail) {
   if (typeof Peer === 'undefined') { onFail('PeerJS를 불러오지 못했습니다'); return; }
   const peer = new Peer(id, peerOpts());
   NET.peer = peer;
   let opened = false;
   const tm = setTimeout(() => { if (!opened && NET.peer === peer) { try { peer.destroy(); } catch (e) { /* 무시 */ } NET.peer = null; onFail('중계 서버에 연결하지 못했어요 (잠시 후 다시 시도)'); } }, 12000);
-  peer.on('open', () => { opened = true; clearTimeout(tm); onOpen(peer); });
+  peer.on('open', () => { if (NET.peer !== peer) return; opened = true; clearTimeout(tm); onOpen(peer); });
   peer.on('connection', (c) => {
+    if (NET.peer !== peer) { c.close(); return; }
     if (NET.conn && NET.conn.open) { c.on('open', () => { c.send({ t: 'busy' }); setTimeout(() => c.close(), 300); }); return; }
     wireConn(c, 'host');
   });
   peer.on('error', (err) => {
+    if (NET.peer !== peer) return; clearTimeout(tm);
     if (err.type === 'unavailable-id' && !opened) { try { peer.destroy(); } catch (e) { /* 무시 */ } NET.peer = null; onTaken(); }
     else if (!opened) onFail(errText(err));
     else if (!NET.conn) netStatus('⚠️ 서버 연결 문제: ' + errText(err));
@@ -61,18 +87,21 @@ function hostOn(id, onOpen, onTaken, onFail) {
   peer.on('disconnected', () => { if (!NET.conn) { try { peer.reconnect(); } catch (e) { /* 무시 */ } } });
 }
 
-function joinTo(id, onFail, timeoutMs) {
+function joinToPeer(id, onFail, timeoutMs) {
   if (typeof Peer === 'undefined') { onFail('PeerJS를 불러오지 못했습니다'); return; }
   const peer = new Peer(peerOpts());
   NET.peer = peer;
   let done = false;
-  const fail = (msg) => { if (done) return; done = true; clearTimeout(NET._timer); try { peer.destroy(); } catch (e) { /* 무시 */ } NET.peer = null; NET.conn = null; onFail(msg); };
+  NET._timer = setTimeout(() => fail('timeout'), timeoutMs || 15000);
+  const fail = (msg) => { if (done || NET.peer !== peer) return; done = true; clearTimeout(NET._timer); try { peer.destroy(); } catch (e) { /* 무시 */ } NET.peer = null; NET.conn = null; onFail(msg); };
   peer.on('open', () => {
+    if (done || NET.peer !== peer) return;
     const c = peer.connect(id, { reliable: true, serialization: 'json' });
     c._pending = [];
     c.on('data', (m) => { if (m && m.t === 'busy') fail('busy'); else if (c._pending) c._pending.push(m); });
     c.on('open', () => { if (done) return; done = true; wireConn(c, 'guest'); });
-    NET._timer = setTimeout(() => fail('timeout'), timeoutMs || 8000);
+    c.on('error', () => fail('기기 간 연결에 실패했어요. 다른 네트워크나 TURN 중계를 확인해주세요.'));
+    c.on('close', () => { if (!c.open) fail('상대가 방을 닫았어요.'); });
   });
   peer.on('error', (err) => fail(err.type === 'peer-unavailable' ? 'notfound' : errText(err)));
 }
@@ -95,7 +124,7 @@ function netCreateRoom() {
 function netJoinRoom(code) {
   netReset();
   code = (code || '').trim().toUpperCase();
-  if (code.length < 4) { netStatus('방 코드 4자리를 입력해 주세요'); return; }
+  if (!/^[A-Z0-9]{4}$/.test(code)) { netStatus('방 코드 4자리를 입력해 주세요'); return; }
   netStatus(`<b>${code}</b> 방에 접속하는 중...`);
   joinTo('tk2d-room-' + code, (why) => {
     netStatus(why === 'busy' ? '❌ 이미 대전 중인 방이에요' : why === 'notfound' ? '❌ 방을 찾을 수 없어요. 코드를 확인해 주세요' : why === 'timeout' ? '❌ 응답이 없어요. 다시 시도해 주세요' : '❌ ' + why);
@@ -105,18 +134,15 @@ function netJoinRoom(code) {
 async function netAutoLan() {
   netReset();
   netStatus('네트워크 확인 중...');
-  let ip = null;
-  for (const url of ['https://api.ipify.org?format=json', 'https://api64.ipify.org?format=json']) {
-    try {
-      const ctl = new AbortController(); const tm = setTimeout(() => ctl.abort(), 4000);
-      const r = await fetch(url, { signal: ctl.signal }); clearTimeout(tm);
-      const j = await r.json(); if (j && j.ip) { ip = j.ip; break; }
-    } catch (e) { /* 다음 시도 */ }
-  }
-  if (!ip) { netStatus('❌ 네트워크 정보를 확인하지 못했어요.<br>방 만들기 / 코드 참가를 이용해 주세요'); return; }
-  const base = 'tk2d-lan-' + hashStr('tk2d|' + ip).toString(36);
+  const epoch = NET.epoch;
+  let config;
+  try { config = await rtcConfig(); } catch (_) { if (NET.epoch === epoch) netStatus('❌ 자동 매칭 정보를 받지 못했어요. 방 코드를 이용해주세요.'); return; }
+  if (NET.epoch !== epoch) return;
+  if (!config.network) { netStatus('❌ 네트워크를 확인할 수 없어요. 방 코드를 이용해주세요.'); return; }
+  const base = 'tk2d-lan-' + config.network;
   let slot = 0;
   const trySlot = () => {
+    if (NET.epoch !== epoch) return;
     if (slot >= 4) { netStatus('❌ 자동 매칭 실패. 방 코드를 이용해 주세요'); return; }
     const id = base + '-' + slot;
     netStatus(`같은 와이파이에서 상대를 찾는 중... (${slot + 1})`);
@@ -139,20 +165,26 @@ function onNetConnected(role) {
   ACC.waiting = null;
   goSelect();
   renderInvitePop();
-  NET._ping = setInterval(() => netSend({ t: 'ping', ts: performance.now() }), 1000);
+  clearInterval(NET._ping);
+  NET.lastRecv = performance.now();
+  NET._ping = setInterval(() => {
+    if (performance.now() - NET.lastRecv > 20000) { onNetClosed(); return; }
+    netSend({ t: 'ping', ts: performance.now() });
+  }, 1000);
 }
 function onNetClosed() {
   if (!NET.conn && !NET.role) return;
   clearInterval(NET._ping);
   const wasOnline = APP.mode === 'online';
   netReset();
+  if (!wasOnline) { ACC.waiting = null; ACC.busyBtn = false; accMsg('기기 간 연결을 완료하지 못했어요. 새 방으로 다시 시도해주세요.'); }
   if (wasOnline) { APP.mode = 'cpu'; APP.mySide = 0; toast('상대와의 연결이 끊어졌습니다'); goTitle(); }
 }
 
 function onNetMsg(m) {
   if (!m || typeof m !== 'object') return;
   switch (m.t) {
-    case 'hi': NET.oppNick = m.nick || null; if (m.v !== NET_VER) toast('게임 버전이 달라요. 둘 다 새로고침해 주세요'); break;
+    case 'hi': NET.oppNick = typeof m.nick === 'string' ? m.nick.slice(0, 12) : null; if (m.v !== NET_VER) { onNetClosed(); toast('게임 버전이 달라요. 둘 다 새로고침해 주세요'); } break;
     case 'ping': netSend({ t: 'pong', ts: m.ts }); break;
     case 'pong': NET.ping = Math.round(performance.now() - m.ts); break;
     case 'sel': APP.sel.opp = { cur: m.cur, ready: m.ready, c: m.c }; if (NET.role === 'host') maybeStartOnline(); break;
