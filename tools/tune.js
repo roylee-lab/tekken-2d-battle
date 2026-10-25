@@ -18,13 +18,16 @@ const KNOBS = {
   11: [['majRoot', 1, 1], ['painRoot', 1, 1]],
   12: [['sealSec', 1, 1], ['headDmg', 1, 0]],
   13: [['kkDmg', 1, 0], ['drunkT', 1, 1]],
-  14: [['shingDmg', 1, 0], ['antDmg', 1, 0]],
+  14: [['shingDmg', 1, 0], ['antLife', 1, 1]],
   15: [['ballMax', 1, 1], ['bombDmg', 1, 0]],
+  16: [['pimoRoot', 1, 1], ['mantisT', 1, 1]],
 };
 const ctx = {}; vm.createContext(ctx);
 vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'src', '00_core.js'), 'utf8').replace("'use strict';", '') + fs.readFileSync(path.join(__dirname, '..', 'src', '01_data.js'), 'utf8').replace(/^const /gm, 'var ') + '; var __B = BAL;', Object.assign(ctx, { safeLS: () => null }));
 const BAL0 = JSON.parse(JSON.stringify(ctx.__B));
 const IDS = Object.keys(KNOBS).map(Number);
+// 체력 위주로 조정할 캐릭터 (사명감: 체력 보완 요청)
+const HPX = { 5: 1.0 };
 const SF = path.join(__dirname, 'tune_state.json');
 const S = {}; for (const c of IDS) S[c] = 1;
 if (fs.existsSync(SF) && process.argv[4] !== 'fresh') Object.assign(S, JSON.parse(fs.readFileSync(SF, 'utf8')));
@@ -32,8 +35,8 @@ function build() {
   const ov = {};
   for (const c of IDS) {
     const b = BAL0[c], o = {};
-    for (const [k, e, isInt] of KNOBS[c]) { let v = b[k] * Math.pow(S[c], e); v = isInt ? Math.max(1, Math.round(v)) : +v.toFixed(3); o[k] = v; }
-    o.hp = Math.round(b.hp * Math.pow(S[c], 0.35));
+    for (const [k, e, isInt] of (process.env.HPONLY ? [] : KNOBS[c])) { let v = b[k] * Math.pow(S[c], e); v = isInt ? Math.max(1, Math.round(v)) : +v.toFixed(3); o[k] = v; }
+    o.hp = Math.round(b.hp * Math.pow(S[c], process.env.HPONLY ? 0.8 : (HPX[c] || 0.35)));
     ov[c] = o;
   }
   return ov;

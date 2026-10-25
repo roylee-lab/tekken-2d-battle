@@ -2,8 +2,8 @@
 // 사용법: node tools/balance.js [조합당 판수=4] [덮어쓸 수치.json] [matrix]
 const { Worker, isMainThread, parentPort, workerData } = require('worker_threads');
 const fs = require('fs'), vm = require('vm');
-const IDS = (process.env.IDS || '0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15').split(',').map(Number);
-const NAMES = ['일반인','mola','JJjin','죽림','이은뚱','사명감','안거녕','독민재','힙찔','창가오','매미킴','Tiron','힌참휴','영탁','허도개미','차니팍'];
+const IDS = (process.env.IDS || '0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16').split(',').map(Number);
+const NAMES = ['일반인','mola','JJjin','죽림','이은뚱','사명감','안거녕','독민재','힙찔','창가오','매미킴','Tiron','힌참휴','영탁','허도개미','차니팍','이유동'];
 function runChunk({ pairs, n, ov, diffs, seedOff }) {
   const src = ['00_core','01_data','10_sim','11_ai'].map(f=>fs.readFileSync(require('path').join(__dirname,'..','src',f+'.js'),'utf8')).join('\n');
   const ctx = { console, Math, JSON, Object, Array, Set };
@@ -28,7 +28,7 @@ if (!isMainThread) { parentPort.postMessage(runChunk(workerData)); return; }
 (async () => {
   const n = +(process.argv[2] || 3);
   const ov = process.argv[3] ? JSON.parse(fs.readFileSync(process.argv[3], 'utf8')) : null;
-  const diffs = (process.env.DIFFS || '1,2').split(',').map(Number);
+  const diffs = (process.env.DIFFS || '2,3').split(',').map(Number);
   const pairs = [];
   for (const a of IDS) for (const b of IDS) if (a !== b) pairs.push([a, b]);
   const W = +(process.env.W || require('os').cpus().length), chunks = Array.from({ length: W }, (_, i) => pairs.filter((_, j) => j % W === i));
@@ -49,5 +49,6 @@ if (!isMainThread) { parentPort.postMessage(runChunk(workerData)); return; }
   if (process.argv[4] === 'matrix') {
     for (const a of IDS) console.log(NAMES[a].padEnd(5), IDS.map((b) => a === b ? '  -' : String(Math.round((a < b ? mat[a + '-' + b][0] : mat[b + '-' + a][1] - mat[b + '-' + a][0]) / mat[a < b ? a + '-' + b : b + '-' + a][1] * 100)).padStart(3)).join(' '));
   }
+  if (process.env.MATRIX_OUT) fs.writeFileSync(process.env.MATRIX_OUT, JSON.stringify({ ids: IDS, names: IDS.map((c) => NAMES[c]), overall: Object.fromEntries(rows.map(([c, w]) => [c, +w.toFixed(1)])), games: res.length, mat }));
   fs.writeFileSync(require('path').join(__dirname,'last_balance.json'), JSON.stringify(Object.fromEntries(rows.map(([c, w]) => [c, +w.toFixed(1)]))));
 })();
