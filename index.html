@@ -87,8 +87,8 @@
     <div id="lobby" class="overlay hidden">
       <div class="panel">
         <h2>🌐 온라인 대전</h2>
-        <button id="btnLan" class="lan">📶 같은 와이파이 자동 매칭</button>
-        <div class="sub">같은 공유기(와이파이)에 연결된 친구와 버튼 하나로 연결</div>
+        <button id="btnLan" class="lan">📶 같은 와이파이 방 찾기 / 만들기</button>
+        <div class="sub">같은 와이파이에 열린 방이 있으면 바로 들어가고, 없으면 내가 방을 열어요</div>
         <button id="btnHost">🏠 방 만들기 (코드 생성)</button>
         <div class="row"><input id="roomInput" maxlength="4" placeholder="CODE" autocomplete="off"><button id="btnJoin">참가</button></div>
         <div id="netStatus"></div>
@@ -193,24 +193,25 @@ const SLOT_CD = [5, 10, 30, 60];               // 슬롯별 쿨타임(초)
 const SLOT_CD_START = [5, 10, 20, 30];         // 라운드 시작 시 첫 쿨타임(초)
 function cdText(k) { return SLOT_CD_START[k] !== SLOT_CD[k] ? `첫 ${SLOT_CD_START[k]}초 · 이후 ${SLOT_CD[k]}초` : `${SLOT_CD[k]}초`; }
 const ATK = { pBase: 8, pStep: 3, kickMul: 0.5, pReach: 38, kReach: 60 };
-const BAL = {   // v3 밸런스 패치 (E/R 추가, AI 대전 시뮬레이션 기반)
-  0: { hp: 103, vacPush: 8, vacStun: 33, stimT: 330, stimLS: 1.0, focusT: 1200, focus: 1.2, vac2Dmg: 15, vac2Stun: 60 },
-  1: { hp: 96, toothN: 4, toothDmg: 3, cutPct: 0.045, regen: 10, regenSec: 8, cloneT: 1200, debuffT: 600, debuff: 0.2 },
-  2: { hp: 165, dashT: 6, parryT: 35, reviveHp: 0.65, qteN: 5, qteDmg: 10, qteHeal: 10, invisT: 300, invisSpd: 1.5 },
-  3: { hp: 100, bambooDmg: 10, shootDmg: 7.8, shootMax: 3, spd: 1.2, cdRed: 0.2, crystalDmg: 20, flyDmg: 50 },
-  4: { hp: 90, ddHeal: 0.057, ddEvery: 4, ddMax: 0.1, dicePer: 4.7, angerEvery: 3, angerAdd: 0.05, friend: 0.1, ddTwice: 0.318,
+const BAL = {   // v4 밸런스 패치: 체력 2배 (경기 시간 증가) + AI 대전 시뮬레이션 기반 조정
+  0: { hp: 212, vacPush: 8, vacStun: 45, stimT: 445, stimLS: 1.0, focusT: 1200, focus: 1.2, vac2Dmg: 15, vac2Stun: 60 },
+  1: { hp: 195, toothN: 4, toothDmg: 3.14, cutPct: 0.047, regen: 10, regenSec: 8, cloneT: 1200, debuffT: 600, debuff: 0.2 },
+  2: { hp: 336, dashT: 6, parryT: 35, reviveHp: 0.642, qteN: 5, qteDmg: 10, qteHeal: 10, invisT: 300, invisSpd: 1.5, invisGuardOff: 120 },
+  3: { hp: 232, bambooDmg: 14.92, shootDmg: 11.64, shootMax: 3, spd: 1.2, cdRed: 0.2, crystalDmg: 20, flyDmg: 50 },
+  4: { hp: 146, ddHeal: 0.034, ddEvery: 4, ddMax: 0.1, dicePer: 2.8, angerEvery: 3, angerAdd: 0.05, friend: 0.1, ddTwice: 0.318,
     momPct: 0.318, momSec: 31.8, curseSec: 31.8, curseDR: 0.318, curseAtk: 0.318, curseRefl: 0.318 },
-  5: { hp: 85, nunDmg: 3.8, nunRoot: 38, prep: 120, act: 81, atkUp: 0.1, rushDmg: 12, rushStun: 60, chokeDps: 10, chokeNeed: 40, chokeMax: 360 },
-  6: { hp: 94, meokT: 35, manT: 53, ttaT: 1200, bellyHeal: 150, bellySpd: 1.3 },
-  7: { hp: 97, gaeDmg: 5, gaeRoot: 55, poisT: 270, poisTick: 1, footExt: 60, stackMax: 5, breathDmg: 5, breathStun: 60, breathHB: 180, burpAtk: 0.1, burpHeal: 10, burpStun: 60, burpT: 600 },
-  8: { hp: 94, noteDiff: 0.34, noteSame: 0.15, noteHeal: 5, boardSpd: 1.2, dr: 0.1, laughDmg: 300, laughWind: 24, laughReach: 12, kcT: 300, kcDmg: 1 },
-  9: { hp: 100, pressRoot: 30, pressSlow: 90, forceT: 150, awakeSec: 30, awakeMul: 1.3, awakeCd: 1, rageT: 1200, rage: 1.3, penT: 120, penSlow: 0.25, earT: 1800 },
-  10: { hp: 96, fartMul: 0.55, explMul: 2, poisT: 300, poisTick: 1, bombRed: 5, legT: 1200, leg: 1.3, shuttleHit: 50, shuttleBlock: 5 },
-  11: { hp: 98, painMax: 5, painRoot: 176, majRoot: 59, majBoost: 180, majSpd: 0.1, yankP: 0.5, fireT: 45, fireDmg: 1 },
-  12: { hp: 104, sealSec: 5, headDmg: 13, spikeT: 300, spikeDR: 0.1, otaku: 0.1, growT: 1200, grow: 1.3, moP: 0.5, moPct: 0.5 },
-  13: { hp: 80, late: 0.1, kkDmg: 5, drunkT: 300, jjinSelf: 10, jjinStun: 150, formT: 600, form: 1.3 },
-  14: { hp: 126, furDot: 0.5, sneezeP: 0.15, sneezeT: 30, shingT: 600, shingDmg: 1, chestT: 300, chestDR: 0.5, antN: 100, antRate: 4, antSpd: 2.4, antDmg: 1, antKill: 8 },
-  15: { hp: 90, eun: 0.1, mallangT: 180, mallangRefl: 0.5, ballMin: 3, ballMax: 30, fifaT: 1200, fifaLS: 0.5, fifaAtk: 0.1, fifaMul: 2, bombDmg: 50, bombFuse: 60, bombR: 85 },
+  5: { hp: 240, nunDmg: 4.64, nunRoot: 46, prep: 120, act: 99, atkUp: 0.1, rushDmg: 12, rushStun: 60, chokeDps: 10, chokeNeed: 40, chokeMax: 360 },
+  6: { hp: 174, meokT: 28, manT: 42, ttaT: 1200, bellyHeal: 150, bellySpd: 1.3 },
+  7: { hp: 189, gaeDmg: 4.85, gaeRoot: 53, poisT: 262, poisTick: 1, footExt: 60, stackMax: 5, breathDmg: 5, breathStun: 60, breathHB: 180, burpAtk: 0.1, burpHeal: 10, burpStun: 60, burpT: 600 },
+  8: { hp: 221, noteDiff: 0.498, noteSame: 0.15, noteHeal: 7, boardSpd: 1.2, dr: 0.1, laughDmg: 300, laughWind: 24, laughReach: 12, kcT: 300, kcDmg: 1 },
+  9: { hp: 182, pressRoot: 30, pressSlow: 79, forceT: 132, awakeSec: 30, awakeMul: 1.3, awakeCd: 1, rageT: 1200, rage: 1.3, penT: 120, penSlow: 0.25, earT: 1800 },
+  10: { hp: 208, fartMul: 0.633, explMul: 2.3, poisT: 300, poisTick: 1, bombRed: 5, legT: 1200, leg: 1.3, shuttleHit: 50, shuttleBlock: 5 },
+  11: { hp: 198, painMax: 5, painRoot: 208, majRoot: 70, majBoost: 180, majSpd: 0.1, yankP: 0.5, fireT: 45, fireDmg: 1 },
+  12: { hp: 162, sealSec: 8, headDmg: 7.17, spikeT: 300, spikeDR: 0.1, headInv: 60, otaku: 0.1, growT: 1200, grow: 1.3, growPush: 72, moP: 0.5 },
+  13: { hp: 182, late: 0.1, kkDmg: 5, drunkT: 300, jjinSelf: 10, jjinStun: 150, formT: 600, form: 1.3 },
+  14: { hp: 214, furDot: 0.5, sneezeP: 0.15, sneezeT: 30, shingT: 600, shingDmg: 1, chestT: 300, chestDR: 0.5, antN: 100, antWave: 25, antWaveT: 30, antSpd: 12, antHp: 2, antDmg: 1, antBite: 60, antLife: 117 },
+  16: { hp: 143, ironAt: 0.2, ironT: 300, ironRange: 2, pimoLife: 420, pimoRoot: 240, pimoMax: 2, mantisT: 240, mantis: 1.5, clockT: 300, clockSpd: 1.75, clockStun: 60, clockSec: 455, phonePct: 0.2, phoneT: 1800 },
+  15: { hp: 192, eun: 0.1, mallangT: 180, mallangRefl: 0.5, ballMin: 3, ballMax: 30, fifaT: 1200, fifaLS: 0.5, fifaAtk: 0.1, fifaMul: 2, bombDmg: 50, bombFuse: 60, bombR: 85 },
 };
 function skillDef(c, slot) { return CHARS[c]['s' + (slot + 1)] || null; }
 function skillInfo(c, slot) { const d = skillDef(c, slot); return d ? d.info(BAL[c]) : '비어 있는 슬롯 (추후 추가 예정)'; }
@@ -250,7 +251,7 @@ const CHARS = [
     s1: { name: '대시', info: (b) => `입력 방향으로 순간 고속 이동 (${b.dashT * 12}px)` },
     s2: { name: '패링', info: (b) => `${(b.parryT / 60).toFixed(2)}초간 공격 무효화 및 반사 밀어내기` },
     s3: { name: '패드립 배틀', heal: true, info: (b) => `화면의 글자를 먼저 누른 쪽이 고정 ${b.qteDmg} 피해 + ${b.qteHeal} 회복 (${b.qteN}글자)` },
-    s4: { name: '영역 전개', info: (b) => `${b.invisT / 60}초간 상대에게 보이지 않음 + 이동속도 +${Math.round((b.invisSpd - 1) * 100)}%` },
+    s4: { name: '영역 전개', info: (b) => `${b.invisT / 60}초간 무적 + 투명 + 이동속도 +${Math.round((b.invisSpd - 1) * 100)}%, 상대 ${b.invisGuardOff / 60}초 가드 불가` },
     passive: { name: '부활', desc: (b) => `라운드마다 1회, 쓰러지면 체력 ${Math.round(b.reviveHp * 100)}%로 부활` },
     look: {
       H: 0.84, b: build({ torsoW: 14, waistW: 11.5, thigh: 6.2, shin: 5.2, arm: 4.8, fore: 4.3 }), skin: '#5e3a22',
@@ -377,10 +378,10 @@ const CHARS = [
   {
     name: '힌참휴', en: 'HINCHAMHYU', color: '#00e676', country: 'JP', stage: 'tokyo',
     desc: ['천재 해커 파이터', '뾰족한 머리와 해킹'],
-    s1: { name: '뾰족한 머리', info: (b) => `박치기 고정 ${b.headDmg} 피해 + ${b.spikeT / 60}초간 받는 피해 -${Math.round(b.spikeDR * 100)}%` },
-    s2: { name: '해킹', info: (b) => `상대 스킬 1개 ${b.sealSec}초 봉인 + 1회 복제 (W 다시 누르기)` },
-    s3: { name: '난쟁이의 희망', info: (b) => `${b.growT / 60}초간 사거리·몸집 +${Math.round((b.grow - 1) * 100)}% (맞는 범위도 커짐)` },
-    s4: { name: '모 아니면 도', info: (b) => `윷! ${Math.round(b.moP * 100)}% 모: 상대 현재 체력 ${Math.round(b.moPct * 100)}% 고정 피해 / 도: 1 피해` },
+    s1: { name: '뾰족한 머리', info: (b) => `박치기 고정 ${b.headDmg} 피해 + ${b.headInv / 60}초 무적 + ${b.spikeT / 60}초간 받는 피해 -${Math.round(b.spikeDR * 100)}%` },
+    s2: { name: '해킹', info: (b) => `상대 스킬 1개 ${b.sealSec}초 사용 불가 + 1회 복제 (W 다시 누르기)` },
+    s3: { name: '난쟁이의 희망', info: (b) => `${b.growT / 60}초간 사거리·몸집 +${Math.round((b.grow - 1) * 100)}% + 상대 ${b.growPush}px 밀어냄` },
+    s4: { name: '모 아니면 도', info: (b) => `윷! ${Math.round(b.moP * 100)}% 확률로 모: 상대 즉사 / 도: 1 피해` },
     passive: { name: '오타쿠', desc: (b) => `상대가 이은뚱이면 모든 능력치 +${Math.round(b.otaku * 100)}%, 일본 스테이지에서 +${Math.round(b.otaku * 100)}% (중첩)` },
     look: {
       H: 1.02, b: build({ torsoW: 14.5, waistW: 12, thigh: 6, shin: 5.2, arm: 4.6, fore: 4.2 }), skin: '#f2c99e',
@@ -406,7 +407,7 @@ const CHARS = [
     s1: { name: '전염', info: () => '내 상태이상(독·구속·감속·봉인 등)을 모두 상대에게 옮기고 나는 깨끗해짐' },
     s2: { name: '대상포진', info: (b) => `맞으면 ${b.shingT / 60}초간 초당 ${b.shingDmg} 지속 피해` },
     s3: { name: '옵빠이', info: (b) => `${b.chestT / 60}초간 받는 피해 -${Math.round(b.chestDR * 100)}%, 투사체·독은 상대에게 튕겨냄` },
-    s4: { name: '개미군단', info: (b) => `개미 ${b.antN}마리 소환 (체력 1, 공격력 1), 상대에게 달려가 문다` },
+    s4: { name: '개미군단', info: (b) => `개미 ${b.antN}마리가 ${b.antWave}마리씩 쏟아져 달라붙음 (체력 ${b.antHp}, 초당 ${b.antDmg} 피해, 가드 불가)` },
     passive: { name: '털복숭이', desc: (b) => `독·지속 피해 -${Math.round(b.furDot * 100)}% / 나를 때린 상대가 ${Math.round(b.sneezeP * 100)}% 확률로 재채기 (${(b.sneezeT / 60).toFixed(1)}초 경직)` },
     look: {
       H: 1.0, b: build({ torsoW: 17, waistW: 14, belly: 0.25, thigh: 6.8, shin: 5.8, arm: 5.4, fore: 4.9 }), skin: '#e6b088',
@@ -426,10 +427,23 @@ const CHARS = [
       hair: { style: 'short', color: '#222' }, top: '#d32f2f', topStyle: 'tee', pants: '#1a237e', shoes: '#ffffff', acc: { jersey: '7' },
     },
   },
+  {
+    name: '이유동', en: 'LEE YUDONG', color: '#c62828', country: 'KR', stage: 'seoul',
+    desc: ['다리가 엄청 긴 기숙사생', '가슴에 아크 리액터'],
+    s1: { name: '피모 지웠다 깔기', info: (b) => `피모를 또 설치! 밟은 상대는 현혹되어 ${b.pimoRoot / 60}초 구속` },
+    s2: { name: '맨티스컷', info: (b) => `${b.mantisT / 60}초간 펀치·킥 속도 +${Math.round((b.mantis - 1) * 100)}%` },
+    s3: { name: '4시 55분', info: (b) => `시간 ${b.clockSec}초로! ${b.clockT / 60}초간 안 밀려남·공속 +${Math.round((b.clockSpd - 1) * 100)}%, 후 ${b.clockStun / 60}초 기절` },
+    s4: { name: '휴대폰압수', info: (b) => `체력 ${Math.round(b.phonePct * 100)}%로, ${b.phoneT / 60}초간 아이언맨 + 불사, 끝나면 받은 피해 회복` },
+    passive: { name: '아이언맨', desc: (b) => `체력 ${Math.round(b.ironAt * 100)}% 이하 시 ${b.ironT / 60}초간 아이언맨 (레이저 펀치 사거리 ${b.ironRange}배)` },
+    look: {
+      H: 1.18, b: build({ torsoW: 11.5, waistW: 9, thigh: 4.3, shin: 3.8, arm: 3.4, fore: 3.0, headR: 8.2, leg: 1.22 }), skin: '#efc49a',
+      hair: { style: 'parted', color: '#151515' }, top: '#37474f', topStyle: 'tee', pants: '#263238', shoes: '#eeeeee', acc: { arc: true },
+    },
+  },
 ];
-const SELECT_ORDER = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 13, 14, 15]; // 8+7 그리드 (Tirón은 K로)
+const SELECT_ORDER = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 13, 14, 15, 16]; // 8+8 그리드 (Tirón은 K로)
 const SEL_COLS = 8;
-const TIRON = 11, HINCHAM = 12, YOUNGTAK = 13, GAEMI = 14, CHANI = 15;
+const TIRON = 11, HINCHAM = 12, YOUNGTAK = 13, GAEMI = 14, CHANI = 15, YUDONG = 16;
 
 // 승리 기록
 function getRecords() {
@@ -460,7 +474,7 @@ let rnd = Math.random; // 시뮬레이션 난수
 const _lookVar = {};
 function lookOf(F) {
   const base = CHARS[F.c].look;
-  const k = (F.slim && F.c === 6 ? 's' : '') + (F.earT > 0 ? 'e' : '') + (F.drunkT > 0 ? 'd' : '');
+  const k = (F.slim && F.c === 6 ? 's' : '') + (F.earT > 0 ? 'e' : '') + (F.drunkT > 0 ? 'd' : '') + (F.c === YUDONG && ironOn(F) ? 'i' : '');
   if (!k) return base;
   const key = F.c + k;
   if (!_lookVar[key]) {
@@ -468,13 +482,14 @@ function lookOf(F) {
     if (k.includes('s')) { v.b.belly = 0; v.b.waistW = 14; v.b.torsoW = 18; v.acc.roundFace = false; }
     if (k.includes('e')) v.acc.earmuff = true;
     if (k.includes('d')) v.acc.drunk = true;
+    if (k.includes('i')) { v.top = '#b71c1c'; v.pants = '#b71c1c'; v.shoes = '#f9a825'; v.topStyle = 'track'; v.acc.ironMask = true; }
     _lookVar[key] = v;
   }
   return _lookVar[key];
 }
 function radius(F) {
   const L = lookOf(F), b = L.b;
-  return (b.torsoW * 0.5 + 7 + b.belly * 7 + b.hips * 0.7) * L.H * 1.25 * (F.sz || 1); // 화면 확대(FSCALE)와 두께 반영
+  return (b.torsoW * 0.5 + 7 + b.belly * 7 + b.hips * 0.7) * L.H * 1.25; // 화면 확대(FSCALE)와 두께 반영 (몸집 버프는 겉모습만 커짐)
 }
 // ---------- 능력치 배율 (버프/디버프) ----------
 const STAT_ALL = new Set(['atk', 'def', 'spd', 'aspd', 'range']);
@@ -491,6 +506,7 @@ function faceX(F, O) {
   if (C && C.hp > 0 && Math.abs(C.x - F.x) < Math.abs(O.x - F.x)) return C.x;
   return O.x;
 }
+function ironOn(F) { return F.ironT > 0 || F.phoneT > 0; }   // 이유동 아이언맨 상태
 function busyOf(F) { return F.laughT > 0 || F.fireT > 0 || F.flyT > 0 || F.rushT2 > 0 || F.kkT > 0 || F.shutT > 0 || F.chokeHold || F.chokeT > 0; }
 function charName(c) { return CHARS[c].name; }
 
@@ -512,7 +528,8 @@ function makeFighter(side, c) {
     mods: [], sz: 1, pm: 1, stunT: 0, hbT: 0, ttaT: 0, invisT: 0, drunkT: 0, earT: 0, rageT: 0, kcT: 0,
     laughT: 0, breathN: 0, breathT: 0, breathHit: false, fireT: 0, flyT: 0, flyX: 0, flyFrom: 0, rushT2: 0,
     chokeT: 0, chokeN: 0, chokeTick: 0, chokeHold: false, kkT: 0, shutT: 0, stk: 0, yank: false, slim: false, clone: null, ddFree: false,
-    shingT: 0, shingTick: 0, chestT: 0, ants: [], antQ: 0, antT: 0, mallangT: 0, fifaT: 0, fifaNext: false, bomb: null,
+    shingT: 0, shingTick: 0, chestT: 0, ants: [], antG: [], antQ: 0, antT: 0, mallangT: 0, fifaT: 0, fifaNext: false, bomb: null,
+    invulT: 0, ironT: 0, ironUsed: false, clockT: 0, phoneT: 0, phoneDmg: 0, phoneStart: 0, phoneHealT: 0, phoneHealAmt: 0,
     ko: false, wins: 0, combo_recv: 0, comboShowT: 0,
   };
 }
@@ -531,17 +548,18 @@ function newMatch(c0, c1, stage, mode, late) {
 
 function resetRound(G) {
   G.phase = 'intro'; G.pt = 0; G.timer = ROUND_TIME * SEC; G.roundF = 0;
-  G.proj = []; G.traps = []; G.freezeT = 0; G.hitStop = 0; G.dice = null; G.notes = []; G.flash = 0; G.qte = null; G.yut = null;
+  G.proj = []; G.traps = []; G.freezeT = 0; G.hitStop = 0; G.dice = null; G.notes = []; G.flash = 0; G.qte = null; G.yut = null; G.clock = null;
   G.rw = -1; G.koType = ''; G.perfect = false;
   for (const F of G.F) {
-    const wins = F.wins, c = F.c, side = F.side;
+    const wins = F.wins, c = F.c, side = F.side, prevCd = F.cd.slice();
     Object.assign(F, makeFighter(side, c));
     F.wins = wins;
     const O = G.F[1 - side];
     // 이은뚱 패시브: 상대가 mola/JJjin이면 최대 체력 +10
     F.maxHp = BAL[c].hp + (c === 4 && (O.c === 1 || O.c === 2) ? Math.round(BAL[4].hp * BAL[4].friend) : 0);
     F.hp = F.maxHp;
-    F.cd = SLOT_CD_START.map((s) => s * SEC);   // 라운드 시작 시 첫 쿨타임부터 돈다
+    // 첫 라운드는 첫 쿨타임부터, 다음 라운드부터는 이전 라운드의 남은 쿨타임을 그대로 이어감
+    F.cd = G.round > 1 ? prevCd : SLOT_CD_START.map((s) => s * SEC);
     // 힌참휴 오타쿠 / 영탁 니가 왜 거기서 나와: 모든 능력치 배율
     F.pm = 1;
     if (c === HINCHAM) { if (O.c === 4) F.pm *= 1 + BAL[12].otaku; if (G.stage === 'tokyo') F.pm *= 1 + BAL[12].otaku; }
@@ -567,6 +585,7 @@ function momTake(G, F, dmg, label) {
 // 구속·감속·봉인 같은 방해효과를 받기 전에 호출 → true면 은맘이 대신 받아서 무효
 function disrupt(G, T) {
   if (T.earT > 0) { ev(G, 'float', T.x, T.y + 92, '무시!', '#c38bff'); return true; }   // 창가오 거꾸로 쓴 귀마개
+  if (T.invulT > 0) { ev(G, 'float', T.x, T.y + 92, '무적!', '#fff6a0'); return true; }
   if (!momAlive(T)) return false;
   momTake(G, T, 0, '방해 무효!');
   return true;
@@ -578,6 +597,7 @@ function applyDamage(G, A, D, dmg, type, o) {
   if (D.ko) return 'immune';
   const proj = PROJ_TYPES.has(type);
   const hy = D.y + 50 * lookOf(D).H;
+  if (D.invulT > 0 && !o.pure && A !== D) { ev(G, 'spark', D.x, hy, 'immune'); ev(G, 'float', D.x, hy + 24, '무적', '#fff6a0'); return 'immune'; }
   // 창가오 거꾸로 쓴 귀마개: 상대 스킬 피해 무시 (일반 공격만 맞음)
   if (D.earT > 0 && A !== D && !MELEE_T.has(type)) { ev(G, 'spark', D.x, hy, 'immune'); ev(G, 'float', D.x, hy + 24, '무시!', '#c38bff'); return 'immune'; }
   if (A && A !== D && A.curseT > 0 && !o.reflect) dmg *= 1 + BAL[4].curseAtk;   // 31.8의 저주: 공격력 증가
@@ -638,7 +658,7 @@ function applyDamage(G, A, D, dmg, type, o) {
   }
   // 9. 경감 효과 (고정 피해는 무시)
   // 31.8의 저주: 받은 피해 일부 반사 (고정 피해)
-  if (D.curseT > 0 && !o.reflect && A !== D && dmg > 0) {
+  if (D.curseT > 0 && !o.reflect && !o.noReflect && A !== D && dmg > 0) {
     const refl = dmg * BAL[4].curseRefl;
     applyDamage(G, D, A, refl, 'REFLECT', { fixed: true, reflect: true });
   }
@@ -657,6 +677,7 @@ function applyDamage(G, A, D, dmg, type, o) {
   }
   if (dmg > 0) {
     D.hp -= dmg;
+    if (D.phoneT > 0) D.phoneDmg += dmg;
     ev(G, 'float', D.x + rnd() * 10 - 5, hy + 22, (Math.round(dmg * 10) / 10).toString(), blocked ? '#bbbbbb' : (o.fixed ? '#ff5edb' : '#ffe14d'));
     if (A !== D && A.stimT > 0 && canHeal(A)) { addHp(A, dmg * BAL[0].stimLS); ev(G, 'heal', A.x, A.y + 50); }
     if (A !== D && A.fifaT > 0 && canHeal(A)) addHp(A, dmg * BAL[15].fifaLS);
@@ -668,6 +689,7 @@ function applyDamage(G, A, D, dmg, type, o) {
 
 function checkKO(G, D) {
   if (D.hp > 0 || D.ko) return;
+  if (D.phoneT > 0 || D.phoneHealT > 0) { D.hp = 0; return; }   // 이유동 휴대폰압수: 스킬이 끝날 때까지 죽지 않음
   if (D.c === 2 && !D.revived) {
     D.revived = true; D.hp = D.maxHp * BAL[2].reviveHp; D.hitT = 0;
     G.freezeT = Math.max(G.freezeT, 75);
@@ -811,6 +833,14 @@ function updateProjectiles(G) {
     const tr = G.traps[i];
     tr.age = (tr.age || 0) + 1;
     const T = G.F[1 - tr.o];
+    if (tr.k === 'pimo') {
+      if (tr.age > tr.life) { G.traps.splice(i, 1); continue; }
+      if (tr.age > 24 && !T.ko && T.y <= 0 && Math.abs(T.x - tr.x) < 10 + radius(T) * 0.4) {
+        if (!disrupt(G, T)) { T.rootT = Math.max(T.rootT, BAL[16].pimoRoot); ev(G, 'float', T.x, T.y + 100, '현혹! 구속', '#64b5f6'); }
+        ev(G, 'sfx', 'hack'); G.traps.splice(i, 1);
+      }
+      continue;
+    }
     if (tr.age > 20 && !T.ko && T.y <= 0 && Math.abs(T.x - tr.x) < 10 + radius(T) * 0.4) {
       const res = applyDamage(G, G.F[tr.o], T, 5, 'SHOOT');
       if (res === 'hit') T.hitT = Math.max(T.hitT, 10);
@@ -925,12 +955,16 @@ const SK = {
       F.parryT = BAL[2].parryT; F.parryR = BAL[2].parryT + 16; return true;
     },
     (G, F, O) => { if (G.qte || O.ko) return false; startQTE(G, F); return true; },
-    (G, F, O) => { F.invisT = BAL[2].invisT; note(G, '영역 전개!', '#f5c542', 70); ev(G, 'sfx', 'hack'); ev(G, 'flashOnce'); return true; },
+    (G, F, O) => {
+      F.invisT = BAL[2].invisT; F.invulT = Math.max(F.invulT, BAL[2].invisT);
+      if (!disrupt(G, O)) O.guardOffT = Math.max(O.guardOffT, BAL[2].invisGuardOff);
+      note(G, '영역 전개! 무적 + 투명, 상대 가드 불가', '#f5c542', 90); ev(G, 'sfx', 'hack'); return true;
+    },
   ],
   3: [
     (G, F, O) => { spawnProj(G, F, 'bamboo', 10, 20, 10); return true; },
     (G, F, O) => {
-      if (G.traps.filter((t) => t.o === F.side).length >= BAL[3].shootMax) return false;
+      if (G.traps.filter((t) => t.o === F.side && !t.k).length >= BAL[3].shootMax) return false;
       G.traps.push({ x: F.x, o: F.side, age: 0 }); return true;
     },
     (G, F, O) => { spawnProj(G, F, 'crystal', 7, 50, 9); ev(G, 'sfx', 'charge'); return true; },
@@ -1064,9 +1098,9 @@ const SK = {
     (G, F, O) => { F.fireT = BAL[11].fireT; ev(G, 'sfx', 'explosion'); ev(G, 'shake', 8, 4); return true; },
   ],
   12: [
-    (G, F, O) => { F.headT = 14; F.headHit = false; F.spikeT = BAL[12].spikeT; ev(G, 'sfx', 'charge'); return true; },
+    (G, F, O) => { F.headT = 14; F.headHit = false; F.spikeT = BAL[12].spikeT; F.invulT = Math.max(F.invulT, BAL[12].headInv); ev(G, 'sfx', 'charge'); return true; },
     (G, F, O) => {
-      if (disrupt(G, O)) { note(G, '해킹 실패! 은맘이 막았다', '#ff8fb3', 80); return true; }
+      if (disrupt(G, O)) { note(G, '해킹 실패! 막혔다', '#ff8fb3', 80); return true; }
       const own = [0, 1, 2, 3].filter((s) => skillDef(O.c, s));
       let avail = own.filter((s) => O.seal[s] <= 0);
       if (!avail.length) avail = own;
@@ -1078,7 +1112,11 @@ const SK = {
       note(G, `해킹 성공! ${CHARS[O.c].name}의 '${nm}' ${BAL[12].sealSec}초 봉인 + 복제 완료`, '#00e676', 120);
       return true;
     },
-    (G, F, O) => { const v = BAL[12].grow, T = BAL[12].growT; addMod(F, 'grow1', 'range', v, T); addMod(F, 'grow2', 'size', v, T); note(G, '난쟁이의 희망! 몸이 커진다', '#00e676', 80); ev(G, 'sfx', 'powerup'); return true; },
+    (G, F, O) => {
+      const v = BAL[12].grow, T = BAL[12].growT; addMod(F, 'grow1', 'range', v, T); addMod(F, 'grow2', 'size', v, T);
+      if (!disrupt(G, O)) { O.kb = sign(O.x - F.x) * BAL[12].growPush / 5; O.hitT = Math.max(O.hitT, 10); }   // kb는 매 프레임 0.8배 → 총 이동 = kb x 5
+      note(G, '난쟁이의 희망! 몸이 커지며 상대를 밀어낸다', '#00e676', 80); ev(G, 'sfx', 'powerup'); ev(G, 'shake', 6, 3); return true;
+    },
     (G, F, O) => {
       if (G.dice || G.yut) return false;
       G.yut = { o: F.side, t: 50, res: 0, pop: 0 };
@@ -1116,7 +1154,29 @@ const SK = {
     },
     (G, F, O) => { spawnProj(G, F, 'shingles', 6.5, 45, 9); ev(G, 'sfx', 'fart'); return true; },
     (G, F, O) => { F.chestT = BAL[14].chestT; note(G, '옵빠이!! 가슴으로 받아낸다', '#ffd27f', 90); ev(G, 'sfx', 'powerup'); return true; },
-    (G, F, O) => { F.antQ = BAL[14].antN; F.antT = 0; note(G, `🐜 개미군단 ${BAL[14].antN}마리 출동!`, '#a1887f', 110); ev(G, 'sfx', 'roar'); return true; },
+    (G, F, O) => { F.antQ = BAL[14].antN; F.antT = BAL[14].antWaveT; note(G, `🐜 개미군단 ${BAL[14].antN}마리가 쏟아진다!`, '#a1887f', 110); ev(G, 'sfx', 'roar'); return true; },
+  ],
+  16: [
+    (G, F, O) => {   // 피모 지웠다 깔기: 밟으면 현혹 → 구속
+      const mine = G.traps.filter((t) => t.o === F.side && t.k === 'pimo');
+      if (mine.length >= BAL[16].pimoMax) G.traps.splice(G.traps.indexOf(mine[0]), 1);
+      G.traps.push({ x: clamp(F.x + F.f * 34, 20, ARENA_W - 20), o: F.side, age: 0, k: 'pimo', life: BAL[16].pimoLife });
+      ev(G, 'float', F.x, F.y + 100, '피모 설치 중...', '#64b5f6'); return true;
+    },
+    (G, F, O) => { addMod(F, 'mantis', 'aspd', BAL[16].mantis, BAL[16].mantisT); ev(G, 'float', F.x, F.y + 100, '사마귀 뜯기!', '#a5d6a7'); ev(G, 'sfx', 'powerup'); return true; },
+    (G, F, O) => {   // 4시 55분
+      const B = BAL[16];
+      G.clock = { t: 80, o: F.side }; G.freezeT = Math.max(G.freezeT, 80);
+      G.timer = B.clockSec * SEC; F.clockT = B.clockT; addMod(F, 'clock', 'aspd', B.clockSpd, B.clockT);
+      note(G, '🕓 4시 55분! (남은 시간 455초)', '#fff59d', 120); ev(G, 'sfx', 'tick'); return true;
+    },
+    (G, F, O) => {   // 휴대폰압수
+      const B = BAL[16];
+      F.phoneStart = F.maxHp * B.phonePct; if (F.hp > F.phoneStart) F.hp = F.phoneStart;
+      F.phoneT = B.phoneT; F.phoneDmg = 0;
+      note(G, '📱 휴대폰압수! 30초간 아이언맨 + 죽지 않음', '#ff5252', 120); ev(G, 'sfx', 'roar'); ev(G, 'shake', 10, 5);
+      return true;
+    },
   ],
   15: [
     (G, F, O) => { F.mallangT = BAL[15].mallangT; ev(G, 'sfx', 'powerup'); ev(G, 'float', F.x, F.y + 100, '말랑말랑', '#ffb3c6'); return true; },
@@ -1195,7 +1255,7 @@ function startAttack(G, F, O, type) {
 }
 
 function reachOf(F, type) {
-  return (type === 'P' ? ATK.pReach : ATK.kReach * stat(F, 'krange')) * lookOf(F).H * stat(F, 'range');
+  return (type === 'P' ? ATK.pReach * (F.c === YUDONG && ironOn(F) ? BAL[16].ironRange : 1) : ATK.kReach * stat(F, 'krange')) * lookOf(F).H * stat(F, 'range');
 }
 function meleeHit(G, F, O) {
   const reach = reachOf(F, F.atk);
@@ -1208,11 +1268,12 @@ function meleeHit(G, F, O) {
     G.hitStop = 4; ev(G, 'spark', C.x - F.f * 8, C.y + 55, 'hit'); ev(G, 'sfx', F.atk === 'K' ? 'hitK' : 'hitP');
     return;
   }
-  // 상대 개미 처치 (펀치·킥 범위 안의 개미)
-  if (O.ants.length) {
-    let killed = 0;
-    O.ants = O.ants.filter((x) => { if (killed < BAL[14].antKill && Math.abs(x - F.x) <= radius(F) + reach + 4 && sign(x - F.x) === F.f && F.y < 30) { killed++; return false; } return true; });
-    if (killed) { ev(G, 'spark', F.x + F.f * (radius(F) + reach * 0.6), 4, 'dust'); ev(G, 'float', F.x + F.f * 30, 30, '개미 -' + killed, '#a1887f'); }
+  // 몸에 달라붙은 개미 떼어내기: 공격할 때마다 공격력만큼 개미 체력을 깎음
+  if (O.antG.length) {
+    let kill = Math.max(1, Math.floor(F.atkDmg / BAL[14].antHp)), killed = 0;
+    for (const g of O.antG) { const k = Math.min(g.n, kill); g.n -= k; kill -= k; killed += k; if (!kill) break; }
+    O.antG = O.antG.filter((g) => g.n > 0);
+    if (killed) ev(G, 'float', F.x, F.y + 70, '개미 -' + killed, '#a1887f');
   }
   if (inR(O.x, O.y)) {
     const isK = F.atk === 'K';
@@ -1244,6 +1305,31 @@ function meleeHit(G, F, O) {
     }
   } else {
     ev(G, 'sfx', 'miss');
+  }
+}
+
+// ---------- 이유동 ----------
+function stepYudong(G, F, O) {
+  const B = BAL[16];
+  // 패시브 아이언맨: 체력 20% 이하가 되면 5초 변신 (라운드당 1회)
+  if (F.c === YUDONG && !F.ironUsed && F.hp > 0 && F.hp <= F.maxHp * B.ironAt && !F.ko) {
+    F.ironUsed = true; F.ironT = B.ironT;
+    note(G, '🦾 아크 리액터 가동! 아이언맨 변신!', '#ff5252', 110); ev(G, 'sfx', 'powerup'); ev(G, 'revive', F.x, F.y);
+  }
+  // 4시 55분: 밀려나지 않음, 끝나면 죄책감 기절
+  if (F.clockT > 0) {
+    F.kb = 0; if (F.hitT > 0) F.hitT = 0;
+    if (--F.clockT === 0) { F.stunT = Math.max(F.stunT, B.clockStun); F.atk = null; ev(G, 'float', F.x, F.y + 110, '죄책감...', '#9fa8da'); }
+  }
+  // 휴대폰압수: 끝나면 1초 동안 그동안 받은 피해를 회복
+  if (F.phoneT > 0 && --F.phoneT === 0) {
+    F.phoneHealT = 60; F.phoneHealAmt = Math.max(0, Math.min(F.phoneDmg, F.phoneStart - F.hp));
+    note(G, '📱 휴대폰을 돌려받았다! 피해 회복', '#7dff9a', 90);
+  }
+  if (F.phoneHealT > 0) {
+    if (F.phoneHealAmt > 0 && canHeal(F)) addHp(F, F.phoneHealAmt / 60);
+    if (F.phoneHealT % 12 === 0) ev(G, 'heal', F.x, F.y + 50);
+    if (--F.phoneHealT === 0) checkKO(G, F);
   }
 }
 
@@ -1334,22 +1420,29 @@ function stepSkillStates(G, F, O, inp) {
   }
   // 매미킴 배드민턴 스매시
   if (F.shutT > 0 && --F.shutT === 0) { spawnProj(G, F, 'shuttle', 15, 40, 6); ev(G, 'sfx', 'whoosh'); ev(G, 'shake', 5, 3); }
-  // 허도개미 개미군단
-  if (F.antQ > 0 && ++F.antT >= BAL[14].antRate) { F.antT = 0; F.antQ--; F.ants.push(Math.round(F.x + F.f * 8)); }
+  // 허도개미 개미군단: 한 번에 여러 마리씩 쏟아져 아주 빠르게 달려가 달라붙음 (가드 불가)
+  if (F.antQ > 0 && ++F.antT >= BAL[14].antWaveT) {
+    F.antT = 0;
+    const n = Math.min(F.antQ, BAL[14].antWave); F.antQ -= n;
+    for (let i = 0; i < n; i++) F.ants.push(Math.round(F.x + F.f * (6 + i * 1.5)));
+    ev(G, 'sfx', 'tick');
+  }
   if (F.ants.length) {
+    const B = BAL[14], reach = radius(O) * 0.8;
+    let arrived = 0;
+    F.ants = F.ants.filter((x) => { if (O.ko) return false; if (Math.abs(O.x - x) <= reach + B.antSpd) { arrived++; return false; } return true; })
+      .map((x) => Math.round((x + sign(O.x - x) * B.antSpd) * 10) / 10);
+    if (arrived) F.antG.push({ n: arrived, life: B.antLife, bite: 10 });
+  }
+  if (F.antG.length) {
     const B = BAL[14];
     let bites = 0;
-    const reach = radius(O) * 0.8;
-    F.ants = F.ants.filter((x) => {
-      if (O.ko) return false;
-      const d = O.x - x;
-      if (Math.abs(d) <= reach) { if (O.y < 20) { bites++; return false; } return true; }
-      return true;
-    }).map((x) => { const d = O.x - x; return Math.abs(d) <= reach ? x : Math.round((x + sign(d) * B.antSpd) * 10) / 10; });
-    if (bites) {
-      const res = applyDamage(G, F, O, B.antDmg * bites, 'ANT');
+    for (const g of F.antG) { g.life--; if (--g.bite <= 0) { g.bite = B.antBite; bites += g.n; } }
+    F.antG = F.antG.filter((g) => g.life > 0 && g.n > 0);
+    if (bites && !O.ko) {
+      const res = applyDamage(G, F, O, B.antDmg * bites, 'ANT', { fixed: true });
       if (res === 'hit' && O.hitT < 4) O.hitT = 4;
-      if (F.anim % 6 === 0) ev(G, 'sfx', 'tick');
+      ev(G, 'sfx', 'tick');
     }
   }
   // 차니팍 은뚱폭발
@@ -1363,7 +1456,7 @@ function stepSkillStates(G, F, O, inp) {
       F.bomb = null;
       ev(G, 'sfx', 'explosion'); ev(G, 'shake', 20, 9); ev(G, 'explosion', bm.x, 30, 1); ev(G, 'explosion', bm.x, 30, -1);
       if (Math.abs(O.x - bm.x) <= BAL[15].bombR + radius(O) * 0.5 && O.y < 80) {
-        const res = applyDamage(G, F, O, BAL[15].bombDmg, 'EUN_BOMB');
+        const res = applyDamage(G, F, O, BAL[15].bombDmg, 'EUN_BOMB', { noReflect: true });   // 던진 차니팍은 절대 피해를 받지 않음
         if (res === 'hit') { O.hitT = Math.max(O.hitT, 22); O.kb = sign(O.x - bm.x) * 7; G.hitStop = 8; }
       }
     }
@@ -1393,7 +1486,8 @@ function stepFighter(G, F, O, inp) {
   const L = lookOf(F), H = L.H;
   F.anim++;
   for (const k of ['stimT', 'meokT', 'manT', 'parryT', 'parryR', 'slowT', 'delayT', 'guardOffT', 'boostT', 'spikeT', 'hitT', 'blockT', 'castT', 'angerT', 'hitFlash', 'recov', 'comboShowT', 'rootT',
-    'stunT', 'hbT', 'ttaT', 'invisT', 'drunkT', 'earT', 'rageT', 'kcT', 'chestT', 'mallangT', 'fifaT']) dec(F, k);
+    'stunT', 'hbT', 'ttaT', 'invisT', 'drunkT', 'earT', 'rageT', 'kcT', 'chestT', 'mallangT', 'fifaT', 'invulT', 'ironT']) dec(F, k);
+  stepYudong(G, F, O);
   if (F.mods.length) { for (const m of F.mods) m.t--; F.mods = F.mods.filter((m) => m.t > 0); }
   F.sz = 1; for (const m of F.mods) if (m.k === 'size') F.sz *= m.v;
   // 영탁 막걸리: 방향키 반대 + 가드/점프 반대
@@ -1595,6 +1689,7 @@ function stepGame(G, inputs) {
   }
   if (G.freezeT > 0) {
     G.freezeT--;
+    if (G.clock && --G.clock.t <= 0) G.clock = null;
     if (G.yut) {
       const y = G.yut;
       if (y.t > 0) {
@@ -1603,12 +1698,12 @@ function stepGame(G, inputs) {
         if (y.t === 0) {
           y.res = rnd() < BAL[12].moP ? 5 : 1; y.pop = 50;
           const C = G.F[y.o], T = G.F[1 - y.o];
-          const dmg = y.res === 5 ? Math.max(1, T.hp * BAL[12].moPct) : 1;
-          y.dmg = Math.round(dmg * 10) / 10;
-          const res = applyDamage(G, C, T, dmg, 'YUT', { fixed: true });
-          if (res === 'hit' && y.res === 5) { T.hitT = 20; ev(G, 'spark', T.x, T.y + 60, 'big'); ev(G, 'shake', 14, 7); }
+          if (y.res === 5) {
+            // 모: 즉사 (은맘·방어 스킬 무시, 귀마개·무적은 막음)
+            if (T.earT > 0 || T.invulT > 0) { ev(G, 'float', T.x, T.y + 92, T.earT > 0 ? '무시!' : '무적!', '#c38bff'); note(G, '🥢 모!!! ...하지만 막혔다', '#c38bff', 100); }
+            else { T.momHp = 0; T.momT = 0; T.hp = 0; T.hitT = 20; checkKO(G, T); ev(G, 'spark', T.x, T.y + 60, 'big'); ev(G, 'shake', 18, 9); note(G, '🥢 모!!! 즉사!!', '#ffcc33', 110); }
+          } else { applyDamage(G, C, T, 1, 'YUT', { fixed: true }); note(G, '🥢 도... (1 피해)', '#aaa', 100); }
           ev(G, 'sfx', y.res === 5 ? 'jackpot' : 'deny');
-          note(G, y.res === 5 ? `🥢 모!!! 상대 체력 절반 (${y.dmg})` : '🥢 도... (1 피해)', y.res === 5 ? '#ffcc33' : '#aaa', 100);
         }
       } else if (y.pop > 0) { y.pop--; if (y.pop === 0) G.yut = null; }
     }
@@ -1663,7 +1758,7 @@ function endCheck(G) {
     G.rw = Math.abs(ra - rb) < 0.001 ? -1 : ra > rb ? 0 : 1;
   }
   if (!ended) return;
-  G.phase = 'ko'; G.pt = 0; G.freezeT = 0; G.dice = null; G.hitStop = 0; G.qte = null; G.yut = null;
+  G.phase = 'ko'; G.pt = 0; G.freezeT = 0; G.dice = null; G.hitStop = 0; G.qte = null; G.yut = null; G.clock = null;
   G.proj = [];
   if (G.rw === -1) { a.wins++; b.wins++; }
   else {
@@ -1675,8 +1770,8 @@ function endCheck(G) {
     F.atk = null; F.guard = false; F.dashT = 0; F.headT = 0;
     for (const k of ['hitFlash', 'stimT', 'meokT', 'manT', 'jeongA', 'jeongP', 'parryT', 'rootT', 'guardOffT', 'slowT', 'poisT', 'hitT', 'blockT', 'castT', 'spikeT', 'angerT', 'rushN', 'noteN', 'momHp', 'momT', 'curseT',
       'stunT', 'hbT', 'ttaT', 'invisT', 'drunkT', 'earT', 'rageT', 'kcT', 'laughT', 'breathN', 'fireT', 'flyT', 'rushT2', 'chokeT', 'kkT', 'shutT',
-      'shingT', 'chestT', 'antQ', 'mallangT', 'fifaT']) F[k] = 0;
-    F.chokeHold = false; F.clone = null; F.ants = []; F.bomb = null; F.fifaNext = false; F.mods = F.mods.filter((m) => m.id === 'belly'); F.sz = 1;
+      'shingT', 'chestT', 'antQ', 'mallangT', 'fifaT', 'invulT', 'ironT', 'clockT', 'phoneT', 'phoneHealT']) F[k] = 0;
+    F.chokeHold = false; F.clone = null; F.ants = []; F.antG = []; F.bomb = null; F.fifaNext = false; F.mods = F.mods.filter((m) => m.id === 'belly'); F.sz = 1;
     if (F.ko) { F.vy = 4; F.vx = -F.f * 2.2; F.y = Math.max(F.y, 0.1); }
   }
   ev(G, 'announce', G.koType === 'KO' ? 'ko' : 'time');
@@ -1687,11 +1782,17 @@ function endCheck(G) {
 // ============================================================
 //  CPU 인공지능
 // ============================================================
+// block: 막기/피하기 확률, interval: 판단 주기(프레임), aggr: 공격성, skill: 스킬 사용 확률, cad: 연타 간격,
+// punish: 상대 헛손질·착지 반격, react: 위협을 알아채는 데 걸리는 프레임
 const DIFF = {
-  0: { name: '쉬움', block: 0.3, interval: 22, aggr: 0.45, skill: 0.25 },
-  1: { name: '보통', block: 0.6, interval: 14, aggr: 0.6, skill: 0.4 },
-  2: { name: '어려움', block: 0.85, interval: 8, aggr: 0.75, skill: 0.55 },
+  0: { name: '매우 쉬움', block: 0.1, interval: 34, aggr: 0.3, skill: 0.12, cad: 18, punish: 0, react: 14 },
+  1: { name: '쉬움', block: 0.3, interval: 22, aggr: 0.45, skill: 0.25, cad: 12, punish: 0, react: 8 },
+  2: { name: '보통', block: 0.6, interval: 14, aggr: 0.6, skill: 0.4, cad: 12, punish: 0.2, react: 4 },
+  3: { name: '어려움', block: 0.85, interval: 8, aggr: 0.75, skill: 0.55, cad: 4, punish: 0.5, react: 2 },
+  4: { name: '매우 어려움', block: 0.95, interval: 5, aggr: 0.82, skill: 0.7, cad: 3, punish: 0.8, react: 1 },
+  5: { name: 'LUNATIC', block: 1.0, interval: 2, aggr: 0.9, skill: 0.85, cad: 2, punish: 1.0, react: 0, lunatic: true },
 };
+const DIFF_N = 6;
 
 // 스킬별 AI 사용 조건 (dist = 거리, F = 자신, O = 상대)
 const close = (F, O, extra) => Math.abs(O.x - F.x) <= radius(F) + radius(O) + extra;
@@ -1714,22 +1815,23 @@ const AI_SKILL = {
   14: [(F) => F.poisT > 0 || F.shingT > 0 || F.rootT > 0 || F.slowT > 0 || F.drunkT > 0 || F.hbT > 0 || F.ttaT > 0 || F.guardOffT > 0 || F.seal.some((v) => v > 0) || F.mods.some((m) => m.v < 1 && m.k !== 'size'),
     (F, O, d) => d > 50 && d < 240 && O.shingT <= 0, (F, O, d) => d < 170, (F, O, d) => true],
   15: [(F, O, d) => d < 140, (F, O, d) => d > 60 && d < 260, (F, O, d) => d < 200, (F, O, d) => d < 260],
+  16: [(F, O, d) => d < 150, (F, O, d) => d < 120, (F, O, d) => d < 140, (F, O, d) => F.hp < F.maxHp * 0.45],
 };
-const MASH = [5, 7, 9];          // AI 연타 속도 (초당)
-const QTE_REACT = [[45, 35], [32, 24], [22, 18]];   // AI 글자 반응 (최소, 랜덤 폭) 프레임
+const MASH = [3, 5, 7, 9, 11, 14];          // AI 연타 속도 (초당)
+const QTE_REACT = [[60, 40], [45, 35], [32, 24], [22, 18], [16, 12], [9, 6]];   // AI 글자 반응 (최소, 랜덤 폭) 프레임
 
 function makeAIMem() { return { t: 10, plan: 'wait', planT: 0, guardT: 0, reacted: false, prevH: 0, atkCad: 0, mash: 0, qL: '', qAt: 0, ghostX: 0, ghostT: 0 }; }
-function aiMash(mem, diffLv) { mem.mash += MASH[diffLv] / 60; const n = Math.floor(mem.mash); mem.mash -= n; return n; }
+function aiMash(mem, diffLv) { mem.mash += (MASH[diffLv] || 7) / 60; const n = Math.floor(mem.mash); mem.mash -= n; return n; }
 
 function aiInput(G, F, O, mem, diffLv) {
-  const D = DIFF[diffLv] || DIFF[1];
+  const D = DIFF[diffLv] || DIFF[2];
   let h = 0, p = 0, keys = '', a = 0;
   if (G.phase !== 'fight') { mem.prevH = 0; return { h: 0, p: 0 }; }
   // 패드립 배틀: 글자 보고 반응
   if (G.qte) {
     const q = G.qte;
     if (q.st === 'show') {
-      if (mem.qL !== q.L + q.i) { mem.qL = q.L + q.i; const r = QTE_REACT[diffLv] || QTE_REACT[1]; mem.qAt = r[0] + Math.floor(rnd() * r[1]); }
+      if (mem.qL !== q.L + q.i) { mem.qL = q.L + q.i; const r = QTE_REACT[diffLv] || QTE_REACT[2]; mem.qAt = r[0] + Math.floor(rnd() * r[1]); }
       if (q.t === mem.qAt) keys = rnd() < 0.06 ? QTE_KEYS[Math.floor(rnd() * QTE_KEYS.length)] : q.L;
     }
     return { h: 0, p: 0, keys, a: 0 };
@@ -1766,12 +1868,20 @@ function aiInput(G, F, O, mem, diffLv) {
     if (O.fireT > 0 && realD < 150) { h |= (O.x > F.x ? B_L : B_R); return { h, p, keys, a }; }
     if (O.bomb && O.bomb.fuse > 0 && Math.abs(O.bomb.x - F.x) < BAL[15].bombR + 40) { h |= (O.bomb.x > F.x ? B_L : B_R); if (F.y <= 0 && rnd() < 0.05) p |= B_U; return { h, p, keys, a }; }
   }
-  // 개미가 가까이 오면 펀치로 처치
-  if (O.ants && O.ants.length && !F.atk && F.y <= 0) {
-    const near = O.ants.some((x) => Math.abs(x - F.x) <= radius(F) + reachOf(F, 'P') && sign(x - F.x) === F.f);
-    if (near && rnd() < D.aggr * 0.5) { p |= B_P; mem.prevH = h; return { h, p, keys, a }; }
-  }
+  // 몸에 개미가 달라붙으면 펀치로 떼어냄
+  if (O.antG && O.antG.length && !F.atk && F.recov <= 0 && rnd() < D.aggr * 0.25) { p |= B_P; mem.prevH = h; return { h, p, keys, a }; }
+  // 이유동 피모: 보이면 밟지 않게 점프로 넘거나 멈춤
+  const pimo = G.traps.find((t) => t.k === 'pimo' && t.o === O.side && Math.abs(t.x - F.x) < 30);
+  if (pimo && F.y <= 0 && rnd() < D.block * 0.3) { p |= B_U; h |= (pimo.x > F.x ? B_R : B_L); }
   const projThreat = G.proj.find((q) => q.o === O.side && sign(F.x - q.x) === sign(q.vx) && Math.abs(F.x - q.x) < 85);
+  // 반격: 상대가 헛손질 후 굳어 있거나(후딜) 공중에서 내려오면 바로 때림 (어려움 이상)
+  if (!F.atk && F.y <= 0 && D.punish > 0 && mem.guardT <= 0) {
+    const realD = Math.abs(O.x - F.x);
+    if (O.atk && O.atkT === O.atkAct + 2) mem.pun = rnd() < D.punish;             // 상대 공격마다 한 번 판정
+    if (O.atk && O.atkT > O.atkAct + 1 && mem.pun && realD <= pRange + 6) { mem.pun = false; mem.prevH = h; return { h, p: p | B_P, keys, a }; }
+    if (O.y > 18 && O.vy < 0 && O.vy > -0.5) mem.aa = rnd() < D.punish * 0.7;           // 점프 정점에서 한 번 판정
+    if (O.y > 18 && O.vy < 0 && mem.aa && realD <= kRange) { mem.aa = false; mem.prevH = h; return { h, p: p | B_K, keys, a }; }
+  }
   if (mem.guardT > 0) {
     mem.guardT--; h |= B_D;
   } else if ((meleeThreat || projThreat) && !mem.reacted) {
@@ -1780,8 +1890,8 @@ function aiInput(G, F, O, mem, diffLv) {
       if (F.c === 2 && F.parryR <= 0 && F.cd[1] <= 0 && F.seal[1] <= 0 && meleeThreat && rnd() < 0.7) p |= B_S2;          // JJjin 패링
       else if (F.c === 6 && F.cd[0] <= 0 && F.seal[0] <= 0 && rnd() < 0.5) p |= B_S1;   // 안거녕 먹부림
       else if (projThreat && F.c === 6) { /* 투사체 무적 */ }
-      else if (projThreat && rnd() < 0.35 && F.rootT <= 0) { p |= B_U; h |= toward; }
-      else { mem.guardT = meleeThreat ? 16 : 22; h |= B_D; }
+      else if (projThreat && rnd() < (D.lunatic ? 0.6 : 0.35) && F.rootT <= 0) { p |= B_U; h |= toward; }
+      else { mem.guardT = meleeThreat ? (D.lunatic ? 9 : 16) : (D.lunatic ? 14 : 22); h |= B_D; }
     }
   }
   if (!meleeThreat && !projThreat) mem.reacted = false;
@@ -1836,7 +1946,7 @@ function aiInput(G, F, O, mem, diffLv) {
         mem.atkCad--;
         if (mem.atkCad <= 0 && !F.atk) {
           p |= O.mallangT > 0 ? B_P : dist > pRange ? B_K : rnd() < 0.7 ? B_P : B_K;   // 말랑뱃살에는 킥 금지
-          mem.atkCad = 4 + Math.floor(rnd() * (diffLv === 2 ? 4 : 12));
+          mem.atkCad = 2 + Math.floor(rnd() * D.cad);
         }
       }
       if (mem.planT <= 0) mem.plan = 'wait';
@@ -2090,7 +2200,8 @@ function winPose(c, t) {
 function drawCharacter(ctx, c, pose, t, opts) {
   opts = opts || {};
   const L = opts.look || CHARS[c].look, H = L.H, b = L.b, A = L.acc;
-  const thL = 21 * H, shL = 21 * H, toL = 27 * H, uaL = 16 * H, faL = 15 * H, hr = b.headR * H;
+  const legK = b.leg || 1;   // 다리 길이 배율 (이유동: 아주 긴 다리)
+  const thL = 21 * H * legK, shL = 21 * H * legK, toL = 27 * H, uaL = 16 * H, faL = 15 * H, hr = b.headR * H;
   const skin = L.skin;
   const longSleeve = ['hoodie', 'track', 'jacket', 'coat', 'robe', 'hackerHood', 'dragon'].includes(L.topStyle);
   const giSleeve = L.topStyle === 'gi';
@@ -2236,6 +2347,12 @@ function drawCharacter(ctx, c, pose, t, opts) {
     ctx.beginPath(); ctx.moveTo(...pc); ctx.lineTo(...pe); ctx.stroke();
   }
   ctx.restore();
+  // 아크 리액터 (이유동)
+  if (A.arc) {
+    const c1 = tw(cw * 0.22, -toL * 0.7);
+    ctx.fillStyle = 'rgba(120,220,255,0.35)'; ctx.beginPath(); ctx.arc(c1[0], c1[1], 4.2, 0, Math.PI * 2); ctx.fill();
+    circ(ctx, c1[0], c1[1], 2.4, (t >> 3) % 2 ? '#e1f5fe' : '#81d4fa');
+  }
   // 큰 가슴 (허도개미)
   if (A.chest) {
     const c1 = tw(cw * 0.38, -toL * 0.66);
@@ -2476,6 +2593,12 @@ function drawHead(ctx, c, r, pose, t, opts) {
     ctx.fillStyle = OUT; ctx.fillRect(-r * 1.55, -r * 0.62, r * 0.75, 2.2);
     ctx.fillStyle = A.capBack; ctx.fillRect(-r * 1.5, -r * 0.6, r * 0.65, 1.2);
     ctx.fillStyle = '#ff007f'; ctx.fillRect(-r * 0.2, -r * 0.95, 2, 2);
+  }
+  if (A.ironMask) {   // 아이언맨 금색 얼굴판
+    ctx.fillStyle = OUT; ctx.beginPath(); ctx.ellipse(r * 0.25, r * 0.05, rx * 0.95, r * 1.0, 0, -1.4, 1.75); ctx.fill();
+    ctx.fillStyle = '#f9a825'; ctx.beginPath(); ctx.ellipse(r * 0.28, r * 0.08, rx * 0.85, r * 0.9, 0, -1.4, 1.75); ctx.fill();
+    ctx.fillStyle = '#e1f5fe'; ctx.fillRect(r * 0.35, -r * 0.2, r * 0.45, r * 0.13);
+    ctx.fillStyle = '#b71c1c'; ctx.beginPath(); ctx.ellipse(-r * 0.3, -r * 0.25, rx * 0.75, r * 0.75, 0, Math.PI, Math.PI * 2); ctx.fill();
   }
   if (A.earmuff) {
     // 거꾸로 쓴 귀마개: 띠가 턱 아래로
@@ -3569,9 +3692,19 @@ function renderWorld(b, G, t) {
   const hype = G.phase === 'ko' ? 1 : (A.hp < A.maxHp * 0.3 || Bf.hp < Bf.maxHp * 0.3) ? 0.5 : 0;
   drawStage(b, G.stage, cam, t, hype);
 
-  // 죽순
+  // 죽순 / 피모
   for (const tr of G.traps) {
     const [sx] = worldToScreen(tr.x, 0);
+    if (tr.k === 'pimo') {   // 설치 중인 게임 아이콘 + 진행 막대
+      const bl = tr.life - tr.age < 60 && (t >> 2) % 2;
+      b.globalAlpha = bl ? 0.4 : 1;
+      b.fillStyle = '#000'; b.fillRect(sx - 7, GROUND - 15, 14, 12);
+      b.fillStyle = '#1e88e5'; b.fillRect(sx - 6, GROUND - 14, 12, 10);
+      b.fillStyle = '#fff'; b.font = 'bold 7px sans-serif'; b.textAlign = 'center'; b.fillText('P', sx, GROUND - 6.5); b.textAlign = 'left';
+      b.fillStyle = '#333'; b.fillRect(sx - 7, GROUND - 2, 14, 2); b.fillStyle = '#64ffda'; b.fillRect(sx - 7, GROUND - 2, 14 * ((t % 60) / 60), 2);
+      b.globalAlpha = 1;
+      continue;
+    }
     const grow = Math.min(1, (tr.age || 0) / 20);
     b.fillStyle = '#145a32'; b.fillRect(sx - 4, GROUND - 2, 8, 3);
     b.fillStyle = tr.o === APP.mySide || APP.mode === 'cpu' && tr.o === 0 ? '#7dcea0' : '#a3e4b8';
@@ -3607,7 +3740,16 @@ function renderWorld(b, G, t) {
   for (const F of G.F) if (F.momHp > 0 && F.momT > 0) drawMom(b, F, t);
   // mola 분신
   for (const F of G.F) if (F.clone) drawClone(b, F, G, t);
-  // 개미군단
+  // 개미군단 (달라붙은 개미는 상대 몸 위를 기어다님)
+  for (const F of G.F) {
+    const O = G.F[1 - F.side], H = lookOf(O).H;
+    let k = 0;
+    for (const g of F.antG) for (let i = 0; i < g.n && k < 60; i++, k++) {
+      const a = k * 2.399 + t * 0.05 * (k % 2 ? 1 : -1);
+      const [ax, ay] = worldToScreen(O.x + Math.cos(a) * radius(O) * 0.45 * ((k % 5) / 5 + 0.5), O.y + 10 + ((k * 37) % 80) * H);
+      b.fillStyle = '#1a0f0a'; b.fillRect(Math.round(ax) - 1, Math.round(ay) - 1, 3, 2);
+    }
+  }
   for (const F of G.F) for (const x of F.ants) {
     const [ax, ay] = worldToScreen(x, 0), w = ((t + x * 3) >> 2) % 2;
     b.fillStyle = '#1a0f0a'; b.fillRect(Math.round(ax) - 2, ay - 2, 4, 2); b.fillRect(Math.round(ax) + (F.f > 0 ? 2 : -3), ay - 3, 1.5, 1.5);
@@ -3708,6 +3850,13 @@ function drawFighterInGame(b, F, G, t) {
   if (alpha < 1) { b.save(); b.globalAlpha = alpha; b.drawImage(TMP, ox, oy); b.restore(); }
   else b.drawImage(TMP, ox, oy);
   drawSkillFX(b, F, G, t, sx, sy);
+  // 이유동 아이언맨 레이저 펀치
+  if (F.c === YUDONG && (F.ironT > 0 || F.phoneT > 0) && F.atk === 'P' && F.atkT >= F.atkAct - 1 && F.atkT <= F.atkAct + 4) {
+    const len = radius(F) + reachOf(F, 'P'), y0 = sy - 66 * lookOf(F).H * FSCALE;
+    b.strokeStyle = 'rgba(120,220,255,0.55)'; b.lineWidth = 6; b.beginPath(); b.moveTo(sx + F.f * 12, y0); b.lineTo(sx + F.f * len, y0); b.stroke();
+    b.strokeStyle = '#ffffff'; b.lineWidth = 2; b.beginPath(); b.moveTo(sx + F.f * 12, y0); b.lineTo(sx + F.f * len, y0); b.stroke();
+  }
+  if (F.invulT > 0 && (t >> 2) % 2) { b.strokeStyle = 'rgba(255,246,160,0.8)'; b.lineWidth = 1; b.beginPath(); b.ellipse(sx, sy - 50, 24, 54, 0, 0, Math.PI * 2); b.stroke(); }
   // 상태 아이콘
   const top = sy - 110 * lookOf(F).H * FSCALE * (F.sz || 1);
   if (F.stunT > 0 && !F.ko) {
@@ -4013,7 +4162,7 @@ function renderHUD(ctx, G, t) {
   const sec = Math.max(0, Math.ceil(G.timer / SEC));
   ctx.fillStyle = '#000'; ctx.fillRect(222, 5, 36, 24);
   ctx.fillStyle = '#1b1b3a'; ctx.fillRect(223, 6, 34, 22);
-  txt(ctx, String(Math.min(99, sec)).padStart(2, '0'), 240, 25, 16, sec <= 10 && (t >> 4) % 2 ? '#ff4d4d' : '#ffe14d', 'center', FONT_EN, '#000');
+  txt(ctx, String(Math.min(999, sec)).padStart(2, '0'), 240, 25, sec > 99 ? 11 : 16, sec <= 10 && (t >> 4) % 2 ? '#ff4d4d' : '#ffe14d', 'center', FONT_EN, '#000');
   // 알림
   G.notes.forEach((n, i) => {
     const a = Math.min(1, n.life / 20), y = 84 + i * 12;
@@ -4042,6 +4191,7 @@ function renderHUD(ctx, G, t) {
   if (G.dice) drawDice(ctx, G.dice, t);
   if (G.yut) drawYut(ctx, G.yut, t);
   if (G.qte) drawQTE(ctx, G, t);
+  if (G.clock) drawClock(ctx, G.clock, t);
   // 아나운서
   drawAnnouncer(ctx, G, t);
 }
@@ -4114,9 +4264,14 @@ function drawStatus(ctx, F, s, t) {
   if (F.mallangT > 0) tags.push(['말랑뱃살', '#ffb3c6']);
   if (F.fifaT > 0) tags.push(['흡혈 ' + Math.ceil(F.fifaT / SEC) + 's', '#ff6b6b']);
   if (F.fifaNext) tags.push(['다음 피격 x2', '#ff7b7b']);
+  if (F.invulT > 0) tags.push(['무적', '#fff6a0']);
+  if (F.antG.length) tags.push(['개미 ' + F.antG.reduce((s, g) => s + g.n, 0) + '마리 붙음', '#a1887f']);
+  if (F.ironT > 0) tags.push(['아이언맨 ' + Math.ceil(F.ironT / SEC) + 's', '#ff5252']);
+  if (F.phoneT > 0) tags.push(['휴대폰압수 ' + Math.ceil(F.phoneT / SEC) + 's (불사)', '#ff5252']);
+  if (F.clockT > 0) tags.push(['4시 55분', '#fff59d']);
   if (F.c === 4 && F.ddFree) tags.push(['더블다운 1회 더', '#ffb36b']);
   for (const m of F.mods) {
-    const lab = { focus: '공속↑', debuff: '능력치-20%', debuff_c: '능력치-20%', rage: '반장의 분노', pen: '벌점', pen_c: '벌점', leg1: '다리 회복', grow1: '거대화', form: '폼 미쳤다', burp: '트름 공격↑', fifa: '공격 +10%' }[m.id];
+    const lab = { mantis: '맨티스컷', focus: '공속↑', debuff: '능력치-20%', debuff_c: '능력치-20%', rage: '반장의 분노', pen: '벌점', pen_c: '벌점', leg1: '다리 회복', grow1: '거대화', form: '폼 미쳤다', burp: '트름 공격↑', fifa: '공격 +10%' }[m.id];
     if (lab) tags.push([lab + (m.t < 1e8 ? ' ' + Math.ceil(m.t / SEC) + 's' : ''), m.id === 'debuff' || m.id === 'pen' ? '#9f8fff' : '#ffb347']);
   }
   if ((F.pm || 1) > 1.001) tags.push(['패시브 +' + Math.round((F.pm - 1) * 100) + '%', '#ffb3e6']);
@@ -4144,6 +4299,27 @@ function drawDice(ctx, d, t) {
   if (d.t === 0) txt(ctx, `${d.res} x ${BAL[4].dicePer} = ${d.res * BAL[4].dicePer}`, 240, 185, 12, '#fff', 'center', FONT_EN);
 }
 
+// 이유동 4시 55분: 화면 가득한 시계
+function drawClock(ctx, c, t) {
+  const k = Math.min(1, (80 - c.t) / 10), a = c.t < 12 ? c.t / 12 : 1;
+  ctx.save(); ctx.globalAlpha = a;
+  ctx.fillStyle = 'rgba(10,10,30,0.55)'; ctx.fillRect(0, 0, VW, VH);
+  ctx.translate(240, 140); ctx.scale(k, k);
+  const R = 105;
+  ctx.fillStyle = '#fffde7'; ctx.beginPath(); ctx.arc(0, 0, R, 0, Math.PI * 2); ctx.fill();
+  ctx.lineWidth = 8; ctx.strokeStyle = '#3e2723'; ctx.stroke();
+  for (let i = 0; i < 60; i++) { const an = i / 60 * Math.PI * 2, r0 = i % 5 ? R - 8 : R - 16; ctx.lineWidth = i % 5 ? 1.5 : 4; ctx.beginPath(); ctx.moveTo(Math.sin(an) * r0, -Math.cos(an) * r0); ctx.lineTo(Math.sin(an) * (R - 3), -Math.cos(an) * (R - 3)); ctx.stroke(); }
+  ctx.fillStyle = '#3e2723'; ctx.font = `bold 16px ${FONT_EN}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  for (let h = 1; h <= 12; h++) { const an = h / 12 * Math.PI * 2; ctx.fillText(String(h), Math.sin(an) * (R - 30), -Math.cos(an) * (R - 30)); }
+  const hand = (an, len, w, col) => { ctx.strokeStyle = col; ctx.lineWidth = w; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(Math.sin(an) * len, -Math.cos(an) * len); ctx.stroke(); };
+  hand((4 + 55 / 60) / 12 * Math.PI * 2, R * 0.5, 7, '#3e2723');
+  hand(55 / 60 * Math.PI * 2, R * 0.78, 4, '#3e2723');
+  hand(((t % 60) / 60) * Math.PI * 2, R * 0.85, 1.5, '#d32f2f');
+  ctx.fillStyle = '#d32f2f'; ctx.beginPath(); ctx.arc(0, 0, 5, 0, Math.PI * 2); ctx.fill();
+  ctx.textBaseline = 'alphabetic';
+  ctx.restore();
+  bigText(ctx, '4 : 55', 240, 262, 20, '#ffffff', '#ffb000');
+}
 function drawYut(ctx, y, t) {
   ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.fillRect(150, 100, 180, 100);
   txt(ctx, '모 아니면 도!', 240, 118, 12, '#00e676', 'center');
@@ -4606,85 +4782,212 @@ function setupTouch() {
 }
 
 // ---- 49_rtc.js ----
-// 같은 사이트의 HTTPS에서 접속 정보만 교환하고 게임은 WebRTC로 직접 전송한다.
-let RTC_CONFIG = null;
+// ============================================================
+//  WebRTC 연결 (접속 정보는 같은 사이트 /api/rtc 로 교환, 게임은 기기끼리 직접)
+//  - 방장은 방을 계속 유지하며 연결 실패 시 자동으로 다음 접속을 다시 받는다
+//  - 참가자는 최대 3번까지 자동 재시도, 방장 화면이 잠시 꺼져 있어도 2분까지 기다린다
+// ============================================================
+let RTC_CONFIG = null, RTC_CONFIG_AT = 0;
 async function rtcRequest(body) {
-  const ctl = new AbortController(), timer = setTimeout(()=>ctl.abort(),10000);
+  const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 10000);
   try {
-    const r = await fetch('/api/rtc',{method:body?'POST':'GET',headers:{'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined,cache:'no-store',signal:ctl.signal});
-    const j = await r.json();
-    if(!r.ok){const e=Error(j.error || '접속 서버 응답 오류');e.code=r.status;throw e;}
+    const r = await fetch('/api/rtc', { method: body ? 'POST' : 'GET', headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined, cache: 'no-store', signal: ctl.signal });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { const e = Error(j.error || '접속 서버 응답 오류'); e.code = r.status; throw e; }
     return j;
-  }finally{clearTimeout(timer);}
+  } finally { clearTimeout(timer); }
 }
-let RTC_CONFIG_AT = 0;
-async function rtcConfig(){if(!RTC_CONFIG||Date.now()-RTC_CONFIG_AT>3600e3){RTC_CONFIG=await rtcRequest();RTC_CONFIG_AT=Date.now();}return RTC_CONFIG;}
-function rtcBlockedMsg(){return RTC_CONFIG&&RTC_CONFIG.relay?'기기 간 연결에 실패했어요. 잠시 후 다시 시도해주세요.':'기기 간 직접 연결이 막혀 있어요. (중계 TURN 서버 미설정 — 같은 와이파이에서 다시 시도해보세요)';}
-function rtcToken(){const a=new Uint8Array(24);crypto.getRandomValues(a);return Array.from(a,n=>n.toString(16).padStart(2,'0')).join('');}
+async function rtcConfig() { if (!RTC_CONFIG || Date.now() - RTC_CONFIG_AT > 3600e3) { RTC_CONFIG = await rtcRequest(); RTC_CONFIG_AT = Date.now(); } return RTC_CONFIG; }
+function rtcToken() { const a = new Uint8Array(24); crypto.getRandomValues(a); return Array.from(a, (n) => n.toString(16).padStart(2, '0')).join(''); }
+const rtcSleep = (ms) => new Promise((r) => setTimeout(r, ms));
+// 서버(Upstash)를 못 쓰는 상황: 다른 방법(PeerJS 공용 서버)으로 넘어가야 함
+function rtcServerDown(e) { return !e.code || e.code >= 500 || e.name === 'AbortError'; }
+
 class RTCLink {
-  constructor(pc){this.pc=pc;this.open=false;this.handlers={};this.closed=false;pc.onconnectionstatechange=()=>{if(['failed','closed'].includes(pc.connectionState))this.close();};}
-  on(name,fn){(this.handlers[name] ||= []).push(fn);return this;}
-  emit(name,value){for(const fn of this.handlers[name] || [])fn(value);}
-  attach(dc){this.dataChannel=dc;dc.onopen=()=>{if(!this.closed){this.open=true;this.emit('open');}};dc.onmessage=e=>{let m;try{m=JSON.parse(e.data);}catch(_){return;}this.emit('data',m);};dc.onclose=()=>this.close();dc.onerror=()=>this.close();if(dc.readyState==='open')dc.onopen();}
-  send(m){if(this.open&&!this.closed)this.dataChannel.send(JSON.stringify(m));}
-  close(){if(this.closed)return;this.closed=true;this.open=false;try{this.dataChannel?.close();this.pc.close();}catch(_){}this.emit('close');}
+  constructor(pc) { this.pc = pc; this.open = false; this.handlers = {}; this.closed = false; pc.onconnectionstatechange = () => { if (['failed', 'closed'].includes(pc.connectionState)) this.close(); }; }
+  on(name, fn) { (this.handlers[name] ||= []).push(fn); return this; }
+  emit(name, value) { for (const fn of this.handlers[name] || []) fn(value); }
+  attach(dc) { this.dataChannel = dc; dc.onopen = () => { if (!this.closed) { this.open = true; this.emit('open'); } }; dc.onmessage = (e) => { let m; try { m = JSON.parse(e.data); } catch (_) { return; } this.emit('data', m); }; dc.onclose = () => this.close(); dc.onerror = () => this.close(); if (dc.readyState === 'open') dc.onopen(); }
+  send(m) { if (this.open && !this.closed) this.dataChannel.send(JSON.stringify(m)); }
+  close() { if (this.closed) return; this.closed = true; this.open = false; try { this.dataChannel?.close(); this.pc.close(); } catch (_) {} this.emit('close'); }
 }
-async function rtcDescription(pc,description){
+// ICE 후보 수집 (STUN 응답은 보통 0.3초 안에 옴 → 최대 3.5초만 기다림)
+async function rtcDescription(pc, description) {
   await pc.setLocalDescription(description);
-  if(pc.iceGatheringState!=='complete')await new Promise(resolve=>{
-    const done=()=>{clearTimeout(timer);pc.removeEventListener('icegatheringstatechange',check);resolve();};
-    const check=()=>{if(pc.iceGatheringState==='complete'||pc.signalingState==='closed')done();};
-    const timer=setTimeout(done,7000);pc.addEventListener('icegatheringstatechange',check);check();
+  if (pc.iceGatheringState !== 'complete') await new Promise((resolve) => {
+    const done = () => { clearTimeout(timer); pc.removeEventListener('icegatheringstatechange', check); resolve(); };
+    const check = () => { if (pc.iceGatheringState === 'complete' || pc.signalingState === 'closed') done(); };
+    const timer = setTimeout(done, 3500); pc.addEventListener('icegatheringstatechange', check); check();
   });
-  if(pc.signalingState==='closed')throw Error('접속이 취소되었습니다.');
-  return {type:pc.localDescription.type,sdp:pc.localDescription.sdp};
+  if (pc.signalingState === 'closed') throw Error('접속이 취소되었습니다.');
+  return { type: pc.localDescription.type, sdp: pc.localDescription.sdp };
 }
-function rtcPeer(room,token){return {dead:false,timers:new Set(),link:null,destroy(){if(this.dead)return;this.dead=true;for(const t of this.timers)clearTimeout(t);this.timers.clear();this.link?.close();rtcRequest({op:'close',room,token}).catch(()=>{});}};}
-function rtcLater(peer,fn,ms=1200){if(peer.dead)return;const t=setTimeout(()=>{peer.timers.delete(t);if(!peer.dead)fn();},ms);peer.timers.add(t);}
-function rtcFailure(e){if(e.code===404)return 'notfound';if(e.code===409)return 'busy';return e.name==='AbortError'?'접속 서버 응답 시간이 초과됐어요. 다시 시도해주세요.':e.message || '접속 정보를 교환하지 못했어요.';}
-async function rtcHost(id,onOpen,onTaken,onFail){
-  const token=rtcToken(),peer=rtcPeer(id,token);NET.peer=peer;
-  const fail=e=>{if(peer.dead||NET.peer!==peer||peer.link?.open)return;if(NET.conn===peer.link){NET.conn=null;NET.role=null;}peer.destroy();if(NET.peer===peer)NET.peer=null;onFail(rtcFailure(e));};
-  try{
-    await rtcRequest({op:'host',room:id,token});if(peer.dead||NET.peer!==peer)return;onOpen(peer);
-    rtcLater(peer,()=>{if(!peer.link?.open)fail(Error('대기 시간이 만료됐어요. 새 방을 만들어주세요.'));},165000);
-    const poll=async()=>{try{
-      const j=await rtcRequest({op:'poll',room:id,token});if(peer.dead||NET.peer!==peer)return;
-      if(!j.offer){rtcLater(peer,poll);return;}
-      const pc=new RTCPeerConnection({iceServers:RTC_CONFIG.iceServers}),link=new RTCLink(pc);peer.link=link;wireConn(link,'host');
-      pc.ondatachannel=e=>link.attach(e.channel);
-      await pc.setRemoteDescription(j.offer.description);
-      const description=await rtcDescription(pc,await pc.createAnswer());if(peer.dead||NET.peer!==peer)return;
-      await rtcRequest({op:'answer',room:id,token,guest:j.offer.guest,description});
-      rtcLater(peer,()=>{if(!link.open)fail(Error(rtcBlockedMsg()));},25000);
-    }catch(e){fail(e);}};poll();
-  }catch(e){if(peer.dead||NET.peer!==peer)return;if(e.code===409){peer.destroy();NET.peer=null;onTaken();}else fail(e);}
+function rtcCandTypes(sdp) { return [...new Set((String(sdp).match(/ typ (host|srflx|prflx|relay)/g) || []).map((s) => s.slice(5)))]; }
+function rtcBlockedMsg(local, remote) {
+  if (RTC_CONFIG && RTC_CONFIG.relay) return '기기 간 연결에 실패했어요. 잠시 후 다시 시도해주세요.';
+  const noSrflx = !remote.includes('srflx') || !local.includes('srflx');
+  return noSrflx
+    ? '한쪽 기기가 외부 연결 정보를 얻지 못했어요 (방화벽/보안 와이파이). 다른 와이파이나 데이터로 시도해보세요.'
+    : '두 네트워크가 기기끼리 직접 연결을 막고 있어요 (모바일 데이터·학교/회사 와이파이 등). 같은 집 와이파이에서 하거나 TURN 중계를 설정하면 해결돼요.';
 }
-async function rtcJoin(id,onFail){
-  const token=rtcToken(),peer=rtcPeer(id,token);NET.peer=peer;
-  const fail=e=>{if(peer.dead||NET.peer!==peer||peer.link?.open)return;if(NET.conn===peer.link){NET.conn=null;NET.role=null;}peer.destroy();if(NET.peer===peer)NET.peer=null;onFail(rtcFailure(e));};
-  try{
-    const pc=new RTCPeerConnection({iceServers:RTC_CONFIG.iceServers}),link=new RTCLink(pc);peer.link=link;wireConn(link,'guest');
-    link.attach(pc.createDataChannel('game',{ordered:true}));
-    const description=await rtcDescription(pc,await pc.createOffer());if(peer.dead||NET.peer!==peer)return;
-    await rtcRequest({op:'offer',room:id,token,description});if(peer.dead||NET.peer!==peer)return;
-    const start=Date.now();
-    const poll=async()=>{try{
-      const j=await rtcRequest({op:'poll',room:id,token});if(peer.dead||NET.peer!==peer)return;
-      if(j.answer){await pc.setRemoteDescription(j.answer);rtcLater(peer,()=>{if(!link.open)fail(Error(rtcBlockedMsg()));},20000);}
-      else if(Date.now()-start>30000)fail(Error('상대의 응답 시간이 초과됐어요. 새 방으로 다시 시도해주세요.'));
-      else rtcLater(peer,poll);
-    }catch(e){fail(e);}};poll();
-  }catch(e){fail(e);}
+function rtcPeer(room, token) {
+  return {
+    rtc: true, dead: false, timers: new Set(), link: null, onVis: null,
+    destroy() {
+      if (this.dead) return; this.dead = true;
+      for (const t of this.timers) clearTimeout(t); this.timers.clear();
+      if (this.onVis) document.removeEventListener('visibilitychange', this.onVis);
+      this.link?.close();
+      if (this.owner) rtcRequest({ op: 'close', room, token }).catch(() => {});
+    },
+  };
+}
+function rtcLater(peer, fn, ms) { if (peer.dead) return; const t = setTimeout(() => { peer.timers.delete(t); if (!peer.dead) fn(); }, ms); peer.timers.add(t); }
+
+// ---------- 방장 ----------
+async function rtcHost(id, onOpen, onTaken, onFail, opts) {
+  opts = opts || {};
+  const token = rtcToken(), peer = rtcPeer(id, token); peer.owner = true; NET.peer = peer;
+  const alive = () => !peer.dead && NET.peer === peer;
+  const status = (s) => { if (alive() && !peer.link?.open && opts.onStatus) opts.onStatus(s); };
+  try { await rtcRequest({ op: 'host', room: id, token }); }
+  catch (e) {
+    if (!alive()) return;
+    peer.dead = true; NET.peer = null;
+    if (e.code === 409) onTaken(); else onFail(e, true);
+    return;
+  }
+  if (!alive()) return;
+  onOpen(peer);
+  const keep = () => {
+    if (!alive() || peer.link?.open) return;
+    rtcRequest({ op: 'keep', room: id, token, lan: !!opts.lan, nick: (typeof ACC !== 'undefined' && ACC.token) ? ACC.nick : null }).catch(() => {});
+    rtcLater(peer, keep, opts.lan ? 30000 : 60000);
+  };
+  keep();
+  let handled = null, fails = 0, polling = false;
+  const poll = async () => {
+    if (!alive() || peer.link?.open || polling) return;
+    polling = true;
+    try {
+      const j = await rtcRequest({ op: 'poll', room: id, token });
+      if (!alive()) return;
+      if (j.offer && j.offer.guest !== handled) await accept(j.offer);
+    } catch (e) {
+      if (!alive()) return;
+      if (e.code === 404) { onFail(Error('방 유지 시간이 지났어요. 새 방을 만들어주세요.')); peer.destroy(); if (NET.peer === peer) NET.peer = null; return; }
+      // 일시적인 오류는 계속 재시도
+    } finally { polling = false; }
+    if (!peer.link?.open) rtcLater(peer, poll, document.hidden ? 4000 : 1500);
+  };
+  const accept = async (offer) => {
+    handled = offer.guest;
+    status('친구가 들어오는 중... 연결하고 있어요');
+    const pc = new RTCPeerConnection({ iceServers: RTC_CONFIG.iceServers }), link = new RTCLink(pc);
+    peer.link = link;
+    pc.ondatachannel = (e) => link.attach(e.channel);
+    link.on('open', () => {
+      if (!alive()) { link.close(); return; }
+      if (opts.lan) rtcRequest({ op: 'lanHide', room: id, token }).catch(() => {});
+      wireConn(link, 'host');
+    });
+    try {
+      await pc.setRemoteDescription(offer.description);
+      const description = await rtcDescription(pc, await pc.createAnswer());
+      if (!alive()) return;
+      await rtcRequest({ op: 'answer', room: id, token, guest: offer.guest, description });
+    } catch (e) { /* 아래 시간 초과 처리로 넘어감 */ }
+    // 20초 안에 연결이 안 되면 이번 시도는 버리고 다음 접속을 다시 받는다
+    rtcLater(peer, async () => {
+      if (link.open || !alive()) return;
+      const why = rtcBlockedMsg(rtcCandTypes(pc.localDescription?.sdp), rtcCandTypes(offer.description.sdp));
+      if (NET.conn === link) { NET.conn = null; NET.role = null; }
+      link.close(); if (peer.link === link) peer.link = null;
+      fails++;
+      status(`⚠️ 연결 실패 (${fails}번째): ${why}<br>방은 그대로 열려 있어요. 친구가 다시 참가하면 재시도해요.`);
+      try { await rtcRequest({ op: 'reset', room: id, token }); } catch (_) {}
+      handled = null; poll();
+    }, 20000);
+  };
+  // 방장이 다른 앱(카톡 등)에 갔다가 돌아오면 바로 확인
+  peer.onVis = () => { if (!document.hidden) { poll(); } };
+  document.addEventListener('visibilitychange', peer.onVis);
+  poll();
+}
+
+// ---------- 참가자 ----------
+async function rtcJoin(id, onFail, opts) {
+  opts = opts || {};
+  const peer = rtcPeer(id, null); NET.peer = peer;
+  const alive = () => !peer.dead && NET.peer === peer;
+  const status = (s) => { if (alive() && opts.onStatus) opts.onStatus(s); };
+  const fail = (e, serverDown) => { if (!alive()) return; peer.destroy(); if (NET.peer === peer) NET.peer = null; onFail(e, serverDown); };
+  let lastWhy = '';
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    if (!alive()) return;
+    const token = rtcToken();
+    const pc = new RTCPeerConnection({ iceServers: RTC_CONFIG.iceServers }), link = new RTCLink(pc);
+    peer.link = link;
+    let opened = false;
+    link.on('open', () => { opened = true; if (alive()) wireConn(link, 'guest'); else link.close(); });
+    link.attach(pc.createDataChannel('game', { ordered: true }));
+    try {
+      const description = await rtcDescription(pc, await pc.createOffer());
+      // 접속 요청 올리기 (방장이 이전 시도를 정리하는 중이면 잠시 기다림)
+      const t0 = Date.now();
+      for (;;) {
+        if (!alive()) { link.close(); return; }
+        try { await rtcRequest({ op: 'offer', room: id, token, description }); break; }
+        catch (e) {
+          if (e.code === 404) { link.close(); return fail('notfound'); }
+          if (e.code === 409 && Date.now() - t0 < 30000) { status('방장이 이전 연결을 정리하는 중이에요...'); await rtcSleep(1500); continue; }
+          if (e.code === 409) { link.close(); return fail('busy'); }
+          if (rtcServerDown(e) && attempt === 1) { link.close(); return fail(e, true); }
+          throw e;
+        }
+      }
+      // 응답 기다리기 (방장 화면이 꺼져 있으면 늦어질 수 있어 최대 2분)
+      const t1 = Date.now(); let answer = null, reset = false;
+      while (alive() && !answer) {
+        try {
+          const j = await rtcRequest({ op: 'poll', room: id, token });
+          answer = j.answer;
+        } catch (e) {
+          if (e.code === 404) { link.close(); return fail('notfound'); }
+          if (e.code === 410 || e.code === 403) { reset = true; break; }
+        }
+        if (answer) break;
+        const waited = Date.now() - t1;
+        if (waited > 120000) { link.close(); return fail(Error('방장의 응답이 없어요. 방장이 게임 화면을 켜 두었는지 확인해주세요.')); }
+        if (waited > 8000) status('방장의 응답을 기다리는 중... (방장이 다른 앱에 가 있으면 게임 화면으로 돌아왔을 때 연결돼요)');
+        await rtcSleep(1200);
+      }
+      if (!alive()) { link.close(); return; }
+      if (!reset) {
+        status(attempt > 1 ? `기기끼리 연결하는 중... (재시도 ${attempt}/3)` : '기기끼리 연결하는 중...');
+        await pc.setRemoteDescription(answer);
+        for (let i = 0; i < 150 && alive() && !opened && !link.closed; i++) await rtcSleep(100);
+        if (opened) return;
+        lastWhy = rtcBlockedMsg(rtcCandTypes(pc.localDescription?.sdp), rtcCandTypes(answer.sdp));
+      }
+    } catch (e) {
+      if (!alive()) { link.close(); return; }
+      lastWhy = e.message || lastWhy;
+    }
+    if (NET.conn === link) { NET.conn = null; NET.role = null; }
+    link.close(); if (peer.link === link) peer.link = null;
+    if (attempt < 3) { status(`연결 재시도 중... (${attempt + 1}/3)`); await rtcSleep(2500); }
+  }
+  fail(Error(lastWhy || '기기 간 연결에 실패했어요.'));
 }
 
 // ---- 50_net.js ----
 // ============================================================
 //  온라인 대전 (PeerJS / WebRTC, 호스트 권한 방식)
 //  - 방 코드: 어디서든 접속
-//  - 같은 와이파이 자동 매칭: 같은 공인 IP끼리 같은 로비 ID를 사용
+//  - 같은 와이파이: 같은 공유기(공인 IP, IPv6는 앞 64비트)에서 열린 방 목록에서 골라 참가
 // ============================================================
-const NET_VER = 8;
+const NET_VER = 9;
 const NET = {
   epoch: 0, peer: null, conn: null, role: null, status: '', onMsg: null, ping: 0, lastRecv: 0,
   guestHeld: 0, guestCounts: null, guestKs: [], guestAny: 0, lastKeySeq: 0, lastAny: 0, lastCounts: { U: 0, P: 0, K: 0, S1: 0, S2: 0, S3: 0, S4: 0 }, outEv: [], inEv: [], snap: null,
@@ -4693,6 +4996,7 @@ const NET = {
 function peerOpts() {
   const q = new URLSearchParams(location.search);
   const o = { debug: 0 };
+  if (typeof RTC_CONFIG !== 'undefined' && RTC_CONFIG && RTC_CONFIG.iceServers) o.config = { iceServers: RTC_CONFIG.iceServers };
   if (q.get('peerhost')) { o.host = q.get('peerhost'); o.port = +(q.get('peerport') || 9000); o.path = q.get('peerpath') || '/'; o.secure = q.get('peersecure') === '1'; }
   return o;
 }
@@ -4709,23 +5013,35 @@ function netReset() {
   NET.guestCounts = null; NET.guestHeld = 0; NET.guestKs = []; NET.guestAny = 0; NET.lastKeySeq = 0; NET.lastAny = 0; NET.lastRecv = performance.now();
   _lastSentIn = '';
 }
-async function hostOn(id, onOpen, onTaken, onFail) {
+// 방 열기: 같은 사이트 서버(/api/rtc)로 접속 정보 교환 → 서버(DB)가 안 되면 PeerJS 공용 서버로 자동 전환
+async function hostOn(id, onOpen, onTaken, onFail, opts) {
+  opts = opts || {};
   const epoch = NET.epoch;
-  if (new URLSearchParams(location.search).has('peerhost')) return hostOnPeer(id,onOpen,onTaken,onFail);
-  try {
-    const config = await rtcConfig(); if (NET.epoch !== epoch) return;
-    if (config.signaling) return rtcHost(id,onOpen,onTaken,onFail);
-    hostOnPeer(id,onOpen,onTaken,onFail);
-  } catch (e) { if (NET.epoch === epoch) onFail('접속 서버에 연결하지 못했어요. 잠시 후 다시 시도해주세요.'); }
+  if (new URLSearchParams(location.search).has('peerhost')) return hostOnPeer(id, onOpen, onTaken, onFail);
+  let config = null;
+  try { config = await rtcConfig(); } catch (e) { /* 아래에서 PeerJS로 */ }
+  if (NET.epoch !== epoch) return;
+  if (!config || !config.signaling) { hostOnPeer(id, onOpen, onTaken, onFail); return; }
+  rtcHost(id, onOpen, onTaken, (e, serverDown) => {
+    if (NET.epoch !== epoch) return;
+    if (serverDown) { if (opts.onStatus) opts.onStatus('접속 서버가 바빠서 다른 경로(PeerJS)로 방을 여는 중...'); hostOnPeer(id, onOpen, onTaken, onFail); return; }
+    onFail(typeof e === 'string' ? e : e.message);
+  }, opts);
 }
-async function joinTo(id, onFail, timeoutMs) {
+async function joinTo(id, onFail, timeoutMs, opts) {
+  opts = opts || {};
   const epoch = NET.epoch;
-  if (new URLSearchParams(location.search).has('peerhost')) return joinToPeer(id,onFail,timeoutMs);
-  try {
-    const config = await rtcConfig(); if (NET.epoch !== epoch) return;
-    if (config.signaling) return rtcJoin(id,onFail);
-    joinToPeer(id,onFail,timeoutMs);
-  } catch (e) { if (NET.epoch === epoch) onFail('접속 서버에 연결하지 못했어요. 잠시 후 다시 시도해주세요.'); }
+  if (new URLSearchParams(location.search).has('peerhost')) return joinToPeer(id, onFail, timeoutMs);
+  let config = null;
+  try { config = await rtcConfig(); } catch (e) { /* 아래에서 PeerJS로 */ }
+  if (NET.epoch !== epoch) return;
+  if (!config || !config.signaling) { joinToPeer(id, onFail, timeoutMs); return; }
+  rtcJoin(id, (e, serverDown) => {
+    if (NET.epoch !== epoch) return;
+    // 서버에 방이 없으면 PeerJS로 열린 방일 수 있음 → PeerJS로 한 번 더 찾아봄
+    if (serverDown || e === 'notfound') { if (opts.onStatus) opts.onStatus('다른 경로(PeerJS)로 방을 찾는 중...'); joinToPeer(id, onFail, 15000); return; }
+    onFail(typeof e === 'string' ? e : e.message);
+  }, opts);
 }
 
 function genCode() { const a = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; let s = ''; for (let i = 0; i < 4; i++) s += a[Math.floor(Math.random() * a.length)]; return s; }
@@ -4734,8 +5050,10 @@ function wireConn(conn, role) {
   NET.conn = conn; NET.role = role;
   conn.on('data', (m) => { if (NET.conn !== conn) return; NET.lastRecv = performance.now(); onNetMsg(m); });
   const early = conn._pending || []; conn._pending = null;
-  conn.on('close', () => { if (NET.conn === conn) onNetClosed(); });
-  conn.on('error', () => { if (NET.conn === conn) onNetClosed(); });
+  // 게임 연결이 완성되기 전의 끊김은 접속 단계(49_rtc)가 재시도/안내를 맡는다 (예전엔 여기서 전부 초기화돼 '로딩만' 되는 상태가 됐음)
+  const lost = () => { if (NET.conn !== conn) return; if (conn._gameReady || !conn.pc) onNetClosed(); else { NET.conn = null; NET.role = null; } };
+  conn.on('close', lost);
+  conn.on('error', lost);
   const ready = () => {
     if (NET.conn !== conn || conn._gameReady) return;
     conn._gameReady = true; NET.lastRecv = performance.now();
@@ -4793,47 +5111,46 @@ function errText(err) {
 }
 
 // --- 방 만들기 ---
-function netCreateRoom() {
+function netCreateRoom(lan) {
   netReset();
   const code = genCode();
   netStatus('방을 만드는 중...');
+  const base = lan ? '📶 같은 와이파이에 방을 열었어요' : `방 코드 <b class="code">${code}</b><br>친구에게 이 코드를 알려 주세요.`;
   hostOn('tk2d-room-' + code, () => {
-    netStatus(`방 코드 <b class="code">${code}</b><br>친구에게 이 코드를 알려 주세요. 기다리는 중...`);
-  }, () => netCreateRoom(), (msg) => netStatus('❌ ' + msg));
+    netStatus(base + '<br>친구를 기다리는 중... <small>(이 화면을 켜 두세요)</small>' + (lan ? `<br><small>방 코드 ${code}로도 들어올 수 있어요</small>` : ''));
+  }, () => netCreateRoom(lan), (msg) => netStatus('❌ ' + msg + '<br><button class="mini" onclick="netCreateRoom(' + (lan ? 'true' : 'false') + ')">새 방 만들기</button>'),
+  { lan: !!lan, onStatus: (t) => netStatus(base + '<br>' + t) });
 }
 // --- 코드로 참가 ---
-function netJoinRoom(code) {
+function joinFailText(why) {
+  return why === 'busy' ? '이미 대전 중인 방이에요' : why === 'notfound' ? '방을 찾을 수 없어요. 코드를 확인하거나 방장에게 새 방을 만들어 달라고 해 주세요' : why === 'timeout' ? '응답이 없어요. 다시 시도해 주세요' : why;
+}
+function netJoinRoom(code, onStatus, onFail) {
   netReset();
   code = (code || '').trim().toUpperCase();
   if (!/^[A-Z0-9]{4}$/.test(code)) { netStatus('방 코드 4자리를 입력해 주세요'); return; }
-  netStatus(`<b>${code}</b> 방에 접속하는 중...`);
+  const show = (t) => { netStatus(`<b>${code}</b> 방: ${t}`); if (onStatus) onStatus(t); };
+  show('접속하는 중...');
   joinTo('tk2d-room-' + code, (why) => {
-    netStatus(why === 'busy' ? '❌ 이미 대전 중인 방이에요' : why === 'notfound' ? '❌ 방을 찾을 수 없어요. 코드를 확인해 주세요' : why === 'timeout' ? '❌ 응답이 없어요. 다시 시도해 주세요' : '❌ ' + why);
-  }, 10000);
+    const t = joinFailText(why);
+    netStatus('❌ ' + t + `<br><button class="mini" onclick="netJoinRoom('${code}')">다시 시도</button>`);
+    if (onFail) onFail(t);
+  }, 15000, { onStatus: show });
 }
-// --- 같은 와이파이 자동 매칭 ---
+// --- 같은 와이파이: 같은 공인 IP에서 열린 방 목록 ---
 async function netAutoLan() {
   netReset();
-  netStatus('네트워크 확인 중...');
+  netStatus('같은 와이파이에서 열린 방을 찾는 중...');
   const epoch = NET.epoch;
-  let config;
-  try { config = await rtcConfig(); } catch (_) { if (NET.epoch === epoch) netStatus('❌ 자동 매칭 정보를 받지 못했어요. 방 코드를 이용해주세요.'); return; }
+  let rooms;
+  try { await rtcConfig(); rooms = (await rtcRequest({ op: 'lanList' })).rooms || []; }
+  catch (_) { rooms = []; }   // 목록을 못 받으면 내가 방을 연다 (코드로도 들어올 수 있음)
   if (NET.epoch !== epoch) return;
-  if (!config.network) { netStatus('❌ 네트워크를 확인할 수 없어요. 방 코드를 이용해주세요.'); return; }
-  const base = 'tk2d-lan-' + config.network;
-  let slot = 0;
-  const trySlot = () => {
-    if (NET.epoch !== epoch) return;
-    if (slot >= 4) { netStatus('❌ 자동 매칭 실패. 방 코드를 이용해 주세요'); return; }
-    const id = base + '-' + slot;
-    netStatus(`같은 와이파이에서 상대를 찾는 중... (${slot + 1})`);
-    hostOn(id, () => {
-      netStatus('📶 같은 와이파이의 상대를 기다리는 중...<br>친구도 <b>같은 와이파이 자동 매칭</b>을 누르면 연결돼요');
-    }, () => {
-      joinTo(id, () => { slot++; trySlot(); }, 6000);
-    }, (msg) => netStatus('❌ ' + msg));
-  };
-  trySlot();
+  if (!rooms.length) { netCreateRoom(true); return; }
+  if (rooms.length === 1) { netJoinRoom(rooms[0].code); return; }
+  netStatus('📶 같은 와이파이에서 열린 방이 여러 개예요. 들어갈 방을 고르세요:<br>' +
+    rooms.map((r) => `<button class="mini ok" onclick="netJoinRoom('${r.code}')">${r.nick ? r.nick.replace(/[<>&"']/g, '') + '의 방' : '방'} ${r.code}</button>`).join(' ') +
+    '<br><button class="mini" onclick="netCreateRoom(true)">내가 방 만들기</button>');
 }
 
 function netSend(m) { if (NET.conn && NET.conn.open) { try { NET.conn.send(m); } catch (e) { /* 무시 */ } } }
@@ -4932,7 +5249,7 @@ function snapshot(G) {
   return {
     phase: G.phase, pt: G.pt, round: G.round, timer: G.timer, roundF: G.roundF,
     F: G.F.map(packFighter), proj: G.proj.map((p) => ({ t: p.t, x: Math.round(p.x * 10) / 10, y: Math.round(p.y), vx: p.vx, o: p.o, age: p.age, k: p.k })),
-    traps: G.traps, freezeT: G.freezeT, dice: G.dice, qte: G.qte, yut: G.yut, late: G.late, notes: G.notes, stage: G.stage, rw: G.rw, mw: G.mw, koType: G.koType, perfect: G.perfect, flash: G.flash,
+    traps: G.traps, freezeT: G.freezeT, dice: G.dice, qte: G.qte, yut: G.yut, clock: G.clock, late: G.late, notes: G.notes, stage: G.stage, rw: G.rw, mw: G.mw, koType: G.koType, perfect: G.perfect, flash: G.flash,
   };
 }
 function unpack(s) {
@@ -4995,9 +5312,9 @@ async function pollNow() {
 setInterval(() => {
   if (!ACC.token || document.hidden) return;
   const open = APP.state === 'account' || ACC.waiting;
-  const iv = open ? 4000 : APP.state === 'fight' ? 25000 : 12000;
+  const iv = ACC.waiting ? 3000 : open ? 4000 : APP.state === 'fight' ? 30000 : 12000;   // 서버(DB) 사용량을 아끼려고 화면별로 간격 조절
   if (Date.now() - ACC.lastPoll > iv) pollNow();
-  if (ACC.waiting && Date.now() - ACC.waiting.t0 > 60000) { cancelWaiting(true); toast('응답이 없어서 대전 신청을 취소했어요'); }
+  if (ACC.waiting && Date.now() - ACC.waiting.t0 > 90000) { cancelWaiting(true); toast('응답이 없어서 대전 신청을 취소했어요'); }
   if (ACC.waiting) renderAccount();
 }, 1000);
 
@@ -5041,7 +5358,8 @@ function inviteFriend(nick) {
       accMsg('', true);
     } catch (e) { netReset(); accMsg(e.message); }
     ACC.busyBtn = false; renderAccount();
-  }, () => { ACC.busyBtn = false; inviteFriend(nick); }, (msg) => { ACC.busyBtn = false; accMsg('❌ ' + msg); });
+  }, () => { ACC.busyBtn = false; inviteFriend(nick); }, (msg) => { ACC.busyBtn = false; if (ACC.waiting) cancelWaiting(true); accMsg('❌ ' + msg); },
+  { onStatus: (t) => { accMsg(t.replace(/<[^>]+>/g, ' '), !/⚠️/.test(t)); if (/⚠️/.test(t)) toast('친구 접속이 실패했어요. 친구가 다시 수락하거나 다시 신청해 주세요'); } });
 }
 function cancelWaiting(tellServer) {
   const w = ACC.waiting; if (!w) return;
@@ -5058,12 +5376,7 @@ async function answerInvite(inv, accept) {
   if (!accept) return;
   if (APP.state === 'fight' && APP.mode === 'cpu') goTitle();
   toast(`${inv.nick}님의 방에 접속하는 중...`);
-  netJoinRoom(inv.room);
-  const t0 = Date.now();
-  const chk = setInterval(() => {
-    if (NET.conn && NET.conn.open) { clearInterval(chk); return; }
-    if (Date.now() - t0 > 45000) { clearInterval(chk); toast('접속에 실패했어요. 친구에게 다시 신청해 달라고 해 주세요'); }
-  }, 500);
+  netJoinRoom(inv.room, (t) => toast(t.replace(/<[^>]+>/g, ' ')), (t) => toast('❌ ' + t));
 }
 
 // ---------- 화면 (HTML 패널) ----------
@@ -5090,7 +5403,7 @@ function renderAccount() {
     h += `<div class="me"><span>👤 <b>${esc(ACC.nick)}</b> 님</span><button id="accOut" class="mini">로그아웃</button></div>`;
     h += `<div class="row"><input id="accFriend" maxlength="12" placeholder="친구 닉네임" autocomplete="off"><button id="accAdd">친구 추가</button></div>`;
     if (ACC.waiting) {
-      const left = Math.max(0, 60 - Math.floor((Date.now() - ACC.waiting.t0) / 1000));
+      const left = Math.max(0, 90 - Math.floor((Date.now() - ACC.waiting.t0) / 1000));
       h += `<div class="wait">⚔ <b>${esc(ACC.waiting.to)}</b>님의 수락을 기다리는 중... (${left}초) <button id="accCancel" class="mini">취소</button></div>`;
     }
     if (ACC.requests.length) {
@@ -5157,10 +5470,11 @@ const WIN_QUOTES = {
   13: '니가 왜 거기서 나와? 찐이야~',
   14: '털 하나에도 개미 백 마리가 산다.',
   15: '센터백은 뚫려도 은뚱은 터진다.',
+  16: '4시 55분이다. 휴대폰은 내일 돌려받는다.',
 };
 
 const APP = {
-  state: 'title', mode: 'cpu', mySide: 0, diff: 1, t: 0, st: 0,
+  state: 'title', mode: 'cpu', mySide: 0, diff: 2, t: 0, st: 0,
   menu: 0, sel: { cur: 0, hidden: false, ready: false, opp: { cur: 6, ready: false, c: null }, cpuC: null, roulette: 0 },
   G: null, ai: [makeAIMem(), makeAIMem()], dict: 0, vs: null, paused: false, pauseIdx: 0, toastT: 0, toastS: '', titleStage: 0,
 };
@@ -5175,13 +5489,14 @@ const BUF = mkCanvas(VW, VH), bctx = BUF.getContext('2d');
 (function loadSettings() {
   try {
     const s = JSON.parse(safeLS('tekken2d_settings') || '{}');
-    if (typeof s.diff === 'number') APP.diff = s.diff;
+    if (typeof s.diff6 === 'number' && DIFF[s.diff6]) APP.diff = s.diff6;
+    else if (typeof s.diff === 'number') APP.diff = ({ 0: 1, 1: 2, 2: 3 })[s.diff] ?? 2;   // 예전 3단계 설정 → 6단계로 옮김
     if (s.music === false) AUD.musicOn = false;
     if (s.sfx === false) AUD.sfxOn = false;
     if (s.voice === false) AUD.voiceOn = false;
   } catch (e) { /* 무시 */ }
 })();
-function saveSettings() { safeLS('tekken2d_settings', JSON.stringify({ diff: APP.diff, music: AUD.musicOn, sfx: AUD.sfxOn, voice: AUD.voiceOn })); }
+function saveSettings() { safeLS('tekken2d_settings', JSON.stringify({ diff6: APP.diff, music: AUD.musicOn, sfx: AUD.sfxOn, voice: AUD.voiceOn })); }
 
 // ---------- 화면 전환 ----------
 function setState(s) { APP.state = s; APP.st = 0; IN.clear(); if (s !== 'account') hideAccount(); setTimeout(renderInvitePop, 0); }
@@ -5266,7 +5581,7 @@ function updTitle() {
   if (IN.take('D')) { APP.menu = (APP.menu + 1) % n; playSfx('cursor'); }
   const lr = IN.take('L') ? -1 : IN.take('R') ? 1 : 0;
   const go = IN.take('START') || IN.take('S1') || IN.take('P');
-  if (APP.menu === 4 && (lr || go)) { APP.diff = (APP.diff + (lr || 1) + 3) % 3; playSfx('cursor'); saveSettings(); return; }
+  if (APP.menu === 4 && (lr || go)) { APP.diff = (APP.diff + (lr || 1) + DIFF_N) % DIFF_N; playSfx('cursor'); saveSettings(); return; }
   if (APP.menu === 5 && (lr || go)) { AUD.setMusic(!AUD.musicOn); if (AUD.musicOn) { MUSIC.key = null; playMusic('title'); } playSfx('cursor'); saveSettings(); return; }
   if (APP.menu === 6 && (lr || go)) { AUD.setSfx(!AUD.sfxOn); playSfx('cursor'); saveSettings(); return; }
   if (APP.menu === 7 && (lr || go)) { AUD.voiceOn = !AUD.voiceOn; playSfx('cursor'); saveSettings(); return; }
@@ -5396,8 +5711,14 @@ function render() {
   }
   if (APP.toastT > 0) {
     ctx.globalAlpha = Math.min(1, APP.toastT / 20);
-    ctx.fillStyle = 'rgba(0,0,0,0.75)'; ctx.fillRect(140, 238, 200, 18);
-    txt(ctx, APP.toastS, 240, 251, 8.5, '#fff', 'center', FONT_KR2, 0);
+    // 긴 안내도 잘리지 않게 여러 줄로
+    ctx.font = `8px ${FONT_KR2}`;
+    const words = String(APP.toastS).split(' '), lines = []; let line = '';
+    for (const w of words) { const t = line ? line + ' ' + w : w; if (ctx.measureText(t).width > 330 && line) { lines.push(line); line = w; } else line = t; }
+    if (line) lines.push(line);
+    const h = lines.length * 11 + 7, y0 = 258 - h;
+    ctx.fillStyle = 'rgba(0,0,0,0.8)'; ctx.fillRect(66, y0, 348, h);
+    lines.forEach((l, i) => txt(ctx, l, 240, y0 + 12 + i * 11, 8, '#fff', 'center', FONT_KR2, 0));
     ctx.globalAlpha = 1;
   }
   if (APP.mode === 'online' && NET.conn) txt(ctx, `ONLINE ${NET.ping}ms`, 476, 266, 5.5, NET.ping < 80 ? '#7dff9a' : NET.ping < 160 ? '#ffe14d' : '#ff6b6b', 'right', FONT_EN);
