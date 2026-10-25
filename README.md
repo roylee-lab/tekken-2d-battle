@@ -3,7 +3,8 @@
 브라우저에서 바로 즐기는 2D 격투 게임. 설치 없이 `index.html` 하나로 동작합니다.
 
 ## 특징
-- 13명의 캐릭터 (히든 캐릭터 Tirón 포함), 나라별 스테이지 13개
+- 14명의 캐릭터 (히든 캐릭터 Tirón 포함, 신캐 영탁), 나라별 스테이지 13개
+- 모든 캐릭터 Q/W/E/R 스킬 + 패드립 배틀(글자 먼저 누르기) · 초크 연타 탈출 · KC 연타 등 미니게임형 스킬
 - 3판 2선승, 99초 타이머, 콤보·히트스톱·아나운서 음성
 - 나라별 오리지널 칩튠 BGM (Web Audio로 실시간 합성)
 - CPU 대전 (난이도 3단계), 캐릭터 도감, 승리 기록
@@ -19,6 +20,7 @@
 | 스킬 | Q (5초) · W (10초) · E (첫 20초, 이후 30초) · R (첫 30초, 이후 60초) |
 | 결정 / 뒤로·일시정지 | Space·Enter / Esc |
 | 히든 캐릭터 · 도감 · BGM | 선택 화면에서 K · C · M |
+| 패드립 배틀 / KC / 초크 탈출 | 화면의 글자 키 / K·C 연타 / 아무 키 연타 (모바일은 화면 터치·버튼) |
 
 ## 폴더 구조
 ```
@@ -41,6 +43,8 @@ api/game.js           ← 서버 API (Vercel 함수): 회원가입/로그인/친
 package.json          ← api 폴더를 ES 모듈로 실행하기 위한 설정 (의존성 없음)
 vendor/peerjs.min.js  ← 온라인 대전 라이브러리 (MIT)
 tools/balance.js      ← AI끼리 대전시켜 승률을 계산하는 도구
+tools/tune.js         ← 승률이 50%에 가까워지도록 기존 수치·체력을 자동 조정
+tools/diag.js         ← 캐릭터별 스킬 사용 횟수·피해량 진단
 ```
 
 ## 수정 후 배포
@@ -76,3 +80,9 @@ node tools/balance.js 4 "" matrix
 검증: `node tests/regression.mjs`.
 로컬 통합 검증은 `tests/local-server.mjs`의 임시 저장소를 사용합니다(실제 계정 DB 미사용).
 `tests/browser.cjs`는 개발 환경의 Playwright 및 Chrome을 사용합니다.
+
+
+## TURN 중계 서버 (2026-10-25 추가)
+- 서로 직접 연결이 안 되는 네트워크(공유기 기기 격리, 모바일 데이터, 회사·학교망)를 위해 Cloudflare Realtime TURN을 지원합니다.
+- Vercel 환경변수 `CF_TURN_KEY_ID`, `CF_TURN_API_TOKEN`을 넣으면 `/api/rtc`가 24시간짜리 임시 TURN 자격증명을 발급합니다 (키는 서버에만 보관).
+- 우선순위: `WEBRTC_ICE_SERVERS`(직접 지정) → Cloudflare TURN → 기본 STUN.
