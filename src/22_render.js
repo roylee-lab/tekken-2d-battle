@@ -473,8 +473,8 @@ function drawSkillBoxes(ctx, F, s, t) {
     const x = s === 0 ? 30 + col * (w + 4) : 450 - w - col * (w + 4), y = 37 + row * 12;
     const sealed = F.seal[k] > 0;
     const isCopy = F.c === HINCHAM && k === 0 && F.copy;
-    const maxCd = SLOT_CD[k] * SEC;
     const cd = sealed ? F.seal[k] : F.cd[k];
+    const maxCd = Math.max(SLOT_CD[k] * SEC, cd || 0);
     ctx.fillStyle = '#000'; ctx.fillRect(x - 1, y - 1, w + 2, h + 2);
     if (!def) {
       ctx.fillStyle = '#15182a'; ctx.fillRect(x, y, w, h);

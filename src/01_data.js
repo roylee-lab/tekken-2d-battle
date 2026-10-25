@@ -21,7 +21,9 @@ function build(o) { return Object.assign({}, BASE_BUILD, o); }
 
 // ---------- 스킬 슬롯 / 밸런스 수치 (밸런스 패치는 여기만 고치면 됨) ----------
 const SLOT_KEYS = ['Q', 'W', 'E', 'R'];
-const SLOT_CD = [5, 10, 30, 60];               // 슬롯별 쿨타임(초). 라운드 시작 시 쿨타임부터 돈다
+const SLOT_CD = [5, 10, 30, 60];               // 슬롯별 쿨타임(초)
+const SLOT_CD_START = [5, 10, 20, 30];         // 라운드 시작 시 첫 쿨타임(초)
+function cdText(k) { return SLOT_CD_START[k] !== SLOT_CD[k] ? `첫 ${SLOT_CD_START[k]}초 · 이후 ${SLOT_CD[k]}초` : `${SLOT_CD[k]}초`; }
 const ATK = { pBase: 8, pStep: 3, kickMul: 0.5, pReach: 38, kReach: 60 };
 const BAL = {   // v2 밸런스 패치 (AI 대전 시뮬레이션 기반)
   0: { hp: 100, vacPush: 8, vacStun: 30, stimT: 300, stimLS: 1.0 },

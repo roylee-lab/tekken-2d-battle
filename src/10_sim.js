@@ -56,7 +56,7 @@ function resetRound(G) {
     // 이은뚱 패시브: 상대가 mola/JJjin이면 최대 체력 +10
     F.maxHp = BAL[c].hp + (c === 4 && (O.c === 1 || O.c === 2) ? Math.round(BAL[4].hp * BAL[4].friend) : 0);
     F.hp = F.maxHp;
-    F.cd = SLOT_CD.map((s) => s * SEC);   // 라운드 시작 시 쿨타임부터 돈다
+    F.cd = SLOT_CD_START.map((s) => s * SEC);   // 라운드 시작 시 첫 쿨타임부터 돈다
     F.x = ARENA_W / 2 + (side === 0 ? -80 : 80);
     F.f = side === 0 ? 1 : -1;
   }

@@ -371,8 +371,8 @@ function rSelectHUD(t) {
     const sk = skillDef(mc, k);
     ctx.fillStyle = sk ? '#ffe14d' : '#555a70'; ctx.fillRect(156, y - 7, 9, 9);
     txt(ctx, SLOT_KEYS[k], 160.5, y + 0.5, 6, '#000', 'center', FONT_EN, 0);
-    if (!sk) { txt(ctx, `(비어 있음 · 쿨 ${SLOT_CD[k]}초)`, 169, y, 7.5, '#6b6f86', 'left', FONT_KR2, 0); y += 11; continue; }
-    txt(ctx, sk.name + `  (${SLOT_CD[k]}초)`, 169, y, 8.5, '#fff', 'left', FONT_KR, 0);
+    if (!sk) { txt(ctx, `(비어 있음 · 쿨 ${cdText(k)})`, 169, y, 7.5, '#6b6f86', 'left', FONT_KR2, 0); y += 11; continue; }
+    txt(ctx, sk.name + `  (${cdText(k)})`, 169, y, 8.5, '#fff', 'left', FONT_KR, 0);
     y += wrapText(ctx, skillInfo(mc, k), 169, y + 9, 156, 6.5, '#b8c4dd') + 10;
   }
   txt(ctx, '패시브 · ' + C.passive.name, 156, y + 2, 8.5, '#ffb3e6', 'left', FONT_KR, 0);
@@ -451,8 +451,8 @@ function rDictHUD(t) {
     const sk = skillDef(c, k);
     ctx.fillStyle = sk ? '#ffe14d' : '#555a70'; ctx.fillRect(210, y - 8, 10, 10);
     txt(ctx, SLOT_KEYS[k], 215, y + 0.5, 6.5, '#000', 'center', FONT_EN, 0);
-    if (!sk) { txt(ctx, `비어 있음 (추후 추가) · 쿨타임 ${SLOT_CD[k]}초`, 224, y, 8, '#6b6f86', 'left', FONT_KR2, 0); y += 13; continue; }
-    txt(ctx, sk.name + `   쿨타임 ${SLOT_CD[k]}초`, 224, y, 9.5, '#fff', 'left', FONT_KR, 0);
+    if (!sk) { txt(ctx, `비어 있음 (추후 추가) · 쿨타임 ${cdText(k)}`, 224, y, 8, '#6b6f86', 'left', FONT_KR2, 0); y += 13; continue; }
+    txt(ctx, sk.name + `   쿨타임 ${cdText(k)}`, 224, y, 9.5, '#fff', 'left', FONT_KR, 0);
     y += wrapText(ctx, skillInfo(c, k), 224, y + 11, 236, 7.5, '#b8c4dd') + 14;
   }
   txt(ctx, '패시브 · ' + C.passive.name, 210, y, 9.5, '#ffb3e6', 'left', FONT_KR, 0);
