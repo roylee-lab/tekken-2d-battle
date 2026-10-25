@@ -28,7 +28,7 @@ const ATK = { pBase: 8, pStep: 3, kickMul: 0.5, pReach: 38, kReach: 60 };
 const BAL = {   // v4 밸런스 패치: 체력 2배 (경기 시간 증가) + AI 대전 시뮬레이션 기반 조정
   0: { hp: 212, vacPush: 8, vacStun: 45, stimT: 445, stimLS: 1.0, focusT: 1200, focus: 1.2, vac2Dmg: 15, vac2Stun: 60 },
   1: { hp: 195, toothN: 4, toothDmg: 3.14, cutPct: 0.047, regen: 10, regenSec: 8, cloneT: 1200, debuffT: 600, debuff: 0.2 },
-  2: { hp: 336, dashT: 6, parryT: 35, reviveHp: 0.642, qteN: 5, qteDmg: 10, qteHeal: 10, invisT: 300, invisSpd: 1.5, invisGuardOff: 120 },
+  2: { hp: 270, judoDmg: 30, judoStun: 60, parryT: 35, reviveHp: 0.4, reviveDebuff: 0.2, qteN: 5, qteDmg: 10, qteHeal: 10, invisT: 300, invisSpd: 1.5, invisGuardOff: 120 },
   3: { hp: 232, bambooDmg: 14.92, shootDmg: 11.64, shootMax: 3, spd: 1.2, cdRed: 0.2, crystalDmg: 20, flyDmg: 50 },
   4: { hp: 146, ddHeal: 0.034, ddEvery: 4, ddMax: 0.1, dicePer: 2.8, angerEvery: 3, angerAdd: 0.05, friend: 0.1, ddTwice: 0.318,
     momPct: 0.318, momSec: 31.8, curseSec: 31.8, curseDR: 0.318, curseAtk: 0.318, curseRefl: 0.318 },
@@ -39,10 +39,10 @@ const BAL = {   // v4 밸런스 패치: 체력 2배 (경기 시간 증가) + AI 
   9: { hp: 182, pressRoot: 30, pressSlow: 79, forceT: 132, awakeSec: 30, awakeMul: 1.3, awakeCd: 1, rageT: 1200, rage: 1.3, penT: 120, penSlow: 0.25, earT: 1800 },
   10: { hp: 208, fartMul: 0.633, explMul: 2.3, poisT: 300, poisTick: 1, bombRed: 5, legT: 1200, leg: 1.3, shuttleHit: 50, shuttleBlock: 5 },
   11: { hp: 198, painMax: 5, painRoot: 208, majRoot: 70, majBoost: 180, majSpd: 0.1, yankP: 0.5, fireT: 45, fireDmg: 1 },
-  12: { hp: 162, sealSec: 8, headDmg: 7.17, spikeT: 300, spikeDR: 0.1, headInv: 60, otaku: 0.1, growT: 1200, grow: 1.3, growPush: 72, moP: 0.5 },
+  12: { hp: 208, sealSec: 8, headDmg: 13, spikeT: 300, spikeDR: 0.1, headInv: 60, otaku: 0.1, growT: 1200, grow: 1.3, growPush: 72, moP: 0.5 },
   13: { hp: 182, late: 0.1, kkDmg: 5, drunkT: 300, jjinSelf: 10, jjinStun: 150, formT: 600, form: 1.3 },
   14: { hp: 214, furDot: 0.5, sneezeP: 0.15, sneezeT: 30, shingT: 600, shingDmg: 1, chestT: 300, chestDR: 0.5, antN: 100, antWave: 25, antWaveT: 30, antSpd: 12, antHp: 2, antDmg: 1, antBite: 60, antLife: 117 },
-  16: { hp: 143, ironAt: 0.2, ironT: 300, ironRange: 2, pimoLife: 420, pimoRoot: 240, pimoMax: 2, mantisT: 240, mantis: 1.5, clockT: 300, clockSpd: 1.75, clockStun: 60, clockSec: 455, phonePct: 0.2, phoneT: 1800 },
+  16: { hp: 132, ironAt: 0.2, ironT: 300, ironRange: 2, pimoLife: 420, pimoRoot: 240, pimoMax: 2, mantisT: 240, mantis: 1.5, clockT: 300, clockSpd: 1.75, clockStun: 60, clockSec: 455, phonePct: 0.2, phoneT: 1800 },
   15: { hp: 192, eun: 0.1, mallangT: 180, mallangRefl: 0.5, ballMin: 3, ballMax: 30, fifaT: 1200, fifaLS: 0.5, fifaAtk: 0.1, fifaMul: 2, bombDmg: 50, bombFuse: 60, bombR: 85 },
 };
 function skillDef(c, slot) { return CHARS[c]['s' + (slot + 1)] || null; }
@@ -79,12 +79,12 @@ const CHARS = [
   },
   {
     name: 'JJjin', en: 'JJJIN', color: '#8B4513', country: 'FR', stage: 'paris',
-    desc: ['기동성과 방어 반사', '순간 대시와 패링'],
-    s1: { name: '대시', info: (b) => `입력 방향으로 순간 고속 이동 (${b.dashT * 12}px)` },
+    desc: ['유도와 패링의 파이터', '쓰러져도 다시 일어난다'],
+    s1: { name: '유도', info: (b) => `근접 업어치기: 고정 ${b.judoDmg} 피해 (가드 불가) + 상대를 반대편으로 메쳐 ${(b.judoStun / 60).toFixed(1)}초 넘어뜨림` },
     s2: { name: '패링', info: (b) => `${(b.parryT / 60).toFixed(2)}초간 공격 무효화 및 반사 밀어내기` },
     s3: { name: '패드립 배틀', heal: true, info: (b) => `화면의 글자를 먼저 누른 쪽이 고정 ${b.qteDmg} 피해 + ${b.qteHeal} 회복 (${b.qteN}글자)` },
     s4: { name: '영역 전개', info: (b) => `${b.invisT / 60}초간 무적 + 투명 + 이동속도 +${Math.round((b.invisSpd - 1) * 100)}%, 상대 ${b.invisGuardOff / 60}초 가드 불가` },
-    passive: { name: '부활', desc: (b) => `라운드마다 1회, 쓰러지면 체력 ${Math.round(b.reviveHp * 100)}%로 부활` },
+    passive: { name: '부활', desc: (b) => `라운드마다 1회, 쓰러지면 최대 체력 ${Math.round(b.reviveHp * 100)}%로 부활 (부활 후 이속·공격력 등 모든 능력치 -${Math.round(b.reviveDebuff * 100)}%)` },
     look: {
       H: 0.84, b: build({ torsoW: 14, waistW: 11.5, thigh: 6.2, shin: 5.2, arm: 4.8, fore: 4.3 }), skin: '#5e3a22',
       hair: { style: 'buzz', color: '#0d0d0d' }, top: '#a0522d', topStyle: 'tank', pants: '#3b2412', shoes: '#e8e8e8', acc: { headband: '#f1c40f' },
@@ -265,7 +265,7 @@ const CHARS = [
     s1: { name: '피모 지웠다 깔기', info: (b) => `피모를 또 설치! 밟은 상대는 현혹되어 ${b.pimoRoot / 60}초 구속` },
     s2: { name: '맨티스컷', info: (b) => `${b.mantisT / 60}초간 펀치·킥 속도 +${Math.round((b.mantis - 1) * 100)}%` },
     s3: { name: '4시 55분', info: (b) => `시간 ${b.clockSec}초로! ${b.clockT / 60}초간 안 밀려남·공속 +${Math.round((b.clockSpd - 1) * 100)}%, 후 ${b.clockStun / 60}초 기절` },
-    s4: { name: '휴대폰압수', info: (b) => `체력 ${Math.round(b.phonePct * 100)}%로, ${b.phoneT / 60}초간 아이언맨 + 불사, 끝나면 받은 피해 회복` },
+    s4: { name: '휴대폰압수', info: (b) => `체력 ${Math.round(b.phonePct * 100)}%로, ${b.phoneT / 60}초간 아이언맨 + 불사 + 안 밀려남, 끝나면 받은 피해 회복` },
     passive: { name: '아이언맨', desc: (b) => `체력 ${Math.round(b.ironAt * 100)}% 이하 시 ${b.ironT / 60}초간 아이언맨 (레이저 펀치 사거리 ${b.ironRange}배)` },
     look: {
       H: 1.18, b: build({ torsoW: 11.5, waistW: 9, thigh: 4.3, shin: 3.8, arm: 3.4, fore: 3.0, headR: 8.2, leg: 1.22 }), skin: '#efc49a',

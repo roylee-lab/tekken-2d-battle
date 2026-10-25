@@ -19,7 +19,7 @@ const helpless = (O) => O.hitT > 0 || O.stunT > 0 || O.rootT > 0 || O.chokeT > 0
 const AI_SKILL = {
   0: [(F, O, d) => d > 70 && d < 240, (F, O, d) => d < 120, (F, O, d) => d < 150, (F, O, d) => d > 60 && d < 240],
   1: [(F, O, d) => d < 140, (F, O, d) => d > 70 && d < 230, (F, O, d) => d < 200, (F, O, d) => true],
-  2: [(F, O, d) => d > 95 && d < 260, () => false, (F, O, d) => true, (F, O, d) => d < 200],
+  2: [(F, O, d) => close(F, O, 14) && O.y < 10, () => false, (F, O, d) => true, (F, O, d) => d < 200],
   3: [(F, O, d) => d > 50 && d < 190, (F, O, d) => d < 90, (F, O, d) => d > 50 && d < 230, (F, O, d) => d < 220 && (helpless(O) || O.atk || O.castT > 0)],
   4: [(F, O, d) => F.hp < F.maxHp * 0.9, (F, O, d) => true, (F, O, d) => d < 220, (F, O, d) => d < 200],
   5: [(F, O, d) => d < 210, (F, O, d) => F.hp < F.maxHp * 0.55 && d > 90, (F, O, d) => d > 40 && d < 170, (F, O, d) => close(F, O, 18)],
@@ -129,7 +129,6 @@ function aiInput(G, F, O, mem, diffLv) {
     });
     if (slots.length && r < D.skill) {
       p |= B_SK[slots[Math.floor(rnd() * slots.length)]];
-      if (F.c === 2 && (p & B_S1)) h |= toward;
       mem.plan = 'wait'; mem.planT = 6;
     } else if (dist > 150) {
       mem.plan = rnd() < 0.85 ? 'approach' : 'jumpin'; mem.planT = 30;

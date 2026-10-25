@@ -231,6 +231,7 @@ function checkKO(G, D) {
   if (D.phoneT > 0 || D.phoneHealT > 0) { D.hp = 0; return; }   // 이유동 휴대폰압수: 스킬이 끝날 때까지 죽지 않음
   if (D.c === 2 && !D.revived) {
     D.revived = true; D.hp = D.maxHp * BAL[2].reviveHp; D.hitT = 0;
+    addMod(D, 'revive', 'all', 1 - BAL[2].reviveDebuff, 1e9);   // 부활 후 모든 능력치 감소 (라운드 끝까지)
     G.freezeT = Math.max(G.freezeT, 75);
     note(G, `JJjin 부활! (체력 ${Math.round(BAL[2].reviveHp * 100)}%)`, '#f5c542', 110); ev(G, 'sfx', 'revive'); ev(G, 'revive', D.x, D.y);
     return;
@@ -484,10 +485,16 @@ const SK = {
     },
   ],
   2: [
-    (G, F, O, inp) => {
-      let dir = F.f;
-      if (inp && inp.h & B_R) dir = 1; else if (inp && inp.h & B_L) dir = -1;
-      F.dashT = BAL[2].dashT; F.dashDir = dir; return true;
+    (G, F, O) => {   // 유도: 근접 업어치기 (상대를 반대편으로 메침)
+      if (F.y > 0) return false;
+      if (!inFront(F, O, 16) || O.ko || O.y > 20) { ev(G, 'sfx', 'miss'); ev(G, 'float', F.x, F.y + 100, '헛잡기', '#aaa'); return true; }
+      const res = applyDamage(G, F, O, BAL[2].judoDmg, 'JUDO', { fixed: true });
+      if (res === 'hit') {
+        O.x = clamp(F.x - F.f * (radius(F) + radius(O) + 4), 20, ARENA_W - 20); O.vx = 0; O.kb = -F.f * 2;
+        O.atk = null; O.stunT = Math.max(O.stunT, BAL[2].judoStun); O.y = 0; O.vy = 0;
+        G.hitStop = 8; ev(G, 'shake', 12, 6); ev(G, 'sfx', 'hitK'); ev(G, 'spark', O.x, 10, 'big'); ev(G, 'float', O.x, O.y + 100, '한판!', '#f5c542');
+      }
+      return true;
     },
     (G, F, O) => {
       if (F.parryT > 0 || F.parryR > 0) return false;
@@ -860,6 +867,8 @@ function stepYudong(G, F, O) {
     F.kb = 0; if (F.hitT > 0) F.hitT = 0;
     if (--F.clockT === 0) { F.stunT = Math.max(F.stunT, B.clockStun); F.atk = null; ev(G, 'float', F.x, F.y + 110, '죄책감...', '#9fa8da'); }
   }
+  // 휴대폰압수 중에는 맞아도 밀리거나 굳지 않아 체력 0이어도 계속 싸울 수 있음
+  if (F.phoneT > 0) { F.kb = 0; if (F.hitT > 0) F.hitT = 0; }
   // 휴대폰압수: 끝나면 1초 동안 그동안 받은 피해를 회복
   if (F.phoneT > 0 && --F.phoneT === 0) {
     F.phoneHealT = 60; F.phoneHealAmt = Math.max(0, Math.min(F.phoneDmg, F.phoneStart - F.hp));
