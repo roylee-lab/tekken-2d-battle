@@ -551,6 +551,11 @@ function rFightOverlay(t) {
       ctx.fillStyle = 'rgba(255,255,255,0.08)'; ctx.fillRect(145, 102, 300, 40);
       wrapText(ctx, '“' + WIN_QUOTES[W.c] + '”', 152, 118, 286, 10, '#ffe9a8');
     } else bigText(ctx, 'DRAW GAME', 240, 90, 22, '#ffffff', '#aaaaaa');
+    if (G.bossReward) {   // 최종 보스 격파 보상 안내
+      ctx.fillStyle = 'rgba(60,40,0,0.85)'; ctx.fillRect(60, 150, 360, 34); ctx.strokeStyle = '#ffd700'; ctx.strokeRect(60.5, 150.5, 359, 33);
+      txt(ctx, '🏆 보상 획득! 칭호 「김천고의 CEO」 + 히든 캐릭터 흑요', 240, 165, 9.5, '#ffd700', 'center', FONT_KR, '#5a3a00');
+      txt(ctx, ACC.token ? (UNLOCK.pending ? '계정에 저장 중...' : '계정에 저장됐어요 · 선택 화면 맨 끝에서 흑요 선택 가능') : '로그인하면 칭호가 닉네임에 붙어요 · 선택 화면 맨 끝에서 흑요 선택 가능', 240, 178, 7, '#ffe9a8', 'center', FONT_KR2, '#000');
+    }
     if (G.pt > 90 && (t >> 4) % 2) {
       const opts = APP.mode === 'cpu' ? 'SPACE: 캐릭터 선택   R: 같은 대진 재대전   ESC: 타이틀' : 'SPACE: 캐릭터 다시 선택   ESC: 나가기';
       txt(ctx, opts, 240, 200, 9, '#fff', 'center', FONT_KR2);

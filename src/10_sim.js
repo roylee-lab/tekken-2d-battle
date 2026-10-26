@@ -261,6 +261,7 @@ function checkKO(G, D) {
   // 히든 보스전: 플레이어는 2번까지 부활 (보스의 지속 스킬은 끝난 것으로 처리)
   if (G.bossFight && D.side === 0 && D.lives > 0) { playerRevive(G, D); return; }
   D.hp = 0; D.ko = true;
+  if (D.boss) ev(G, 'bossdown', D.side);   // 최종 보스 격파 → 보상 (화면 쪽에서 처리)
 }
 
 function addHp(F, amt, over) { F.hp = over ? F.hp + amt : Math.max(F.hp, Math.min(F.maxHp, F.hp + amt)); }

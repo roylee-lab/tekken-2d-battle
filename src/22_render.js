@@ -30,6 +30,7 @@ function handleEvents(G, list) {
         break;
       }
       case 'announce': onAnnounce(G, a, b); break;
+      case 'bossdown': if (APP.mode === 'cpu' && !APP.autoP1 && !G.bossReward) { G.bossReward = true; grantBossClear(); } break;   // 보스가 쓰러지는 순간 바로 보상
       case 'bgm': if (APP.state === 'fight') playMusic(a); break;
       default: break;
     }
@@ -48,7 +49,7 @@ function onAnnounce(G, kind, val) {
       const won = val === me;
       announce(won ? 'You win!' : 'You lose');
       playJingle(won ? 'win' : 'lose');
-      if (won) { addRecord(G.F[me].c); if (G.F[1 - me].boss) grantBossClear(); }
+      if (won) { addRecord(G.F[me].c); if (G.F[1 - me].boss && APP.mode === 'cpu' && !G.bossReward) { G.bossReward = true; grantBossClear(); } }
     }
     stopMusic();
   }
