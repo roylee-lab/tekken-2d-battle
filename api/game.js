@@ -12,6 +12,7 @@ const SESSION_TTL = 60 * 60 * 24 * 30;  // 로그인 유지 30일
 const ONLINE_TTL = 45;                  // 이 시간(초) 동안 신호가 없으면 오프라인
 const INVITE_TTL = 90;                  // 대전 신청 유효 시간(초)
 const NICK_RE = /^[0-9A-Za-z가-힣_]{2,12}$/;
+const HEUGYO_GIFT = new Set(['royleejr']);   // 히든 캐릭터 흑요를 처음부터 지급받는 계정 (닉네임 소문자)
 
 // ---------- Redis (Upstash REST) ----------
 async function redis(cmd) {
@@ -63,6 +64,12 @@ async function displayNick(nick) {
   return n;
 }
 
+// ---------- 보상: 최종 보스 격파 → 칭호 '김천고의 CEO' + 흑요 ----------
+async function rewards(id) {
+  const [ceo, hg] = await redis(['HMGET', P + 'u:' + id, 'ceo', 'heugyo']) || [];
+  return { ceo: ceo === '1', heugyo: hg === '1' || ceo === '1' || HEUGYO_GIFT.has(id) };
+}
+
 // ---------- 게시판 (캐릭터 추가 요청) ----------
 const BOARD_KEY = P + 'board', BOARD_MAX = 300;
 // 양식: 캐릭터 이름 + 패시브/Q/W/E/R 각각 [이름, 설명] — 하나라도 비거나 규격에 안 맞으면 거부
@@ -92,12 +99,19 @@ const actions = {
     const posts = (rows || []).map((r) => { try { return JSON.parse(r); } catch (e) { return null; } }).filter(Boolean);
     return { posts, total: total || 0, page, per };
   },
+  // 최종 보스(흑요)를 이긴 기록 → 칭호와 흑요 지급
+  async bossClear(b) {
+    const me = await auth(b);
+    await rateLimit('boss:' + me.id, 10, 3600);
+    await redis(['HSET', P + 'u:' + me.id, 'ceo', '1', 'heugyo', '1']);
+    return { rewards: { ceo: true, heugyo: true } };
+  },
   async boardPost(b, req) {
     const me = await auth(b);
     const post = parsePost(b);
     await rateLimit('bp:' + me.id, 5, 600);
     await rateLimit('bpip:' + clientIp(req), 20, 86400);
-    Object.assign(post, { id: crypto.randomBytes(6).toString('hex'), nick: me.nick, ts: Date.now() });
+    Object.assign(post, { id: crypto.randomBytes(6).toString('hex'), nick: me.nick, ts: Date.now(), ceo: (await redis(['HGET', P + 'u:' + me.id, 'ceo'])) === '1' });
     await pipe([['LPUSH', BOARD_KEY, JSON.stringify(post)], ['LTRIM', BOARD_KEY, 0, BOARD_MAX - 1]]);
     return { ok: true, post };
   },
@@ -121,7 +135,7 @@ const actions = {
     const ok = await redis(['HSETNX', P + 'u:' + key(nick), 'nick', nick]);
     if (!ok) throw new E('이미 사용 중인 닉네임이에요');
     await redis(['HSET', P + 'u:' + key(nick), 'salt', salt, 'hash', hashPw(pw, salt), 'created', Date.now()]);
-    return { token: await newSession(nick), nick };
+    return { token: await newSession(nick), nick, rewards: await rewards(key(nick)) };
   },
   async login(b, req) {
     const nick = String(b.nick || '').normalize('NFC').trim(), pw = String(b.pw || '');
@@ -129,7 +143,7 @@ const actions = {
     await rateLimit('loginnick:' + key(nick), 10, 300);
     const u = hashToObj(await redis(['HGETALL', P + 'u:' + key(nick)]));
     if (!u.hash || !safeEq(hashPw(pw, u.salt), u.hash)) throw new E('닉네임 또는 비밀번호가 틀렸어요', 401);
-    return { token: await newSession(u.nick), nick: u.nick };
+    return { token: await newSession(u.nick), nick: u.nick, rewards: { ceo: u.ceo === '1', heugyo: u.heugyo === '1' || u.ceo === '1' || HEUGYO_GIFT.has(key(nick)) } };
   },
   async logout(b) {
     const me = await auth(b);
@@ -140,15 +154,16 @@ const actions = {
   async poll(b) {
     const me = await auth(b);
     const status = b.status === 'busy' ? 'busy' : 'idle';
-    const [, friends, reqs, inv, resp] = await pipe([
+    const [, friends, reqs, inv, resp, mine] = await pipe([
       ['SET', P + 'on:' + me.id, status, 'EX', ONLINE_TTL],
       ['SMEMBERS', P + 'f:' + me.id],
       ['SMEMBERS', P + 'rq:' + me.id],
       ['HGETALL', P + 'inv:' + me.id],
       ['HGETALL', P + 'invr:' + me.id],
+      ['HMGET', P + 'u:' + me.id, 'ceo', 'heugyo'],
     ]);
     const fl = friends || [];
-    const on = fl.length ? await redis(['MGET', ...fl.map((n) => P + 'on:' + key(n))]) : [];
+    const [on, fceo] = fl.length ? await pipe([['MGET', ...fl.map((n) => P + 'on:' + key(n))], ['EVAL', "local r = {} for i, k in ipairs(KEYS) do r[i] = redis.call('HGET', k, 'ceo') or '' end return r", fl.length, ...fl.map((n) => P + 'u:' + key(n))]]) : [[], []];
     const now = Date.now();
     const invites = Object.entries(hashToObj(inv)).map(([from, v]) => { try { return Object.assign({ from }, JSON.parse(v)); } catch (e) { return null; } })
       .filter((x) => x && now - x.ts < INVITE_TTL * 1000);
@@ -156,7 +171,8 @@ const actions = {
     if (responses.length) await redis(['DEL', P + 'invr:' + me.id]);
     return {
       nick: me.nick,
-      friends: fl.map((n, i) => ({ nick: n, online: !!on[i], status: on[i] || 'off' })).sort((x, y) => (y.online - x.online) || x.nick.localeCompare(y.nick)),
+      rewards: { ceo: (mine || [])[0] === '1', heugyo: (mine || [])[1] === '1' || (mine || [])[0] === '1' || HEUGYO_GIFT.has(me.id) },
+      friends: fl.map((n, i) => ({ nick: n, online: !!on[i], status: on[i] || 'off', ceo: (fceo || [])[i] === '1' })).sort((x, y) => (y.online - x.online) || x.nick.localeCompare(y.nick)),
       requests: reqs || [],
       invites,
       responses,
