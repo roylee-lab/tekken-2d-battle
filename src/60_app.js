@@ -163,9 +163,10 @@ function updSelect() {
   if (IN.take('R')) { S.cur = (S.cur + 1) % N; moved = true; }
   if (IN.take('U') || IN.take('D')) { S.cur = S.cur < SEL_COLS ? Math.min(N - 1, S.cur + SEL_COLS) : S.cur - SEL_COLS; moved = true; }
   if (moved) { S.hidden = false; playSfx('cursor'); if (APP.mode === 'online') sendSel(); }
-  const hid = IN.take('HID');
-  // LUNATIC + CPU 대전: B를 누르면 히든 보스전
-  const boss = IN.take('BOSS') && APP.mode === 'cpu' && APP.diff === 5;
+  const hid = IN.take('HID') || IN.take('S3');   // 모바일: E 버튼 = Tirón
+  // LUNATIC + CPU 대전: B (모바일은 R 버튼)를 누르면 히든 보스전
+  const bossKey = IN.take('BOSS') || IN.take('S4');
+  const boss = bossKey && APP.mode === 'cpu' && APP.diff === 5;
   if (boss) {
     S.ready = true; playSfx('confirm'); announce(CHARS[myChar()].en.toLowerCase());
     S.cpuC = BOSS; APP._vsDelay = 45; playSfx('roar'); return;
@@ -414,7 +415,7 @@ function rSelectHUD(t) {
   const rec = getRecords()[myChar()] || 0;
   txt(ctx, `🏆 ${rec}`, 326, 37, 7, '#ffe14d', 'right', FONT_KR2, 0);
   const hint = APP.mode === 'online' ? (S.ready ? '상대를 기다리는 중... (ESC 취소)' : '←→↑↓ 이동 · SPACE 결정 · K 히든 · C 도감')
-    : '←→↑↓ 이동 · SPACE 결정 · K 히든(Tirón) · C 도감' + (APP.diff === 5 ? ' · B 히든 보스!' : ' · ESC 뒤로');
+    : '←→↑↓ 이동 · SPACE 결정 · K 히든(Tirón) · C 도감' + (APP.diff === 5 ? ' · B(모바일 R) 히든 보스!' : ' · ESC 뒤로');
   txt(ctx, hint, 240, 268, 7, '#aab', 'center', FONT_KR2);
 }
 function wrapText(ctx, s, x, y, maxW, size, col) {

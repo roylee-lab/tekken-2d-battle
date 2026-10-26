@@ -70,7 +70,7 @@ function makeFighter(side, c) {
     laughT: 0, breathN: 0, breathT: 0, breathHit: false, fireT: 0, flyT: 0, flyX: 0, flyFrom: 0, rushT2: 0,
     chokeT: 0, chokeN: 0, chokeTick: 0, chokeHold: false, kkT: 0, shutT: 0, stk: 0, yank: false, slim: false, clone: null, ddFree: false,
     shingT: 0, shingTick: 0, chestT: 0, ants: [], antG: [], antQ: 0, antT: 0, mallangT: 0, fifaT: 0, fifaNext: false, bomb: null,
-    invulT: 0, tripT: 0, bph: 1, bcd: [0, 0, 0, 0, 0, 0], bOffT: 0, bCnt: 0, bLast: -999, domT: 0, lives: 0, ironT: 0, ironUsed: false, clockT: 0, phoneT: 0, phoneDmg: 0, phoneStart: 0, phoneHealT: 0, phoneHealAmt: 0,
+    invulT: 0, tripT: 0, tripImm: 0, bph: 1, bcd: [0, 0, 0, 0, 0, 0], bOffT: 0, bCnt: 0, bLast: -999, bAtkCnt: 0, bAtkLast: -999, bPrev: null, domT: 0, lives: 0, ironT: 0, ironUsed: false, clockT: 0, phoneT: 0, phoneDmg: 0, phoneStart: 0, phoneHealT: 0, phoneHealAmt: 0,
     ko: false, wins: 0, combo_recv: 0, comboShowT: 0,
   };
 }
@@ -236,6 +236,12 @@ function applyDamage(G, A, D, dmg, type, o) {
     if (A !== D && A.stimT > 0 && canHeal(A)) { addHp(A, dmg * BAL[0].stimLS); ev(G, 'heal', A.x, A.y + 50); }
     if (A !== D && A.fifaT > 0 && canHeal(A)) addHp(A, dmg * BAL[15].fifaLS);
     if (A.c === 3 && A !== D) { const red = Math.round(BAL[3].cdRed * SEC); A.cd = A.cd.map((v) => Math.max(0, v - red)); }
+  }
+  // 흑요가 상대를 3번 연속으로 때려도 결계가 잠깐 풀림 (절대 영역의 지속 피해는 제외)
+  if (A && A !== D && A.c === BOSS && type !== 'DOMAIN' && !o.reflect) {
+    const B = BAL[17];
+    A.bAtkCnt = G.roundF - A.bAtkLast <= B.barrierGap ? A.bAtkCnt + 1 : 1; A.bAtkLast = G.roundF;
+    if (A.bAtkCnt >= B.barrierN) { A.bAtkCnt = 0; A.bOffT = Math.max(A.bOffT, B.barrierOff); note(G, `흑요의 결계가 흔들린다! ${B.barrierOff / 60}초간 공격이 통한다`, '#7fd4ff', 100); }
   }
   checkKO(G, D);
   return blocked ? 'block' : 'hit';
@@ -851,6 +857,7 @@ function meleeHit(G, F, O) {
   const dx = O.x - F.x;
   if (O.ko) return;
   const range = meleeRange(F, O, F.atk);
+  if (O.tripT > 0) { ev(G, 'sfx', 'miss'); return; }   // 넘어져 누운 상대에게는 주먹·킥이 닿지 않음
   const inR = (x, y) => Math.abs(x - F.x) <= range && (sign(x - F.x) === F.f || Math.abs(x - F.x) < 6) && meleeVert(F, O, F.atk, y);
   const C = O.clone;
   if (C && C.hp > 0 && inR(C.x, C.y) && (!inR(O.x, O.y) || Math.abs(C.x - F.x) < Math.abs(dx))) {
@@ -876,15 +883,19 @@ function meleeHit(G, F, O) {
     if (res === 'hit' && O.c === GAEMI && rnd() < BAL[14].sneezeP && stunTarget(G, F, BAL[14].sneezeT)) ev(G, 'float', F.x, F.y + 110, '에취!', '#a1887f');
     if (res === 'hit' && F.rageT > 0 && !disrupt(G, O)) { addMod(O, 'pen', 'spd', 1 - BAL[9].penSlow, BAL[9].penT); ev(G, 'float', O.x, O.y + 104, '벌점!', '#c38bff'); }
     if (res === 'hit') {
+      const wasStun = O.hitT > 0 || O.stunT > 0;   // 경직 중에 또 맞음 = 콤보
       O.hitT = isK ? 15 : 11;
       O.kb = F.f * (isK ? 4.2 : 2.2) * (F.atkStep === 3 ? 1.6 : 1);
       if (O.y > 0) { O.vy = 3; O.vx = F.f * 1.5; }
       // JJjin 와사바리: 가까이 붙어서 킥을 맞히면 걸어 넘어뜨림
-      if (F.c === 2 && isK && O.y <= 0 && Math.abs(O.x - F.x) <= radius(F) + radius(O) + BAL[2].tripRange && stunTarget(G, O, BAL[2].tripStun)) {
-        O.tripT = BAL[2].tripStun; O.kb *= 0.3; ev(G, 'float', O.x, O.y + 104, '와사바리!', '#f5c542'); ev(G, 'sfx', 'hitK');
+      // (이미 넘어졌거나 기절한 상대, 일어난 직후 무적 시간에는 다시 걸 수 없음 → 무한 다운 방지)
+      if (F.c === 2 && isK && O.y <= 0 && O.stunT <= 0 && O.tripImm <= 0 && Math.abs(O.x - F.x) <= radius(F) + radius(O) + BAL[2].tripRange && stunTarget(G, O, BAL[2].tripStun)) {
+        O.tripT = BAL[2].tripStun; O.tripImm = BAL[2].tripStun + BAL[2].tripImm; O.kb *= 0.3; ev(G, 'float', O.x, O.y + 104, '와사바리!', '#f5c542'); ev(G, 'sfx', 'hitK');
       }
       G.hitStop = isK ? 7 : 5;
-      O.combo_recv = O.hitT > 0 && O.comboShowT > 0 ? O.combo_recv + 1 : 1;
+      O.combo_recv = wasStun && O.comboShowT > 0 ? O.combo_recv + 1 : 1;
+      // 경직 감소: 연속으로 5대 넘게 맞으면 경직이 점점 짧아져 빠져나올 수 있음 (공속 버프 무한 콤보 방지)
+      if (O.combo_recv > 4) O.hitT = Math.max(2, O.hitT - (O.combo_recv - 4) * 3);
       O.comboShowT = 60;
       ev(G, 'spark', hx, hy, isK ? 'big' : 'hit'); ev(G, 'sfx', isK ? 'hitK' : 'hitP');
       ev(G, 'shake', isK ? 6 : 3, isK ? 4 : 2);
@@ -970,7 +981,16 @@ function bossSkill(G, F, O, i) {
     F.hp = F.maxHp; ev(G, 'heal', F.x, F.y + 60); ev(G, 'float', F.x, F.y + 120, '완전 재생!', '#7dff9a');
   }
 }
+const BOSS_STATUS = ['stunT', 'rootT', 'slowT', 'poisT', 'hbT', 'ttaT', 'guardOffT', 'drunkT', 'chokeT', 'shingT', 'delayT', 'tripT'];
 function stepBoss(G, F, O, inp) {
+  // 결계가 풀린 동안 상태이상을 맞으면 그 지속 시간만큼 결계 해제 시간이 늘어남
+  const prev = F.bPrev || {};
+  if (F.bOffT > 0) {
+    let add = 0;
+    for (const k of BOSS_STATUS) if ((F[k] || 0) > (prev[k] || 0) + 1) add += F[k] - (prev[k] || 0);
+    for (const m of F.mods) if (m.v < 1 && m.k !== 'size' && !(prev.mods || []).includes(m.id)) add += Math.min(m.t, 1800);
+    if (add > 0) { F.bOffT += add; ev(G, 'float', F.x, F.y + 140, `결계 해제 +${(add / 60).toFixed(1)}초`, '#7fd4ff'); }
+  }
   if (F.bOffT > 0) F.bOffT--;
   for (let i = 0; i < 6; i++) if (F.bcd[i] > 0) F.bcd[i]--;
   // 절대 영역: 상대는 매 프레임 기절 + 1 피해
@@ -979,6 +999,8 @@ function stepBoss(G, F, O, inp) {
     if (!O.ko) { O.stunT = Math.max(O.stunT, 2); O.atk = null; applyDamage(G, F, O, BAL[17].domDmg, 'DOMAIN', { fixed: true, silent: true }); }
   }
   if (inp && inp.bs >= 0 && !F.hitT && !F.stunT && !F.atk) bossSkill(G, F, O, inp.bs);
+  F.bPrev = { mods: F.mods.filter((m) => m.v < 1).map((m) => m.id) };
+  for (const k of BOSS_STATUS) F.bPrev[k] = F[k] || 0;
 }
 
 // ---------- 지속형 스킬 상태 처리 ----------
@@ -1134,7 +1156,7 @@ function stepFighter(G, F, O, inp) {
   const L = lookOf(F), H = L.H;
   F.anim++;
   for (const k of ['stimT', 'meokT', 'manT', 'parryT', 'parryR', 'slowT', 'delayT', 'guardOffT', 'boostT', 'spikeT', 'hitT', 'blockT', 'castT', 'angerT', 'hitFlash', 'recov', 'comboShowT', 'rootT',
-    'stunT', 'hbT', 'ttaT', 'invisT', 'drunkT', 'earT', 'rageT', 'kcT', 'chestT', 'mallangT', 'fifaT', 'invulT', 'ironT', 'tripT']) dec(F, k);
+    'stunT', 'hbT', 'ttaT', 'invisT', 'drunkT', 'earT', 'rageT', 'kcT', 'chestT', 'mallangT', 'fifaT', 'invulT', 'ironT', 'tripT', 'tripImm']) dec(F, k);
   stepYudong(G, F, O);
   if (F.c === BOSS) stepBoss(G, F, O, inp);
   if (F.mods.length) { for (const m of F.mods) m.t--; F.mods = F.mods.filter((m) => m.t > 0); }
@@ -1423,7 +1445,7 @@ function endCheck(G) {
     F.atk = null; F.guard = false; F.dashT = 0; F.headT = 0;
     for (const k of ['hitFlash', 'stimT', 'meokT', 'manT', 'jeongA', 'jeongP', 'parryT', 'rootT', 'guardOffT', 'slowT', 'poisT', 'hitT', 'blockT', 'castT', 'spikeT', 'angerT', 'rushN', 'noteN', 'momHp', 'momT', 'curseT',
       'stunT', 'hbT', 'ttaT', 'invisT', 'drunkT', 'earT', 'rageT', 'kcT', 'laughT', 'breathN', 'fireT', 'flyT', 'rushT2', 'chokeT', 'kkT', 'shutT',
-      'shingT', 'chestT', 'antQ', 'mallangT', 'fifaT', 'invulT', 'ironT', 'clockT', 'phoneT', 'phoneHealT', 'tripT', 'domT', 'bOffT']) F[k] = 0;
+      'shingT', 'chestT', 'antQ', 'mallangT', 'fifaT', 'invulT', 'ironT', 'clockT', 'phoneT', 'phoneHealT', 'tripT', 'tripImm', 'domT', 'bOffT']) F[k] = 0;
     F.chokeHold = false; F.clone = null; F.ants = []; F.antG = []; F.bomb = null; F.fifaNext = false; F.mods = F.mods.filter((m) => m.id === 'belly'); F.sz = 1;
     if (F.ko) { F.vy = 4; F.vx = -F.f * 2.2; F.y = Math.max(F.y, 0.1); }
   }

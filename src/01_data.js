@@ -53,7 +53,7 @@ const ATK = { pBase: 8, pStep: 3, kickMul: 0.5, pReach: 38, kReach: 60, pBonus: 
 const BAL = {   // v4 밸런스 패치: 체력 2배 (경기 시간 증가) + AI 대전 시뮬레이션 기반 조정
   0: { hp: 249, vacPush: 8, vacStun: 45, stimT: 445, stimLS: 1.0, focusT: 1200, focus: 1.2, vac2Dmg: 15, vac2Stun: 60 },
   1: { hp: 221, toothN: 4, toothDmg: 3.14, cutPct: 0.047, regen: 10, regenSec: 8, cloneT: 1200, debuffT: 600, debuff: 0.2 },
-  2: { hp: 230, judoDmg: 30, judoStun: 60, parryT: 35, tripStun: 45, tripRange: 24, qteN: 5, qteDmg: 10, qteHeal: 10, invisT: 300, invisSpd: 1.5, invisGuardOff: 120 },
+  2: { hp: 230, judoDmg: 30, judoStun: 60, parryT: 35, tripStun: 45, tripRange: 24, tripImm: 120, qteN: 5, qteDmg: 10, qteHeal: 10, invisT: 300, invisSpd: 1.5, invisGuardOff: 120 },
   3: { hp: 255, bambooDmg: 14.92, shootDmg: 11.64, shootMax: 3, spd: 1.2, cdRed: 0.2, crystalDmg: 20, flyDmg: 50 },
   4: { hp: 210, ddHeal: 0.034, ddEvery: 4, ddMax: 0.1, dicePer: 2.8, angerEvery: 3, angerAdd: 0.05, friend: 0.1, ddTwice: 0.318,
     momPct: 0.318, momSec: 31.8, curseSec: 31.8, curseDR: 0.318, curseAtk: 0.318, curseRefl: 0.318 },
@@ -310,7 +310,7 @@ const CHARS = [
       { name: '절대 영역', cd: 30, info: (b) => `${b.domT / 60}초간 상대를 계속 기절시키고 1프레임마다 ${b.domDmg} 피해` },
       { name: '완전 재생', cd: 60, info: () => '체력을 즉시 최대로 회복' },
     ],
-    passive: { name: '절대 결계', desc: (b) => `펀치·킥 등 물리 공격을 전부 무시. ${b.barrierN}번 연속으로 공격받으면 ${b.barrierOff / 60}초간 결계 해제` },
+    passive: { name: '절대 결계', desc: (b) => `펀치·킥 등 물리 공격을 전부 무시. ${b.barrierN}번 연속으로 공격받거나, 흑요가 ${b.barrierN}번 연속으로 때리면 ${b.barrierOff / 60}초간 해제. 해제 중 상태이상을 맞으면 그 시간만큼 해제 연장` },
     look: {
       H: 1.27, b: build({ torsoW: 11.5, waistW: 9.5, thigh: 4.4, shin: 3.8, arm: 3.4, fore: 3.0, headR: 8.2, leg: 1.12 }), skin: '#e6c3a0',
       hair: { style: 'slick', color: '#16161d' }, top: '#2f3542', topStyle: 'hoodie', pants: '#1e2029', shoes: '#111111', acc: {},
