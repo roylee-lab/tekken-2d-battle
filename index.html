@@ -799,6 +799,7 @@ function checkKO(G, D) {
   // 히든 보스전: 플레이어는 2번까지 부활 (보스의 지속 스킬은 끝난 것으로 처리)
   if (G.bossFight && D.side === 0 && D.lives > 0) { playerRevive(G, D); return; }
   D.hp = 0; D.ko = true;
+  if (D.boss) ev(G, 'bossdown', D.side);   // 최종 보스 격파 → 보상 (화면 쪽에서 처리)
 }
 
 function addHp(F, amt, over) { F.hp = over ? F.hp + amt : Math.max(F.hp, Math.min(F.maxHp, F.hp + amt)); }
@@ -4027,6 +4028,7 @@ function handleEvents(G, list) {
         break;
       }
       case 'announce': onAnnounce(G, a, b); break;
+      case 'bossdown': if (APP.mode === 'cpu' && !APP.autoP1 && !G.bossReward) { G.bossReward = true; grantBossClear(); } break;   // 보스가 쓰러지는 순간 바로 보상
       case 'bgm': if (APP.state === 'fight') playMusic(a); break;
       default: break;
     }
@@ -4045,7 +4047,7 @@ function onAnnounce(G, kind, val) {
       const won = val === me;
       announce(won ? 'You win!' : 'You lose');
       playJingle(won ? 'win' : 'lose');
-      if (won) { addRecord(G.F[me].c); if (G.F[1 - me].boss) grantBossClear(); }
+      if (won) { addRecord(G.F[me].c); if (G.F[1 - me].boss && APP.mode === 'cpu' && !G.bossReward) { G.bossReward = true; grantBossClear(); } }
     }
     stopMusic();
   }
@@ -5595,7 +5597,7 @@ async function rtcJoin(id, onFail, opts) {
 //  - 방 코드: 어디서든 접속
 //  - 같은 와이파이: 같은 공유기(공인 IP, IPv6는 앞 64비트)에서 열린 방 목록에서 골라 참가
 // ============================================================
-const NET_VER = 16;
+const NET_VER = 17;
 const NET = {
   epoch: 0, peer: null, conn: null, role: null, status: '', onMsg: null, ping: 0, lastRecv: 0,
   guestHeld: 0, guestCounts: null, guestKs: [], guestAny: 0, lastKeySeq: 0, lastAny: 0, lastCounts: { U: 0, P: 0, K: 0, S1: 0, S2: 0, S3: 0, S4: 0, S5: 0, S6: 0 }, outEv: [], inEv: [], snap: null,
@@ -6741,6 +6743,11 @@ function rFightOverlay(t) {
       ctx.fillStyle = 'rgba(255,255,255,0.08)'; ctx.fillRect(145, 102, 300, 40);
       wrapText(ctx, '“' + WIN_QUOTES[W.c] + '”', 152, 118, 286, 10, '#ffe9a8');
     } else bigText(ctx, 'DRAW GAME', 240, 90, 22, '#ffffff', '#aaaaaa');
+    if (G.bossReward) {   // 최종 보스 격파 보상 안내
+      ctx.fillStyle = 'rgba(60,40,0,0.85)'; ctx.fillRect(60, 150, 360, 34); ctx.strokeStyle = '#ffd700'; ctx.strokeRect(60.5, 150.5, 359, 33);
+      txt(ctx, '🏆 보상 획득! 칭호 「김천고의 CEO」 + 히든 캐릭터 흑요', 240, 165, 9.5, '#ffd700', 'center', FONT_KR, '#5a3a00');
+      txt(ctx, ACC.token ? (UNLOCK.pending ? '계정에 저장 중...' : '계정에 저장됐어요 · 선택 화면 맨 끝에서 흑요 선택 가능') : '로그인하면 칭호가 닉네임에 붙어요 · 선택 화면 맨 끝에서 흑요 선택 가능', 240, 178, 7, '#ffe9a8', 'center', FONT_KR2, '#000');
+    }
     if (G.pt > 90 && (t >> 4) % 2) {
       const opts = APP.mode === 'cpu' ? 'SPACE: 캐릭터 선택   R: 같은 대진 재대전   ESC: 타이틀' : 'SPACE: 캐릭터 다시 선택   ESC: 나가기';
       txt(ctx, opts, 240, 200, 9, '#fff', 'center', FONT_KR2);
