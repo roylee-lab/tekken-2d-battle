@@ -26,6 +26,8 @@ function command(c){const [op,k,...args]=c;
  if(op==='LLEN')return (db.get(k)||[]).length;
  if(op==='LREM'){const a=db.get(k)||[];const i=a.indexOf(args[1]);if(i<0)return 0;a.splice(i,1);return 1;}
  if(op==='MGET')return [k,...args].map(x=>db.get(x)??null);
+ if(op==='HMGET')return args.map(f=>db.get(k)?.[f]??null);
+ if(op==='EVAL'&&/'HGET'/.test(c[1])){const n=+c[2];return c.slice(3,3+n).map(key=>db.get(key)?.ceo??'');}
  if(op==='EVAL'&&/HSET/.test(c[1])){const h=db.get(c[4])||{};h[c[6]]=c[7];db.set(c[4],h);return 1;}
  if(op==='EVAL'){const owner=JSON.parse(db.get(c[3])||'null');if(owner?.owner!==c[6])return 0;let n=0;for(const key of c.slice(3,6))if(db.delete(key))n++;return n;}
  throw Error('unsupported fake Redis '+op);
