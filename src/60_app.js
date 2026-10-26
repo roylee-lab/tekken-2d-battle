@@ -48,7 +48,7 @@ const BUF = mkCanvas(VW, VH), bctx = BUF.getContext('2d');
 function saveSettings() { safeLS('tekken2d_settings', JSON.stringify({ diff6: APP.diff, music: AUD.musicOn, sfx: AUD.sfxOn, voice: AUD.voiceOn })); }
 
 // ---------- 화면 전환 ----------
-function setState(s) { APP.state = s; APP.st = 0; IN.clear(); if (s !== 'account') hideAccount(); setTimeout(renderInvitePop, 0); }
+function setState(s) { APP.state = s; APP.st = 0; IN.clear(); if (s !== 'account') hideAccount(); if (s !== 'board') hideBoard(); setTimeout(renderInvitePop, 0); }
 function goTitle() {
   if (NET.conn && APP.mode === 'online') { netReset(); }
   APP.mode = 'cpu'; APP.mySide = 0; APP.G = null; APP.paused = false;
@@ -111,6 +111,7 @@ function tick() {
     case 'dict': updDict(); break;
     case 'lobby': if (IN.take('BACK')) { netReset(); goTitle(); } break;
     case 'account': if (IN.take('BACK')) { if (!ACC.waiting) goTitle(); } break;
+    case 'board': if (IN.take('BACK')) goTitle(); break;
     default: break;
   }
   updateFX();
@@ -123,6 +124,7 @@ const TITLE_MENU = () => [
   'BGM : ' + (AUD.musicOn ? 'ON' : 'OFF'),
   '효과음 : ' + (AUD.sfxOn ? 'ON' : 'OFF'),
   '아나운서 음성 : ' + (AUD.voiceOn ? 'ON' : 'OFF'),
+  '게시판 · 코드 다운로드',
 ];
 function updTitle() {
   const n = TITLE_MENU().length;
@@ -140,6 +142,7 @@ function updTitle() {
   else if (APP.menu === 1) { showAccount(); }
   else if (APP.menu === 2) { showLobby(); }
   else if (APP.menu === 3) { APP.dict = 0; setState('dict'); }
+  else if (APP.menu === 8) { showBoard(); }
 }
 
 function updSelect() {
@@ -244,7 +247,7 @@ function render() {
   bctx.imageSmoothingEnabled = false;
   bctx.clearRect(0, 0, VW, VH);
   switch (APP.state) {
-    case 'title': case 'lobby': case 'account': rTitleBuf(t); break;
+    case 'title': case 'lobby': case 'account': case 'board': rTitleBuf(t); break;
     case 'select': rSelectBuf(t); break;
     case 'vs': rVSBuf(t); break;
     case 'fight': if (APP.G) renderWorld(bctx, APP.G, t); break;
@@ -261,7 +264,7 @@ function render() {
   ctx.setTransform(cv.width / VW, 0, 0, cv.height / VH, 0, 0);
   ctx.imageSmoothingEnabled = true;
   switch (APP.state) {
-    case 'title': case 'lobby': case 'account': rTitleHUD(t); break;
+    case 'title': case 'lobby': case 'account': case 'board': rTitleHUD(t); break;
     case 'select': rSelectHUD(t); break;
     case 'vs': rVSHUD(t); break;
     case 'fight': if (APP.G) { renderHUD(ctx, APP.G, t); rFightOverlay(t); } break;
@@ -304,7 +307,7 @@ function rTitleHUD(t) {
   bigText(ctx, 'TEKKEN 2D', 240, y0, 30, '#fffbe0', '#ff8c00');
   bigText(ctx, 'BATTLE', 240, y0 + 32, 26, '#ffffff', '#ff3d00');
   txt(ctx, 'GLOBAL CHAMPIONSHIP EDITION', 240, y0 + 46, 7, '#9fe6ff', 'center', FONT_EN, '#000');
-  if (APP.state === 'lobby' || APP.state === 'account') return;
+  if (APP.state === 'lobby' || APP.state === 'account' || APP.state === 'board') return;
   txt(ctx, ACC.token ? '👤 ' + ACC.nick : '로그인하면 친구와 대전할 수 있어요', 474, 12, 7.5, ACC.token ? '#ffe14d' : '#aab', 'right', FONT_KR2);
   const items = TITLE_MENU();
   items.forEach((s, i) => {
@@ -564,6 +567,7 @@ function frame(now) {
 function boot() {
   setupTouch();
   setupCanvasTap();
+  setupBoard();
   setupLobby();
   document.getElementById('btnAccBack').onclick = () => { if (ACC.waiting) cancelWaiting(true); goTitle(); };
   if (ACC.token) setTimeout(pollNow, 500);
