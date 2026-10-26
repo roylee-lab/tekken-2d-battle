@@ -20,6 +20,11 @@ function command(c){const [op,k,...args]=c;
  if(op==='SISMEMBER')return db.get(k)?.has(args[0])?1:0;
  if(op==='SCARD')return db.get(k)?.size||0;
  if(op==='SMEMBERS')return [...(db.get(k)||[])];
+ if(op==='LPUSH'){const a=db.get(k)||[];a.unshift(...args.reverse());db.set(k,a);return a.length;}
+ if(op==='LTRIM'){const a=db.get(k)||[];db.set(k,a.slice(+args[0],+args[1]+1));return 'OK';}
+ if(op==='LRANGE'){const a=db.get(k)||[];return a.slice(+args[0],+args[1]+1);}
+ if(op==='LLEN')return (db.get(k)||[]).length;
+ if(op==='LREM'){const a=db.get(k)||[];const i=a.indexOf(args[1]);if(i<0)return 0;a.splice(i,1);return 1;}
  if(op==='MGET')return [k,...args].map(x=>db.get(x)??null);
  if(op==='EVAL'&&/HSET/.test(c[1])){const h=db.get(c[4])||{};h[c[6]]=c[7];db.set(c[4],h);return 1;}
  if(op==='EVAL'){const owner=JSON.parse(db.get(c[3])||'null');if(owner?.owner!==c[6])return 0;let n=0;for(const key of c.slice(3,6))if(db.delete(key))n++;return n;}
