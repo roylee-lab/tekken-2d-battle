@@ -64,6 +64,25 @@
   .acc .empty { color: #9aa6d6; padding: 8px 0; font-size: 14px; }
   .acc .wait { background: #3a1410; border: 1px solid #ff6b4a; padding: 8px; margin: 8px 0; font-size: 15px; }
   .acc .msg { margin-top: 10px; font-size: 14px; } .acc .msg.good { color: #7dff9a; } .acc .msg.bad { color: #ff8a8a; }
+  /* 게시판 */
+  .panel.board { width: min(96%, 620px); }
+  .board .dl { display: flex; gap: 8px; }
+  .board .dlbtn { flex: 1; display: block; text-decoration: none; color: #fff; font-family: "Black Han Sans", sans-serif; font-size: 15px; background: #0f7a45; border: 2px solid #000; box-shadow: inset 0 -3px 0 rgba(0,0,0,.35), 0 0 0 2px #4dffa0; padding: 9px 6px; text-align: center; }
+  .board .dlbtn.guide { background: #7a5a0f; box-shadow: inset 0 -3px 0 rgba(0,0,0,.35), 0 0 0 2px #ffd34d; }
+  .board .tabs { display: flex; gap: 6px; margin: 10px 0 6px; }
+  .board .tabs .mini { flex: 1; margin: 0; padding: 7px; font-size: 14px; background: #2b3a8f; }
+  .board .tabs .mini.on { background: #b7301e; }
+  .board .post { border: 1px solid #3a4a9a; background: rgba(5,8,24,.6); padding: 8px 10px; margin: 8px 0; font-size: 14px; }
+  .board .ph { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; } .board .ph b { font-size: 18px; color: var(--gold); } .board .ph small { color: #9aa6d6; flex: 1; }
+  .board .sk { margin: 3px 0; line-height: 1.4; color: #dfe6ff; }
+  .board .tag { display: inline-block; font-size: 11px; padding: 1px 6px; border-radius: 3px; color: #000; font-weight: bold; }
+  .board .t_passive { background: #ffb3e6; } .board .t_q { background: #6fb8ff; } .board .t_w { background: #c99bff; } .board .t_e { background: #7dff9a; } .board .t_r { background: #ffd34d; }
+  .board .form label { display: block; margin: 10px 0 2px; font-size: 14px; color: #dfe6ff; } .board .form small { color: #9aa6d6; }
+  .board textarea { width: 100%; box-sizing: border-box; font-family: "Do Hyeon", sans-serif; font-size: 15px; background: #050818; color: #fff; border: 2px solid #6f86ff; padding: 6px; resize: vertical; }
+  .board .form input { box-sizing: border-box; }
+  .board .bdprob { margin: 8px 0; font-size: 13px; } .board .bdprob.bad { color: #ffb0b0; } .board .bdprob.good { color: #7dff9a; }
+  .panel button:disabled { background: #333; color: #777; cursor: default; box-shadow: none; }
+  .board .pager { text-align: center; margin: 6px 0; }
   #invitePop { position: absolute; top: 3%; left: 50%; transform: translateX(-50%); z-index: 20; background: linear-gradient(180deg, #5a1010, #2a0808); border: 3px solid var(--gold); box-shadow: 0 0 0 3px #000, 0 8px 30px rgba(0,0,0,.6); padding: 10px 14px; font-size: clamp(14px, 2vw, 18px); white-space: nowrap; animation: pop .3s ease-out; }
   #invitePop .mini { font-family: "Black Han Sans", sans-serif; color: #fff; border: 2px solid #000; background: #444; padding: 4px 12px; margin-left: 8px; cursor: pointer; }
   #invitePop .mini.ok { background: #0f7a45; }
@@ -82,6 +101,13 @@
         <h2>👥 친구 대전</h2>
         <div id="accBody"></div>
         <button id="btnAccBack" class="back">◀ 뒤로</button>
+      </div>
+    </div>
+    <div id="board" class="overlay hidden">
+      <div class="panel acc board">
+        <h2>📋 게시판 · 오픈소스</h2>
+        <div id="boardBody"></div>
+        <button id="btnBoardBack" class="back">◀ 뒤로</button>
       </div>
     </div>
     <div id="lobby" class="overlay hidden">

@@ -64,6 +64,25 @@
   .acc .empty { color: #9aa6d6; padding: 8px 0; font-size: 14px; }
   .acc .wait { background: #3a1410; border: 1px solid #ff6b4a; padding: 8px; margin: 8px 0; font-size: 15px; }
   .acc .msg { margin-top: 10px; font-size: 14px; } .acc .msg.good { color: #7dff9a; } .acc .msg.bad { color: #ff8a8a; }
+  /* 게시판 */
+  .panel.board { width: min(96%, 620px); }
+  .board .dl { display: flex; gap: 8px; }
+  .board .dlbtn { flex: 1; display: block; text-decoration: none; color: #fff; font-family: "Black Han Sans", sans-serif; font-size: 15px; background: #0f7a45; border: 2px solid #000; box-shadow: inset 0 -3px 0 rgba(0,0,0,.35), 0 0 0 2px #4dffa0; padding: 9px 6px; text-align: center; }
+  .board .dlbtn.guide { background: #7a5a0f; box-shadow: inset 0 -3px 0 rgba(0,0,0,.35), 0 0 0 2px #ffd34d; }
+  .board .tabs { display: flex; gap: 6px; margin: 10px 0 6px; }
+  .board .tabs .mini { flex: 1; margin: 0; padding: 7px; font-size: 14px; background: #2b3a8f; }
+  .board .tabs .mini.on { background: #b7301e; }
+  .board .post { border: 1px solid #3a4a9a; background: rgba(5,8,24,.6); padding: 8px 10px; margin: 8px 0; font-size: 14px; }
+  .board .ph { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; } .board .ph b { font-size: 18px; color: var(--gold); } .board .ph small { color: #9aa6d6; flex: 1; }
+  .board .sk { margin: 3px 0; line-height: 1.4; color: #dfe6ff; }
+  .board .tag { display: inline-block; font-size: 11px; padding: 1px 6px; border-radius: 3px; color: #000; font-weight: bold; }
+  .board .t_passive { background: #ffb3e6; } .board .t_q { background: #6fb8ff; } .board .t_w { background: #c99bff; } .board .t_e { background: #7dff9a; } .board .t_r { background: #ffd34d; }
+  .board .form label { display: block; margin: 10px 0 2px; font-size: 14px; color: #dfe6ff; } .board .form small { color: #9aa6d6; }
+  .board textarea { width: 100%; box-sizing: border-box; font-family: "Do Hyeon", sans-serif; font-size: 15px; background: #050818; color: #fff; border: 2px solid #6f86ff; padding: 6px; resize: vertical; }
+  .board .form input { box-sizing: border-box; }
+  .board .bdprob { margin: 8px 0; font-size: 13px; } .board .bdprob.bad { color: #ffb0b0; } .board .bdprob.good { color: #7dff9a; }
+  .panel button:disabled { background: #333; color: #777; cursor: default; box-shadow: none; }
+  .board .pager { text-align: center; margin: 6px 0; }
   #invitePop { position: absolute; top: 3%; left: 50%; transform: translateX(-50%); z-index: 20; background: linear-gradient(180deg, #5a1010, #2a0808); border: 3px solid var(--gold); box-shadow: 0 0 0 3px #000, 0 8px 30px rgba(0,0,0,.6); padding: 10px 14px; font-size: clamp(14px, 2vw, 18px); white-space: nowrap; animation: pop .3s ease-out; }
   #invitePop .mini { font-family: "Black Han Sans", sans-serif; color: #fff; border: 2px solid #000; background: #444; padding: 4px 12px; margin-left: 8px; cursor: pointer; }
   #invitePop .mini.ok { background: #0f7a45; }
@@ -82,6 +101,13 @@
         <h2>👥 친구 대전</h2>
         <div id="accBody"></div>
         <button id="btnAccBack" class="back">◀ 뒤로</button>
+      </div>
+    </div>
+    <div id="board" class="overlay hidden">
+      <div class="panel acc board">
+        <h2>📋 게시판 · 오픈소스</h2>
+        <div id="boardBody"></div>
+        <button id="btnBoardBack" class="back">◀ 뒤로</button>
       </div>
     </div>
     <div id="lobby" class="overlay hidden">
@@ -5894,6 +5920,115 @@ function renderInvitePop() {
   playSfx('confirm');
 }
 
+// ---- 56_board.js ----
+// ============================================================
+//  게시판: 캐릭터 추가 요청 (양식 강제) + 오픈소스 코드·가이드 다운로드
+// ============================================================
+const BOARD = { tab: 'list', posts: [], page: 0, total: 0, per: 10, loading: false, msg: '', msgOk: false, draft: null };
+const BOARD_SLOTS = [['passive', '패시브'], ['q', 'Q 스킬'], ['w', 'W 스킬'], ['e', 'E 스킬'], ['r', 'R 스킬']];
+const BOARD_LIM = { name: [1, 12], sn: [1, 20], sd: [5, 200] };   // 서버(api/game.js)와 같은 규칙
+const DL_CODE = 'download/tekken-2d-battle-source.zip', DL_GUIDE = 'download/GUIDE.md';
+
+function showBoard() {
+  setState('board');
+  document.getElementById('board').classList.remove('hidden');
+  BOARD.msg = ''; BOARD.tab = 'list'; renderBoard(); loadBoard(0);
+}
+function hideBoard() { const el = document.getElementById('board'); if (el) el.classList.add('hidden'); }
+function boardMsg(s, ok) { BOARD.msg = s; BOARD.msgOk = !!ok; renderBoard(); }
+
+async function loadBoard(page) {
+  BOARD.loading = true; renderBoard();
+  try {
+    const j = await api('boardList', { page });
+    Object.assign(BOARD, { posts: j.posts, total: j.total, page: j.page, per: j.per });
+  } catch (e) { BOARD.msg = e.message; BOARD.msgOk = false; }
+  BOARD.loading = false; renderBoard();
+}
+
+// 양식 검사: 빈칸이나 글자 수가 맞지 않으면 등록 버튼이 잠김
+function boardDraft() {
+  const v = (id) => (document.getElementById(id)?.value || '').replace(/\s+/g, ' ').trim();
+  const d = { name: v('bdName') };
+  for (const [s] of BOARD_SLOTS) d[s] = { n: v('bd_' + s + '_n'), d: v('bd_' + s + '_d') };
+  return d;
+}
+function boardProblems(d) {
+  const out = [];
+  const chk = (t, [mn, mx], label) => { if (t.length < mn) out.push(mn > 1 ? `${label}: ${mn}자 이상` : `${label}: 비어 있음`); else if (t.length > mx) out.push(`${label}: ${mx}자 이하`); };
+  chk(d.name, BOARD_LIM.name, '캐릭터 이름');
+  for (const [s, label] of BOARD_SLOTS) { chk(d[s].n, BOARD_LIM.sn, label + ' 이름'); chk(d[s].d, BOARD_LIM.sd, label + ' 설명'); }
+  return out;
+}
+function boardCheck() {
+  BOARD.draft = boardDraft();
+  const p = boardProblems(BOARD.draft), btn = document.getElementById('bdSubmit'), box = document.getElementById('bdProblems');
+  if (btn) btn.disabled = p.length > 0 || !ACC.token;
+  if (box) box.innerHTML = !ACC.token ? '글을 쓰려면 먼저 로그인해 주세요' : p.length ? '아직 채워야 할 칸: ' + p.map(esc).join(' · ') : '✅ 양식을 모두 채웠어요';
+  if (box) box.className = 'bdprob ' + (p.length || !ACC.token ? 'bad' : 'good');
+}
+async function boardSubmit() {
+  const d = boardDraft();
+  if (boardProblems(d).length || !ACC.token) { boardCheck(); return; }
+  boardMsg('등록 중...', true);
+  try {
+    await api('boardPost', d);
+    BOARD.draft = null; BOARD.tab = 'list'; boardMsg('요청 글을 등록했어요!', true); loadBoard(0);
+  } catch (e) { boardMsg(e.message); }
+}
+async function boardDelete(id) {
+  if (!confirmDelete(id)) return;
+  try { await api('boardDelete', { id }); boardMsg('글을 지웠어요', true); loadBoard(BOARD.page); } catch (e) { boardMsg(e.message); }
+}
+function confirmDelete(id) { BOARD.delArm = BOARD.delArm === id ? null : id; if (BOARD.delArm) { renderBoard(); return false; } return true; }
+
+function renderBoard() {
+  const box = document.getElementById('boardBody');
+  if (!box || APP.state !== 'board') return;
+  const keep = BOARD.tab === 'write' && document.getElementById('bdName') ? boardDraft() : null;
+  let h = `<div class="dl">
+    <a class="dlbtn" href="${DL_CODE}" download>📦 전체 코드 다운로드 (.zip)</a>
+    <a class="dlbtn guide" href="${DL_GUIDE}" download>📘 개발·배포 가이드 다운로드</a>
+  </div>
+  <div class="sub">이 게임은 오픈소스(MIT 라이선스)예요. 누구나 받아서 고치고, 직접 배포해도 돼요.</div>
+  <div class="tabs"><button class="mini ${BOARD.tab === 'list' ? 'on' : ''}" onclick="BOARD.tab='list';renderBoard()">📋 요청 글 목록</button><button class="mini ${BOARD.tab === 'write' ? 'on' : ''}" onclick="BOARD.tab='write';renderBoard()">✏️ 캐릭터 추가 요청 쓰기</button></div>`;
+  if (BOARD.tab === 'list') {
+    if (BOARD.loading) h += '<div class="empty">불러오는 중...</div>';
+    else if (!BOARD.posts.length) h += '<div class="empty">아직 요청 글이 없어요. 첫 번째로 새 캐릭터를 제안해 보세요!</div>';
+    for (const p of BOARD.posts) {
+      const mine = ACC.nick && p.nick.toLowerCase() === ACC.nick.toLowerCase();
+      h += `<div class="post"><div class="ph"><b>${esc(p.name)}</b><small>${esc(p.nick)} · ${new Date(p.ts).toLocaleDateString('ko-KR')}</small>
+        ${mine ? `<button class="mini x" onclick="boardDelete('${p.id}')">${BOARD.delArm === p.id ? '정말 삭제?' : '삭제'}</button>` : ''}</div>`;
+      for (const [s, label] of BOARD_SLOTS) h += `<div class="sk"><span class="tag t_${s}">${label}</span> <b>${esc(p[s].n)}</b> — ${esc(p[s].d)}</div>`;
+      h += '</div>';
+    }
+    const pages = Math.max(1, Math.ceil(BOARD.total / BOARD.per));
+    if (pages > 1) h += `<div class="pager"><button class="mini" ${BOARD.page <= 0 ? 'disabled' : ''} onclick="loadBoard(${BOARD.page - 1})">◀</button> ${BOARD.page + 1} / ${pages} <button class="mini" ${BOARD.page >= pages - 1 ? 'disabled' : ''} onclick="loadBoard(${BOARD.page + 1})">▶</button></div>`;
+  } else {
+    if (!ACC.token) h += `<div class="wait">글을 쓰려면 로그인이 필요해요. <button class="mini ok" onclick="hideBoard();showAccount()">로그인하러 가기</button></div>`;
+    const val = (x) => esc(x || '');
+    const d = keep || BOARD.draft || { name: '' };
+    h += `<div class="form">
+      <label>캐릭터 이름 <small>(${BOARD_LIM.name[1]}자 이내)</small></label>
+      <input id="bdName" maxlength="${BOARD_LIM.name[1]}" placeholder="예) 김철수" value="${val(d.name)}" oninput="boardCheck()">`;
+    for (const [s, label] of BOARD_SLOTS) {
+      const sd = d[s] || {};
+      h += `<label><span class="tag t_${s}">${label}</span> 이름 + 효과 설명</label>
+        <input id="bd_${s}_n" maxlength="${BOARD_LIM.sn[1]}" placeholder="${label} 이름" value="${val(sd.n)}" oninput="boardCheck()">
+        <textarea id="bd_${s}_d" maxlength="${BOARD_LIM.sd[1]}" rows="2" placeholder="효과 설명 (${BOARD_LIM.sd[0]}~${BOARD_LIM.sd[1]}자, 예: 3초간 상대 기절)" oninput="boardCheck()">${val(sd.d)}</textarea>`;
+    }
+    h += `<div id="bdProblems" class="bdprob"></div><button id="bdSubmit" onclick="boardSubmit()" disabled>📨 요청 글 등록</button></div>`;
+  }
+  if (BOARD.msg) h += `<div class="msg ${BOARD.msgOk ? 'good' : 'bad'}">${esc(BOARD.msg)}</div>`;
+  box.innerHTML = h;
+  if (BOARD.tab === 'write') boardCheck();
+}
+
+function setupBoard() {
+  const back = document.getElementById('btnBoardBack');
+  if (back) back.addEventListener('click', () => { playSfx('back'); goTitle(); });
+}
+
 // ---- 60_app.js ----
 // ============================================================
 //  앱 상태 머신 / 화면 (타이틀, 선택, VS, 대전, 도감, 결과)
@@ -5945,7 +6080,7 @@ const BUF = mkCanvas(VW, VH), bctx = BUF.getContext('2d');
 function saveSettings() { safeLS('tekken2d_settings', JSON.stringify({ diff6: APP.diff, music: AUD.musicOn, sfx: AUD.sfxOn, voice: AUD.voiceOn })); }
 
 // ---------- 화면 전환 ----------
-function setState(s) { APP.state = s; APP.st = 0; IN.clear(); if (s !== 'account') hideAccount(); setTimeout(renderInvitePop, 0); }
+function setState(s) { APP.state = s; APP.st = 0; IN.clear(); if (s !== 'account') hideAccount(); if (s !== 'board') hideBoard(); setTimeout(renderInvitePop, 0); }
 function goTitle() {
   if (NET.conn && APP.mode === 'online') { netReset(); }
   APP.mode = 'cpu'; APP.mySide = 0; APP.G = null; APP.paused = false;
@@ -6008,6 +6143,7 @@ function tick() {
     case 'dict': updDict(); break;
     case 'lobby': if (IN.take('BACK')) { netReset(); goTitle(); } break;
     case 'account': if (IN.take('BACK')) { if (!ACC.waiting) goTitle(); } break;
+    case 'board': if (IN.take('BACK')) goTitle(); break;
     default: break;
   }
   updateFX();
@@ -6020,6 +6156,7 @@ const TITLE_MENU = () => [
   'BGM : ' + (AUD.musicOn ? 'ON' : 'OFF'),
   '효과음 : ' + (AUD.sfxOn ? 'ON' : 'OFF'),
   '아나운서 음성 : ' + (AUD.voiceOn ? 'ON' : 'OFF'),
+  '게시판 · 코드 다운로드',
 ];
 function updTitle() {
   const n = TITLE_MENU().length;
@@ -6037,6 +6174,7 @@ function updTitle() {
   else if (APP.menu === 1) { showAccount(); }
   else if (APP.menu === 2) { showLobby(); }
   else if (APP.menu === 3) { APP.dict = 0; setState('dict'); }
+  else if (APP.menu === 8) { showBoard(); }
 }
 
 function updSelect() {
@@ -6141,7 +6279,7 @@ function render() {
   bctx.imageSmoothingEnabled = false;
   bctx.clearRect(0, 0, VW, VH);
   switch (APP.state) {
-    case 'title': case 'lobby': case 'account': rTitleBuf(t); break;
+    case 'title': case 'lobby': case 'account': case 'board': rTitleBuf(t); break;
     case 'select': rSelectBuf(t); break;
     case 'vs': rVSBuf(t); break;
     case 'fight': if (APP.G) renderWorld(bctx, APP.G, t); break;
@@ -6158,7 +6296,7 @@ function render() {
   ctx.setTransform(cv.width / VW, 0, 0, cv.height / VH, 0, 0);
   ctx.imageSmoothingEnabled = true;
   switch (APP.state) {
-    case 'title': case 'lobby': case 'account': rTitleHUD(t); break;
+    case 'title': case 'lobby': case 'account': case 'board': rTitleHUD(t); break;
     case 'select': rSelectHUD(t); break;
     case 'vs': rVSHUD(t); break;
     case 'fight': if (APP.G) { renderHUD(ctx, APP.G, t); rFightOverlay(t); } break;
@@ -6201,7 +6339,7 @@ function rTitleHUD(t) {
   bigText(ctx, 'TEKKEN 2D', 240, y0, 30, '#fffbe0', '#ff8c00');
   bigText(ctx, 'BATTLE', 240, y0 + 32, 26, '#ffffff', '#ff3d00');
   txt(ctx, 'GLOBAL CHAMPIONSHIP EDITION', 240, y0 + 46, 7, '#9fe6ff', 'center', FONT_EN, '#000');
-  if (APP.state === 'lobby' || APP.state === 'account') return;
+  if (APP.state === 'lobby' || APP.state === 'account' || APP.state === 'board') return;
   txt(ctx, ACC.token ? '👤 ' + ACC.nick : '로그인하면 친구와 대전할 수 있어요', 474, 12, 7.5, ACC.token ? '#ffe14d' : '#aab', 'right', FONT_KR2);
   const items = TITLE_MENU();
   items.forEach((s, i) => {
@@ -6461,6 +6599,7 @@ function frame(now) {
 function boot() {
   setupTouch();
   setupCanvasTap();
+  setupBoard();
   setupLobby();
   document.getElementById('btnAccBack').onclick = () => { if (ACC.waiting) cancelWaiting(true); goTitle(); };
   if (ACC.token) setTimeout(pollNow, 500);
