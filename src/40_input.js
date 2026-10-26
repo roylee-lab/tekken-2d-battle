@@ -3,13 +3,13 @@
 // ============================================================
 const KEYMAP = {
   ArrowLeft: 'L', ArrowRight: 'R', ArrowUp: 'U', ArrowDown: 'D',
-  KeyS: 'P', KeyD: 'K', KeyQ: 'S1', KeyW: 'S2', KeyE: 'S3', KeyR: 'S4',
+  KeyS: 'P', KeyD: 'K', KeyQ: 'S1', KeyW: 'S2', KeyE: 'S3', KeyR: 'S4', KeyT: 'S5', KeyY: 'S6',
   Space: 'START', Enter: 'START', NumpadEnter: 'START', Escape: 'BACK', Backspace: 'BACK',
   KeyK: 'HID', KeyC: 'DICT', KeyM: 'MUTE', KeyP: 'PAUSE', KeyB: 'BOSS',
 };
-const BTN_BIT = { L: B_L, R: B_R, U: B_U, D: B_D, P: B_P, K: B_K, S1: B_S1, S2: B_S2, S3: B_S3, S4: B_S4 };
+const BTN_BIT = { L: B_L, R: B_R, U: B_U, D: B_D, P: B_P, K: B_K, S1: B_S1, S2: B_S2, S3: B_S3, S4: B_S4, S5: B_S5, S6: B_S6 };
 const IN = {
-  held: new Set(), pressed: new Set(), counts: { U: 0, P: 0, K: 0, S1: 0, S2: 0, S3: 0, S4: 0 },
+  held: new Set(), pressed: new Set(), counts: { U: 0, P: 0, K: 0, S1: 0, S2: 0, S3: 0, S4: 0, S5: 0, S6: 0 },
   // 글자 입력(패드립 배틀/KC)과 연타 횟수(초크 탈출)
   keyLog: [], keySeq: 0, keyTaken: 0, anyN: 0, anyTaken: 0,
   letter(L) { this.keySeq++; this.keyLog.push([this.keySeq, L]); if (this.keyLog.length > 40) this.keyLog.shift(); },

@@ -3,10 +3,10 @@
 //  - 방 코드: 어디서든 접속
 //  - 같은 와이파이: 같은 공유기(공인 IP, IPv6는 앞 64비트)에서 열린 방 목록에서 골라 참가
 // ============================================================
-const NET_VER = 15;
+const NET_VER = 16;
 const NET = {
   epoch: 0, peer: null, conn: null, role: null, status: '', onMsg: null, ping: 0, lastRecv: 0,
-  guestHeld: 0, guestCounts: null, guestKs: [], guestAny: 0, lastKeySeq: 0, lastAny: 0, lastCounts: { U: 0, P: 0, K: 0, S1: 0, S2: 0, S3: 0, S4: 0 }, outEv: [], inEv: [], snap: null,
+  guestHeld: 0, guestCounts: null, guestKs: [], guestAny: 0, lastKeySeq: 0, lastAny: 0, lastCounts: { U: 0, P: 0, K: 0, S1: 0, S2: 0, S3: 0, S4: 0, S5: 0, S6: 0 }, outEv: [], inEv: [], snap: null,
 };
 
 function peerOpts() {
@@ -24,8 +24,8 @@ function netReset() {
   clearTimeout(NET._timer); clearInterval(NET._ping);
   try { conn?.close(); } catch (_) {}
   try { peer?.destroy(); } catch (_) {}
-  NET.snap = null; NET.oppNick = null; NET.inEv = []; NET.outEv = [];
-  NET.lastCounts = { U: 0, P: 0, K: 0, S1: 0, S2: 0, S3: 0, S4: 0 };
+  NET.snap = null; NET.oppNick = null; NET.oppCeo = false; NET.inEv = []; NET.outEv = [];
+  NET.lastCounts = { U: 0, P: 0, K: 0, S1: 0, S2: 0, S3: 0, S4: 0, S5: 0, S6: 0 };
   NET.guestCounts = null; NET.guestHeld = 0; NET.guestKs = []; NET.guestAny = 0; NET.lastKeySeq = 0; NET.lastAny = 0; NET.lastRecv = performance.now();
   _lastSentIn = '';
 }
@@ -74,7 +74,7 @@ function wireConn(conn, role) {
     if (NET.conn !== conn || conn._gameReady) return;
     conn._gameReady = true; NET.lastRecv = performance.now();
     clearTimeout(NET._timer);
-    conn.send({ t: 'hi', v: NET_VER, nick: (typeof ACC !== 'undefined' && ACC.token) ? ACC.nick : null });
+    conn.send({ t: 'hi', v: NET_VER, nick: (typeof ACC !== 'undefined' && ACC.token) ? ACC.nick : null, ceo: typeof myCeo === 'function' && !!ACC.token && myCeo() });
     onNetConnected(role);
     for (const m of early) onNetMsg(m);
   };
@@ -198,7 +198,7 @@ function onNetClosed() {
 function onNetMsg(m) {
   if (!m || typeof m !== 'object') return;
   switch (m.t) {
-    case 'hi': NET.oppNick = typeof m.nick === 'string' ? m.nick.slice(0, 12) : null; if (m.v !== NET_VER) { onNetClosed(); toast('게임 버전이 달라요. 둘 다 새로고침해 주세요'); } break;
+    case 'hi': NET.oppNick = typeof m.nick === 'string' ? m.nick.slice(0, 12) : null; NET.oppCeo = m.ceo === true; if (m.v !== NET_VER) { onNetClosed(); toast('게임 버전이 달라요. 둘 다 새로고침해 주세요'); } break;
     case 'ping': netSend({ t: 'pong', ts: m.ts }); break;
     case 'pong': NET.ping = Math.round(performance.now() - m.ts); break;
     case 'sel': {
@@ -226,7 +226,7 @@ function guestInput() {
   let p = 0;
   const c = NET.guestCounts;
   if (c) {
-    for (const k of ['U', 'P', 'K', 'S1', 'S2', 'S3', 'S4']) { if ((c[k] || 0) > NET.lastCounts[k]) p |= BTN_BIT[k]; NET.lastCounts[k] = c[k] || 0; }
+    for (const k of ['U', 'P', 'K', 'S1', 'S2', 'S3', 'S4', 'S5', 'S6']) { if ((c[k] || 0) > NET.lastCounts[k]) p |= BTN_BIT[k]; NET.lastCounts[k] = c[k] || 0; }
   }
   let keys = '';
   for (const e of NET.guestKs) {
@@ -245,8 +245,8 @@ function syncGuestInputBase() {
 let _lastSentIn = '';
 function sendMyInput(force) {
   const h = IN.heldMask(), c = IN.counts;
-  const key = h + ':' + c.U + ':' + c.P + ':' + c.K + ':' + c.S1 + ':' + c.S2 + ':' + c.S3 + ':' + c.S4 + ':' + IN.keySeq + ':' + IN.anyN;
-  if (key !== _lastSentIn || force) { _lastSentIn = key; netSend({ t: 'in', h, c: { U: c.U, P: c.P, K: c.K, S1: c.S1, S2: c.S2, S3: c.S3, S4: c.S4 }, ks: IN.keyLog.slice(-16), a: IN.anyN }); }
+  const key = h + ':' + c.U + ':' + c.P + ':' + c.K + ':' + c.S1 + ':' + c.S2 + ':' + c.S3 + ':' + c.S4 + ':' + c.S5 + ':' + c.S6 + ':' + IN.keySeq + ':' + IN.anyN;
+  if (key !== _lastSentIn || force) { _lastSentIn = key; netSend({ t: 'in', h, c: { U: c.U, P: c.P, K: c.K, S1: c.S1, S2: c.S2, S3: c.S3, S4: c.S4, S5: c.S5, S6: c.S6 }, ks: IN.keyLog.slice(-16), a: IN.anyN }); }
 }
 
 // 스냅샷 (기본값과 같은 필드는 생략 → 용량 절감)

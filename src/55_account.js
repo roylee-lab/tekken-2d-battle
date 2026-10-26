@@ -9,6 +9,26 @@ const ACC = {
   msg: '', msgOk: false, busyBtn: false,
 };
 const API_URL = '/api/game';
+// ---------- 보상 (최종 보스 격파): 칭호 '김천고의 CEO' + 히든 캐릭터 흑요 ----------
+const CEO_TITLE = '김천고의 CEO';
+const UNLOCK = (() => { try { return Object.assign({ heugyo: false, ceo: false, pending: false }, JSON.parse(safeLS('t2d_unlock') || '{}')); } catch (e) { return { heugyo: false, ceo: false, pending: false }; } })();
+ACC.rewards = { ceo: false, heugyo: false };
+function saveUnlock() { safeLS('t2d_unlock', JSON.stringify(UNLOCK)); }
+function heugyoUnlocked() { return !!(UNLOCK.heugyo || ACC.rewards.heugyo); }
+function myCeo() { return !!(ACC.token ? ACC.rewards.ceo || UNLOCK.ceo : UNLOCK.ceo); }
+function titleHtml(ceo) { return ceo ? `<span class="ceo">${CEO_TITLE}</span> ` : ''; }
+function setRewards(r) { if (r) { ACC.rewards = { ceo: !!r.ceo, heugyo: !!r.heugyo }; if (r.heugyo) { UNLOCK.heugyo = true; saveUnlock(); } } }
+// 최종 보스를 이기면 호출 (로그인 안 했으면 기기에 기억해 두었다가 로그인할 때 서버에 등록)
+function grantBossClear() {
+  const first = !UNLOCK.heugyo || !UNLOCK.ceo;
+  UNLOCK.heugyo = true; UNLOCK.ceo = true; UNLOCK.pending = true; saveUnlock();
+  toast(first ? '🏆 보상! 칭호 「김천고의 CEO」 + 히든 캐릭터 흑요 획득!' : '🏆 흑요 격파! 「김천고의 CEO」');
+  claimBossClear();
+}
+async function claimBossClear() {
+  if (!ACC.token || !UNLOCK.pending) return;
+  try { const j = await api('bossClear'); setRewards(j.rewards); UNLOCK.pending = false; saveUnlock(); renderAccount(); } catch (e) { /* 다음 로그인 때 다시 */ }
+}
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 async function api(a, data) {
@@ -28,7 +48,7 @@ async function api(a, data) {
 function setSession(token, nick) {
   ACC.token = token; ACC.nick = nick;
   try { if (token) { localStorage.setItem('t2d_token', token); localStorage.setItem('t2d_nick', nick); } else { localStorage.removeItem('t2d_token'); localStorage.removeItem('t2d_nick'); } } catch (e) { /* 무시 */ }
-  if (!token) { ACC.friends = []; ACC.requests = []; ACC.invites = []; ACC.waiting = null; }
+  if (!token) { ACC.friends = []; ACC.requests = []; ACC.invites = []; ACC.waiting = null; ACC.rewards = { ceo: false, heugyo: false }; }
   renderAccount();
 }
 function accMsg(s, ok) { ACC.msg = s; ACC.msgOk = !!ok; renderAccount(); }
@@ -40,7 +60,8 @@ async function pollNow() {
   ACC.polling = true; ACC.lastPoll = Date.now();
   try {
     const j = await api('poll', { status: myStatus() });
-    ACC.nick = j.nick; ACC.friends = j.friends; ACC.requests = j.requests; ACC.invites = j.invites;
+    ACC.nick = j.nick; ACC.friends = j.friends; ACC.requests = j.requests; ACC.invites = j.invites; setRewards(j.rewards);
+    if (UNLOCK.pending) claimBossClear();
     for (const r of j.responses) {
       if (ACC.waiting && ACC.waiting.to === r.to && r.r === 'declined') { cancelWaiting(false); toast(`${r.to}님이 대전 신청을 거절했어요`); }
     }
@@ -64,7 +85,7 @@ async function doLogin(register) {
   accMsg(register ? '가입 중...' : '로그인 중...', true);
   try {
     const j = await api(register ? 'register' : 'login', { nick, pw });
-    setSession(j.token, j.nick);
+    setSession(j.token, j.nick); setRewards(j.rewards); claimBossClear();
     accMsg(register ? `가입 완료! 환영해요, ${j.nick}님` : `${j.nick}님, 환영해요!`, true);
     pollNow();
   } catch (e) { accMsg(e.message); }
@@ -139,7 +160,7 @@ function renderAccount() {
       <input id="accPw" type="password" maxlength="64" placeholder="비밀번호 (4자 이상)" autocomplete="current-password">
       <div class="row"><button id="accLogin">로그인</button><button id="accReg" class="lan">회원가입</button></div>`;
   } else {
-    h += `<div class="me"><span>👤 <b>${esc(ACC.nick)}</b> 님</span><button id="accOut" class="mini">로그아웃</button></div>`;
+    h += `<div class="me"><span>👤 ${titleHtml(myCeo())}<b>${esc(ACC.nick)}</b> 님</span><button id="accOut" class="mini">로그아웃</button></div>`;
     h += `<div class="row"><input id="accFriend" maxlength="12" placeholder="친구 닉네임" autocomplete="off"><button id="accAdd">친구 추가</button></div>`;
     if (ACC.waiting) {
       const left = Math.max(0, 90 - Math.floor((Date.now() - ACC.waiting.t0) / 1000));
@@ -154,7 +175,7 @@ function renderAccount() {
     for (const f of ACC.friends) {
       const st = f.online ? (f.status === 'busy' ? '<i class="dot busy"></i>대전 중' : '<i class="dot on"></i>접속 중') : '<i class="dot"></i>오프라인';
       const can = f.online && f.status !== 'busy' && !ACC.waiting;
-      h += `<div class="fr"><span>${esc(f.nick)} <small>${st}</small></span><span><button class="mini fight" data-inv="${esc(f.nick)}" ${can ? '' : 'disabled'}>⚔ 대전 신청</button><button class="mini x" data-del="${esc(f.nick)}" title="친구 삭제">✕</button></span></div>`;
+      h += `<div class="fr"><span>${titleHtml(f.ceo)}${esc(f.nick)} <small>${st}</small></span><span><button class="mini fight" data-inv="${esc(f.nick)}" ${can ? '' : 'disabled'}>⚔ 대전 신청</button><button class="mini x" data-del="${esc(f.nick)}" title="친구 삭제">✕</button></span></div>`;
     }
     h += '</div>';
   }

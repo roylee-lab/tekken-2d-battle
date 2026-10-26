@@ -74,7 +74,7 @@ function renderBoard() {
     else if (!BOARD.posts.length) h += '<div class="empty">아직 요청 글이 없어요. 첫 번째로 새 캐릭터를 제안해 보세요!</div>';
     for (const p of BOARD.posts) {
       const mine = ACC.nick && p.nick.toLowerCase() === ACC.nick.toLowerCase();
-      h += `<div class="post"><div class="ph"><b>${esc(p.name)}</b><small>${esc(p.nick)} · ${new Date(p.ts).toLocaleDateString('ko-KR')}</small>
+      h += `<div class="post"><div class="ph"><b>${esc(p.name)}</b><small>${titleHtml(p.ceo)}${esc(p.nick)} · ${new Date(p.ts).toLocaleDateString('ko-KR')}</small>
         ${mine ? `<button class="mini x" onclick="boardDelete('${p.id}')">${BOARD.delArm === p.id ? '정말 삭제?' : '삭제'}</button>` : ''}</div>`;
       for (const [s, label] of BOARD_SLOTS) h += `<div class="sk"><span class="tag t_${s}">${label}</span> <b>${esc(p[s].n)}</b> — ${esc(p[s].d)}</div>`;
       h += '</div>';

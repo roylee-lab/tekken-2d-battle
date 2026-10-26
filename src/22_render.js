@@ -48,7 +48,7 @@ function onAnnounce(G, kind, val) {
       const won = val === me;
       announce(won ? 'You win!' : 'You lose');
       playJingle(won ? 'win' : 'lose');
-      if (won) { addRecord(G.F[me].c); if (G.F[1 - me].c === BOSS) toast('🏆 흑요 격파! 당신이 진정한 최강자!'); }
+      if (won) { addRecord(G.F[me].c); if (G.F[1 - me].boss) grantBossClear(); }
     }
     stopMusic();
   }
@@ -596,9 +596,12 @@ function renderHUD(ctx, G, t) {
     const nx = s === 0 ? 30 : 450;
     txt(ctx, CHARS[F.c].name, nx, 32, 9, '#fff', s === 0 ? 'left' : 'right');
     drawFlag(ctx, CHARS[F.c].country, s === 0 ? 30 + measure(ctx, CHARS[F.c].name, 9) + 4 : 450 - measure(ctx, CHARS[F.c].name, 9) - 16, 25, 12, 8);
+    if (APP.mode === 'cpu' && s === APP.mySide && myCeo()) txt(ctx, (ACC.token ? ACC.nick + ' · ' : '') + CEO_TITLE, s === 0 ? bx + bw - 28 : bx + 28, 32, 7, '#ffd700', s === 0 ? 'right' : 'left', FONT_KR, '#5a3a00');
     if (APP.mode === 'online') {
       const lab = s === APP.mySide ? (ACC.token ? ACC.nick : 'YOU') : (NET.oppNick || 'RIVAL');
+      const ceo = s === APP.mySide ? ACC.token && myCeo() : NET.oppCeo;
       txt(ctx, (s === APP.mySide ? '▶ ' : '') + lab, s === 0 ? bx + bw - 28 : bx + 28, 32, 7, s === APP.mySide ? '#ffe14d' : '#9fd0ff', s === 0 ? 'right' : 'left', FONT_KR2);
+      if (ceo) txt(ctx, CEO_TITLE, s === 0 ? bx + bw - 28 : bx + 28, 41, 6.5, '#ffd700', s === 0 ? 'right' : 'left', FONT_KR, '#5a3a00');
     }
     // 라운드 승리 표시
     for (let i = 0; i < (G.winN || WIN_ROUNDS); i++) {
@@ -681,7 +684,8 @@ function drawBossSkills(ctx, F, s, t) {
     ctx.fillStyle = locked ? '#15182a' : '#1c2340'; ctx.fillRect(x, y, w, h);
     if (!locked && cd > 0) { ctx.fillStyle = '#4a3f20'; ctx.fillRect(x, y, w * clamp(1 - cd / max, 0, 1), h); }
     else if (!locked) { ctx.fillStyle = (t >> 4) % 2 ? '#8a6d14' : '#a8851a'; ctx.fillRect(x, y, w, h); }
-    txt(ctx, locked ? '???' : sk[k].name, x + 2, y + 8, 6.5, locked ? '#6b6f86' : '#fff', 'left', FONT_KR2, 0);
+    const key = F.boss ? '' : 'QWERTY'[k] + ' ';   // 플레이어 흑요는 키 표시
+    txt(ctx, locked ? '???' : key + sk[k].name, x + 2, y + 8, 6.5, locked ? '#6b6f86' : '#fff', 'left', FONT_KR2, 0);
     if (!locked && cd > 0) txt(ctx, Math.ceil(cd / SEC) + '', x + w - 2, y + 8, 6, '#ffe14d', 'right', FONT_EN, 0);
   }
 }

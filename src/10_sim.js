@@ -2,8 +2,10 @@
 //  게임 시뮬레이션 (호스트 권한 방식: 오프라인/온라인 호스트에서만 실행)
 //  모든 시간 단위는 프레임(60fps 고정)
 // ============================================================
-const B_L = 1, B_R = 2, B_U = 4, B_D = 8, B_P = 16, B_K = 32, B_S1 = 64, B_S2 = 128, B_S3 = 256, B_S4 = 512;
+const B_L = 1, B_R = 2, B_U = 4, B_D = 8, B_P = 16, B_K = 32, B_S1 = 64, B_S2 = 128, B_S3 = 256, B_S4 = 512, B_S5 = 1024, B_S6 = 2048;
 const B_SK = [B_S1, B_S2, B_S3, B_S4];
+const B_SK6 = [B_S1, B_S2, B_S3, B_S4, B_S5, B_S6];   // 흑요(플레이어): Q W E R T Y
+const BOSS_START_CD = [0, 4, 6, 9, 15, 60];   // 흑요 스킬 첫 쿨타임(초)
 const PROJ_TYPES = new Set(['GOLDSHOT', 'DARKSHOT', 'VACUUM', 'TOOTH', 'MOLACUT', 'BAMBOO', 'GEOKGI', 'POISON_BULLET', 'GAEGURA', 'NOTE', 'TOXIC_FART', 'CRYSTAL', 'SHUTTLE', 'MAKGEOLLI', 'SHINGLES', 'BALL']);
 const POISONISH = new Set(['BREATH', 'TOXIC_EXPLOSION', 'TOXIC_FART', 'POISON_BULLET']);
 const MELEE_T = new Set(['PUNCH', 'KICK']);
@@ -82,7 +84,7 @@ function newMatch(c0, c1, stage, mode, late) {
     F: [makeFighter(0, c0), makeFighter(1, c1)],
     proj: [], traps: [], freezeT: 0, hitStop: 0, dice: null, notes: [],
     stage, mode, rw: -1, mw: -1, koType: '', perfect: false, flash: 0, ev: [], pid: 0,
-    bossFight: c0 === BOSS || c1 === BOSS, cut: null,
+    bossFight: c1 === BOSS && mode === 'cpu', cut: null,   // 히든 보스전 (CPU 쪽이 흑요)
   };
   G.winN = G.bossFight ? 1 : WIN_ROUNDS;   // 히든 보스전은 단판
   resetRound(G);
@@ -94,7 +96,7 @@ function resetRound(G) {
   G.proj = []; G.traps = []; G.freezeT = 0; G.hitStop = 0; G.dice = null; G.notes = []; G.flash = 0; G.qte = null; G.yut = null; G.clock = null;
   G.rw = -1; G.koType = ''; G.perfect = false;
   for (const F of G.F) {
-    const wins = F.wins, c = F.c, side = F.side, prevCd = F.cd.slice();
+    const wins = F.wins, c = F.c, side = F.side, prevCd = F.cd.slice(), prevBcd = (F.bcd || []).slice();
     Object.assign(F, makeFighter(side, c));
     F.wins = wins;
     const O = G.F[1 - side];
@@ -106,8 +108,10 @@ function resetRound(G) {
     // 첫 라운드는 첫 쿨타임부터, 다음 라운드부터는 이전 라운드의 남은 쿨타임을 그대로 이어감
     F.cd = G.round > 1 ? prevCd : SLOT_CD_START.map((s) => s * SEC);
     // 히든 보스전: 보스는 1페이즈부터, 플레이어는 부활 2번
-    if (c === BOSS) { F.bph = 1; F.bcd = [0, 0, 0, 0, 0, 0]; F.bOffT = 0; F.bCnt = 0; F.domT = 0; }
-    else if (G.bossFight && G.round === 1) F.lives = BAL[17].lives;
+    // 보스전의 흑요는 1페이즈부터, 플레이어가 고른 흑요는 처음부터 스킬 6개 사용
+    F.boss = c === BOSS && G.bossFight && side === 1;   // 보스전의 CPU 흑요
+    if (c === BOSS) { F.bph = F.boss ? 1 : 2; F.bcd = F.boss ? [0, 0, 0, 0, 0, 0] : (G.round > 1 ? prevBcd : BOSS_START_CD.map((s) => s * SEC)); F.bOffT = 0; F.bCnt = 0; F.domT = 0; }
+    if (G.bossFight && side === 0 && G.round === 1) F.lives = BAL[17].lives;
     // 힌참휴 오타쿠 / 영탁 니가 왜 거기서 나와: 모든 능력치 배율
     F.pm = 1;
     if (c === HINCHAM) { if (O.c === 4) F.pm *= 1 + BAL[12].otaku; if (G.stage === 'tokyo') F.pm *= 1 + BAL[12].otaku; }
@@ -253,9 +257,9 @@ function checkKO(G, D) {
   if (D.hp > 0 || D.ko) return;
   if (D.phoneT > 0 || D.phoneHealT > 0) { D.hp = 0; return; }   // 이유동 휴대폰압수: 스킬이 끝날 때까지 죽지 않음
   // 히든 보스: 1페이즈 체력이 0이 되면 컷신과 함께 2페이즈
-  if (D.c === BOSS && D.bph === 1) { bossPhase2(G, D); return; }
+  if (D.boss && D.bph === 1) { bossPhase2(G, D); return; }
   // 히든 보스전: 플레이어는 2번까지 부활 (보스의 지속 스킬은 끝난 것으로 처리)
-  if (G.bossFight && D.c !== BOSS && D.lives > 0) { playerRevive(G, D); return; }
+  if (G.bossFight && D.side === 0 && D.lives > 0) { playerRevive(G, D); return; }
   D.hp = 0; D.ko = true;
 }
 
@@ -953,7 +957,7 @@ function stepYudong(G, F, O) {
 // ---------- 히든 보스: 흑요 ----------
 function bossPhase2(G, D) {
   D.bph = 2; D.hp = D.maxHp = BAL[17].hp; D.ko = false; D.hitT = 0; D.stunT = 0; D.rootT = 0; D.atk = null; D.bOffT = 0; D.bCnt = 0;
-  D.bcd = [0, 4, 6, 9, 15, 60].map((s) => s * SEC);   // 2페이즈 첫 쿨타임 (순간이동은 바로)
+  D.bcd = BOSS_START_CD.map((s) => s * SEC);   // 2페이즈 첫 쿨타임 (순간이동은 바로)
   D.mods = D.mods.filter((m) => m.v >= 1);
   G.proj = []; G.cut = { t: 210, side: D.side }; G.freezeT = Math.max(G.freezeT, 210); G.flash = 20;
   note(G, '흑요가 후드를 벗었다… 진짜 싸움은 지금부터', '#c9a227', 200); ev(G, 'bgm', 'boss2'); ev(G, 'sfx', 'roar'); ev(G, 'shake', 24, 10); ev(G, 'revive', D.x, D.y);
@@ -1009,6 +1013,8 @@ function stepBoss(G, F, O, inp) {
     if (!O.ko) { O.stunT = Math.max(O.stunT, 2); O.atk = null; applyDamage(G, F, O, BAL[17].domDmg, 'DOMAIN', { fixed: true, silent: true }); }
   }
   if (inp && inp.bs >= 0 && !F.hitT && !F.stunT && !F.atk) bossSkill(G, F, O, inp.bs);
+  // 플레이어가 조종하는 흑요: Q W E R T Y
+  else if (inp && inp.p && !F.hitT && !F.stunT && !F.atk && !F.guard && !G.qte && !G.yut) { for (let i = 0; i < 6; i++) if (inp.p & B_SK6[i]) { bossSkill(G, F, O, i); break; } }
   F.bPrev = { mods: F.mods.filter((m) => m.v < 1).map((m) => m.id) };
   for (const k of BOSS_STATUS) F.bPrev[k] = F[k] || 0;
 }

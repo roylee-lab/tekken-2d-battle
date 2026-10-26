@@ -63,7 +63,10 @@ function goSelect() {
   if (APP.mode === 'online') sendSel();
 }
 function sendSel() { netSend({ t: 'sel', cur: APP.sel.cur, ready: APP.sel.ready, c: APP.sel.ready ? myChar() : null }); }
-function myChar() { return APP.sel.hidden ? TIRON : SELECT_ORDER[APP.sel.cur]; }
+// 선택 화면 칸: 흑요를 얻으면 맨 뒤에 흑요 칸이 추가됨 (SEL_ALL 순서는 모든 기기에서 같음)
+const SEL_ALL = [...SELECT_ORDER, BOSS];
+function selOrder() { return typeof heugyoUnlocked === 'function' && heugyoUnlocked() ? SEL_ALL : SELECT_ORDER; }
+function myChar() { return APP.sel.hidden ? TIRON : (selOrder()[APP.sel.cur] ?? SELECT_ORDER[0]); }
 
 function maybeStartOnline() {
   if (NET.role !== 'host' || APP.state !== 'select') return;
@@ -91,10 +94,11 @@ function startFight() {
   HPL[0] = HPL[1] = 1;
   resetFX(); FX.cam = ARENA_W / 2 - VW / 2;
   NET.snap = null; NET.inEv = []; NET.outEv = [];
-  NET.lastCounts = { U: 0, P: 0, K: 0, S1: 0, S2: 0, S3: 0, S4: 0 };
+  NET.lastCounts = { U: 0, P: 0, K: 0, S1: 0, S2: 0, S3: 0, S4: 0, S5: 0, S6: 0 };
   if (NET.guestCounts) NET.lastCounts = Object.assign({}, NET.guestCounts);
   syncGuestInputBase(); IN.syncTaken();
   setState('fight');
+  document.body.classList.toggle('heugyo', APP.G.F[APP.mySide].c === BOSS);   // 흑요는 모바일 T·Y 버튼 표시
   playMusic(STAGE_DEF[v.stage].bgm);
 }
 
@@ -159,9 +163,9 @@ function updSelect() {
     playSfx('back'); goTitle(); return;
   }
   if (S.ready) return;
-  if (IN.take('DICT')) { APP.dict = SELECT_ORDER[S.cur]; APP._dictFromSelect = true; setState('dict'); return; }
+  if (IN.take('DICT')) { APP.dict = selOrder()[S.cur]; APP._dictFromSelect = true; setState('dict'); return; }
   let moved = false;
-  const N = SELECT_ORDER.length;
+  const N = selOrder().length;
   if (IN.take('L')) { S.cur = (S.cur + N - 1) % N; moved = true; }
   if (IN.take('R')) { S.cur = (S.cur + 1) % N; moved = true; }
   if (IN.take('U') || IN.take('D')) { S.cur = S.cur < SEL_COLS ? Math.min(N - 1, S.cur + SEL_COLS) : S.cur - SEL_COLS; moved = true; }
@@ -185,10 +189,10 @@ function updSelect() {
   }
 }
 
-function dictOrder() { return [...SELECT_ORDER, TIRON]; }
+function dictOrder() { return heugyoUnlocked() ? [...SELECT_ORDER, TIRON, BOSS] : [...SELECT_ORDER, TIRON]; }
 function updDict() {
   const order = dictOrder();
-  let i = order.indexOf(APP.dict);
+  let i = Math.max(0, order.indexOf(APP.dict));   // 목록에 없는 캐릭터면 첫 번째로
   if (IN.take('L') || IN.take('U')) { i = (i + order.length - 1) % order.length; playSfx('cursor'); APP.st = 0; }
   if (IN.take('R') || IN.take('D')) { i = (i + 1) % order.length; playSfx('cursor'); APP.st = 0; }
   APP.dict = order[i];
@@ -229,7 +233,7 @@ function updFight() {
   const me = APP.autoP1 ? aiInput(G, G.F[0], G.F[1], APP.ai[0], 2) : { h: IN.heldMask(), p: IN.pressMask(), keys: IN.takeKeys(), a: IN.takeAny() };
   let inputs;
   if (APP.mode === 'online') inputs = [me, guestInput()];
-  else inputs = [me, aiInput(G, G.F[1], G.F[0], APP.ai[1], G.F[1].c === BOSS ? 6 : APP.diff)];
+  else inputs = [me, aiInput(G, G.F[1], G.F[0], APP.ai[1], G.F[1].boss ? 6 : APP.diff)];
   G.ev = [];
   stepGame(G, inputs);
   handleEvents(G, G.ev);
@@ -309,6 +313,7 @@ function rTitleHUD(t) {
   txt(ctx, 'GLOBAL CHAMPIONSHIP EDITION', 240, y0 + 46, 7, '#9fe6ff', 'center', FONT_EN, '#000');
   if (APP.state === 'lobby' || APP.state === 'account' || APP.state === 'board') return;
   txt(ctx, ACC.token ? '👤 ' + ACC.nick : '로그인하면 친구와 대전할 수 있어요', 474, 12, 7.5, ACC.token ? '#ffe14d' : '#aab', 'right', FONT_KR2);
+  if (myCeo()) txt(ctx, '👑 ' + CEO_TITLE, 474, 22, 7.5, '#ffd700', 'right', FONT_KR, '#5a3a00');
   const items = TITLE_MENU();
   items.forEach((s, i) => {
     const y = 128 + i * 14, on = i === APP.menu;
@@ -327,18 +332,18 @@ function selBg(t) {
   for (let x = -VH; x < VW; x += 16) { const o = (t * 0.3) % 16; bctx.beginPath(); bctx.moveTo(x + o, 0); bctx.lineTo(x + o + VH, VH); bctx.stroke(); }
 }
 function selTiles() {
-  const out = [], N = SELECT_ORDER.length;
+  const ord = selOrder(), out = [], N = ord.length;
   for (let i = 0; i < N; i++) {
-    const row = Math.floor(i / SEL_COLS), inRow = row === 0 ? Math.min(SEL_COLS, N) : N - SEL_COLS, col = i % SEL_COLS;
-    out.push({ i, c: SELECT_ORDER[i], x: 240 - (inRow / 2) * 37 + col * 37 + 1, y: 190 + row * 38 });
+    const row = i < SEL_COLS ? 0 : 1, inRow = row === 0 ? Math.min(SEL_COLS, N) : N - SEL_COLS, col = row === 0 ? i : i - SEL_COLS;   // 둘째 줄은 9칸까지
+    out.push({ i, c: ord[i], x: 240 - (inRow / 2) * 37 + col * 37 + 1, y: 190 + row * 38 });
   }
   return out;
 }
 function rSelectBuf(t) {
   selBg(t);
   const S = APP.sel;
-  const leftC = APP.mySide === 0 ? myChar() : (S.opp.c !== null ? S.opp.c : SELECT_ORDER[S.opp.cur]);
-  const rightC = APP.mySide === 0 ? (APP.mode === 'cpu' ? (S.cpuC === BOSS ? BOSS : S.roulette > 0 || S.cpuC !== null ? SELECT_ORDER[S.opp.cur] : null) : (S.opp.c !== null ? S.opp.c : SELECT_ORDER[S.opp.cur])) : myChar();
+  const leftC = APP.mySide === 0 ? myChar() : (S.opp.c !== null ? S.opp.c : SEL_ALL[S.opp.cur]);
+  const rightC = APP.mySide === 0 ? (APP.mode === 'cpu' ? (S.cpuC === BOSS ? BOSS : S.roulette > 0 || S.cpuC !== null ? SELECT_ORDER[S.opp.cur] : null) : (S.opp.c !== null ? S.opp.c : SEL_ALL[S.opp.cur])) : myChar();
   for (const [c, x, f, ready] of [[leftC, 78, 1, APP.mySide === 0 ? S.ready : S.opp.ready], [rightC, 402, -1, APP.mySide === 1 ? S.ready : S.opp.ready]]) {
     bctx.fillStyle = 'rgba(0,0,0,0.35)'; bctx.beginPath(); bctx.ellipse(x, 176, 40, 6, 0, 0, Math.PI * 2); bctx.fill();
     if (c === null || c === undefined) {
@@ -383,7 +388,7 @@ function rSelectHUD(t) {
   const S2 = APP.sel;
   const showC = (side) => {
     if (side === APP.mySide) return myChar();
-    if (APP.mode === 'online') return S2.opp.c !== null ? S2.opp.c : SELECT_ORDER[S2.opp.cur];
+    if (APP.mode === 'online') return S2.opp.c !== null ? S2.opp.c : SEL_ALL[S2.opp.cur];
     if (S2.cpuC === BOSS) return BOSS;
     return S2.roulette > 0 || S2.cpuC !== null ? SELECT_ORDER[S2.opp.cur] : null;
   };
@@ -405,7 +410,15 @@ function rSelectHUD(t) {
   txt(ctx, C.desc.join(' · '), 240, 52, 7, '#cdd', 'center', FONT_KR2, 0);
   let y = 65;
   const mc = myChar();
-  for (let k = 0; k < 4; k++) {
+  if (C.bossSk) {   // 흑요: 스킬 6개 (Q W E R T Y)
+    C.bossSk.forEach((sk, k) => {
+      ctx.fillStyle = '#c9a227'; ctx.fillRect(156, y - 7, 9, 9);
+      txt(ctx, 'QWERTY'[k], 160.5, y + 0.5, 6, '#000', 'center', FONT_EN, 0);
+      txt(ctx, `${sk.name}  (${sk.cd}초)`, 169, y, 8, '#fff', 'left', FONT_KR, 0);
+      y += wrapText(ctx, sk.info(BAL[mc]), 169, y + 7.5, 156, 6, '#b8c4dd') + 7;
+    });
+  }
+  for (let k = 0; k < (C.bossSk ? 0 : 4); k++) {
     const sk = skillDef(mc, k);
     ctx.fillStyle = sk ? '#ffe14d' : '#555a70'; ctx.fillRect(156, y - 7, 9, 9);
     txt(ctx, SLOT_KEYS[k], 160.5, y + 0.5, 6, '#000', 'center', FONT_EN, 0);
@@ -486,7 +499,15 @@ function rDictHUD(t) {
   txt(ctx, COUNTRIES[C.country].name + ' · ' + STAGE_DEF[C.stage].name, 230, 64, 8, '#cdd', 'left', FONT_KR2, 0);
   txt(ctx, C.desc.join(' / '), 210, 80, 8, '#ffe9a8', 'left', FONT_KR2, 0);
   let y = 96;
-  for (let k = 0; k < 4; k++) {
+  if (C.bossSk) {
+    C.bossSk.forEach((sk, k) => {
+      ctx.fillStyle = '#c9a227'; ctx.fillRect(210, y - 8, 10, 10);
+      txt(ctx, 'QWERTY'[k], 215, y + 0.5, 6.5, '#000', 'center', FONT_EN, 0);
+      txt(ctx, sk.name + `   쿨타임 ${sk.cd}초`, 224, y, 9, '#fff', 'left', FONT_KR, 0);
+      y += wrapText(ctx, sk.info(BAL[c]), 224, y + 10, 236, 7, '#b8c4dd') + 11;
+    });
+  }
+  for (let k = 0; k < (C.bossSk ? 0 : 4); k++) {
     const sk = skillDef(c, k);
     ctx.fillStyle = sk ? '#ffe14d' : '#555a70'; ctx.fillRect(210, y - 8, 10, 10);
     txt(ctx, SLOT_KEYS[k], 215, y + 0.5, 6.5, '#000', 'center', FONT_EN, 0);
