@@ -63,8 +63,55 @@ async function displayNick(nick) {
   return n;
 }
 
+// ---------- 게시판 (캐릭터 추가 요청) ----------
+const BOARD_KEY = P + 'board', BOARD_MAX = 300;
+// 양식: 캐릭터 이름 + 패시브/Q/W/E/R 각각 [이름, 설명] — 하나라도 비거나 규격에 안 맞으면 거부
+const BOARD_FORM = { name: [1, 12], skillName: [1, 20], skillDesc: [5, 200] };
+const SLOTS = ['passive', 'q', 'w', 'e', 'r'];
+function cleanText(v, [min, max], label) {
+  const t = String(v ?? '').normalize('NFC').replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim();
+  if (t.length < min) throw new E(`${label}: ${min}자 이상 써 주세요`);
+  if (t.length > max) throw new E(`${label}: ${max}자까지 쓸 수 있어요`);
+  return t;
+}
+const SLOT_LABEL = { passive: '패시브', q: 'Q 스킬', w: 'W 스킬', e: 'E 스킬', r: 'R 스킬' };
+function parsePost(b) {
+  const post = { name: cleanText(b.name, BOARD_FORM.name, '캐릭터 이름') };
+  for (const s of SLOTS) {
+    const v = b[s] || {};
+    post[s] = { n: cleanText(v.n, BOARD_FORM.skillName, SLOT_LABEL[s] + ' 이름'), d: cleanText(v.d, BOARD_FORM.skillDesc, SLOT_LABEL[s] + ' 설명') };
+  }
+  return post;
+}
+
 // ---------- 동작 ----------
 const actions = {
+  async boardList(b) {
+    const page = Math.max(0, Math.min(29, Number(b.page) || 0)), per = 10;
+    const [rows, total] = await pipe([['LRANGE', BOARD_KEY, page * per, page * per + per - 1], ['LLEN', BOARD_KEY]]);
+    const posts = (rows || []).map((r) => { try { return JSON.parse(r); } catch (e) { return null; } }).filter(Boolean);
+    return { posts, total: total || 0, page, per };
+  },
+  async boardPost(b, req) {
+    const me = await auth(b);
+    const post = parsePost(b);
+    await rateLimit('bp:' + me.id, 5, 600);
+    await rateLimit('bpip:' + clientIp(req), 20, 86400);
+    Object.assign(post, { id: crypto.randomBytes(6).toString('hex'), nick: me.nick, ts: Date.now() });
+    await pipe([['LPUSH', BOARD_KEY, JSON.stringify(post)], ['LTRIM', BOARD_KEY, 0, BOARD_MAX - 1]]);
+    return { ok: true, post };
+  },
+  async boardDelete(b) {
+    const me = await auth(b);
+    const id = String(b.id || '');
+    if (!/^[0-9a-f]{12}$/.test(id)) throw new E('잘못된 글 번호');
+    const rows = (await redis(['LRANGE', BOARD_KEY, 0, BOARD_MAX - 1])) || [];
+    const raw = rows.find((r) => r.includes('"id":"' + id + '"'));
+    if (!raw) throw new E('글을 찾을 수 없어요', 404);
+    if (key(JSON.parse(raw).nick) !== me.id) throw new E('내가 쓴 글만 지울 수 있어요', 403);
+    await redis(['LREM', BOARD_KEY, 1, raw]);
+    return { ok: true };
+  },
   async register(b, req) {
     await rateLimit('reg:' + clientIp(req), 10, 3600);
     const nick = String(b.nick || '').normalize('NFC').trim(), pw = String(b.pw || '');
