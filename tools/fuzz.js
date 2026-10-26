@@ -22,11 +22,11 @@ function run({ jobs, n }) {
             const F = G.F[s], O = G.F[1 - s];
             if (mode === 0 || (mode === 1 && s === 0)) {
               const hd = held[s]; if (--hd.t <= 0) { hd.t = 1 + Math.floor(R() * 25); hd.h = [0, B_L, B_R, B_D, B_L | B_U][Math.floor(R() * 5)]; }
-              let p = 0; for (const bb of [B_U, B_P, B_K, B_S1, B_S2, B_S3, B_S4]) if (R() < 0.04) p |= bb;
+              let p = 0; for (const bb of [B_U, B_P, B_K, B_S1, B_S2, B_S3, B_S4, B_S5, B_S6]) if (R() < 0.04) p |= bb;
               const keys = G.qte && R() < 0.05 ? QTE_KEYS[Math.floor(R() * QTE_KEYS.length)] : '';
               return { h: hd.h, p, keys, a: R() < 0.1 ? 1 : 0 };
             }
-            return aiInput(G, F, O, m[s], s === 1 && G.F[1].c === BOSS ? 6 : 3 + (g % 3));
+            return aiInput(G, F, O, m[s], F.boss ? 6 : 3 + (g % 3));
           });
           stepGame(G, inp); f++;
           for (const F of G.F) {
@@ -53,7 +53,7 @@ function run({ jobs, n }) {
 if (!isMainThread) { parentPort.postMessage(run(workerData)); return; }
 (async () => {
   const n = +(process.argv[2] || 1), ids = [...Array(18).keys()];
-  const jobs = []; for (const a of ids) for (const b of ids) if (a !== 17) for (const mode of [0, 1, 2]) jobs.push([a, b, mode]);
+  const jobs = []; for (const a of ids) for (const b of ids) if (!(a === 17 && b === 17)) for (const mode of [0, 1, 2]) jobs.push([a, b, mode]);
   const W = require('os').cpus().length, ch = Array.from({ length: W }, (_, i) => jobs.filter((_, j) => j % W === i));
   const res = await Promise.all(ch.map((c) => new Promise((ok, bad) => { const w = new Worker(__filename, { workerData: { jobs: c, n } }); w.on('message', ok); w.on('error', bad); })));
   const all = Object.assign({}, ...res);
