@@ -825,6 +825,68 @@ STAGE_DEF.tokyo = {
   },
 };
 
+// 히든 보스 스테이지: 한밤중의 학교 운동장
+STAGE_DEF.school = {
+  name: '??? · 한밤중의 학교', country: 'KR', bgm: 'boss',
+  far(g) {
+    const R = mulberry32(171);
+    vgrad(g, 0, 0, W_FAR, FT, [[0, '#0a0000'], [0.55, '#2a0505'], [0.85, '#5a0d0d'], [1, '#8a1f12']]);
+    starsG(g, W_FAR, 90, 50, R, '#ffb3a0');
+    // 붉은 달
+    g.fillStyle = 'rgba(255,60,40,0.18)'; g.beginPath(); g.arc(150, 52, 30, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#ff4d3a'; g.beginPath(); g.arc(150, 52, 19, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#d93a2b'; g.beginPath(); g.arc(144, 48, 4, 0, Math.PI * 2); g.arc(157, 58, 3, 0, Math.PI * 2); g.fill();
+    // 먼 산과 아파트
+    ridge(g, W_FAR, FT - 40, 18, '#1a0303', R, 0.02, 0.05);
+    for (let x = 0; x < W_FAR; x += 26 + R() * 20) { const h = 30 + R() * 30; g.fillStyle = '#140202'; g.fillRect(x, FT - 40 - h, 18, h + 40); windows(g, x, FT - 40 - h, 18, h, R, ['#5a1a10'], '#140202', 5); }
+  },
+  mid(g) {
+    const R = mulberry32(172);
+    // 학교 본관
+    const bx = 70, bw = W_MID - 140, by = 70;
+    g.fillStyle = '#2b1414'; g.fillRect(bx, by, bw, 142);
+    g.fillStyle = '#3a1b1b'; g.fillRect(bx, by, bw, 6);
+    for (let fl = 0; fl < 4; fl++) for (let x = bx + 10; x < bx + bw - 16; x += 24) {
+      const lit = R() < 0.12;
+      g.fillStyle = lit ? '#ffcf70' : '#160909'; g.fillRect(x, by + 14 + fl * 32, 14, 18);
+      g.fillStyle = '#2b1414'; g.fillRect(x + 6, by + 14 + fl * 32, 2, 18);
+    }
+    // 시계탑 (4시 55분)
+    const cx = bx + bw / 2;
+    g.fillStyle = '#331919'; g.fillRect(cx - 22, by - 40, 44, 46);
+    g.fillStyle = '#e8dcc0'; g.beginPath(); g.arc(cx, by - 18, 15, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = '#2a1010'; g.lineWidth = 2; g.beginPath();
+    g.moveTo(cx, by - 18); g.lineTo(cx + Math.sin(4.9 / 12 * Math.PI * 2) * 8, by - 18 - Math.cos(4.9 / 12 * Math.PI * 2) * 8);
+    g.moveTo(cx, by - 18); g.lineTo(cx + Math.sin(55 / 60 * Math.PI * 2) * 12, by - 18 - Math.cos(55 / 60 * Math.PI * 2) * 12); g.stroke();
+    // 현판
+    g.fillStyle = '#1a0a0a'; g.fillRect(cx - 40, by + 140 - 22, 80, 12);
+    g.fillStyle = '#d4af37'; g.font = 'bold 8px sans-serif'; g.textAlign = 'center'; g.fillText('교 무 실', cx, by + 140 - 13); g.textAlign = 'left';
+    // 국기 게양대
+    g.fillStyle = '#777'; g.fillRect(40, 60, 2, 152);
+    g.fillStyle = '#ddd'; g.fillRect(42, 62, 18, 12);
+  },
+  floor(g) {
+    floorBase(g, '#5a3a2a', '#2a1a12');
+    const R = mulberry32(173);
+    for (let i = 0; i < 260; i++) { g.fillStyle = R() < 0.5 ? 'rgba(0,0,0,0.18)' : 'rgba(255,220,180,0.08)'; g.fillRect(R() * ARENA_W, FT + R() * (VH - FT), 2, 1); }
+    // 운동장 흰 선
+    g.fillStyle = 'rgba(255,255,255,0.35)'; g.fillRect(0, 236, ARENA_W, 2);
+    g.fillStyle = '#3a2a22'; g.fillRect(0, FT, ARENA_W, 3);
+  },
+  crowd: { seed: 18, n: 20, pal: ['#1c2a48', '#202020', '#2b2b4a', '#3b1f1f'], y: 210 },
+  anim(ctx, t, cx) {
+    // 가끔 번개
+    const k = t % 420;
+    if (k < 6 && k % 2 === 0) { ctx.fillStyle = 'rgba(255,230,230,0.18)'; ctx.fillRect(0, 0, VW, FT); }
+    // 날리는 낙엽
+    for (let i = 0; i < 14; i++) {
+      const x = (i * 61 + t * (0.5 + (i % 3) * 0.2)) % (VW + 20) - 10;
+      const y = (i * 37 + t * (0.25 + (i % 4) * 0.06) + Math.sin(t * 0.05 + i) * 6) % (FT + 10);
+      ctx.fillStyle = i % 2 ? '#8a3a1a' : '#5a2a10'; ctx.fillRect(x, y, 2, 1);
+    }
+  },
+};
+
 // 스테이지 캐시 빌드
 const _stageCache = {};
 function getStage(key) {

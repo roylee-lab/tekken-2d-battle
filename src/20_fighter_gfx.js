@@ -89,7 +89,7 @@ function idlePose(c, t) {
 
 // 렌더용 상태 판정
 function visualState(F, G) {
-  if (F.ko) return 'ko';
+  if (F.ko || F.tripT > 0) return 'ko';   // 와사바리로 넘어진 동안에도 누운 자세
   if (G) {
     if ((G.phase === 'ko' && G.rw === F.side && G.pt > 70) || (G.phase === 'end' && G.mw === F.side)) return 'win';
     if ((G.phase === 'ko' && G.pt > 70 && G.rw !== F.side && G.rw !== -1) || (G.phase === 'end' && G.mw !== F.side && G.mw !== -1)) return 'lose';
@@ -152,7 +152,8 @@ function poseOf(F, vs, G) {
         if (F.atkStep === 3) p.fax = 1 + 0.15 * k;
         if (F.c === 9) { p.ba = [0.5, 2.0]; p.bhand = 'fist'; p.hand = 'fist'; }
       } else {
-        p.fl = [lerp(0.3, 1.65, k), lerp(0.32, 0.0, k)]; p.bl = [lerp(-0.3, -0.12, k), 0.05]; p.flx = 1 + 0.38 * k;
+        const longLeg = (lookOf(F).b.leg || 1) > 1.1;   // 다리가 아주 긴 캐릭터는 하이킥 (위로 차서 앞으로 덜 나감)
+        p.fl = [lerp(0.3, longLeg ? 2.15 : 1.65, k), lerp(0.32, 0.0, k)]; p.bl = [lerp(-0.3, -0.12, k), 0.05]; p.flx = 1 + 0.38 * k;
         p.lean = -0.38 * k; p.fa = [0.7, 1.6]; p.ba = [-0.35, 0.9]; p.mouth = 'shout';
         p.hand = 'fist'; p.bhand = 'fist';
       }
@@ -399,6 +400,13 @@ function drawCharacter(ctx, c, pose, t, opts) {
     ell(ctx, c1[0], c1[1], 5.2 * H, 4.6 * H, L.top, true, lean);
     ctx.fillStyle = sh(L.top, 0.2); ctx.beginPath(); ctx.ellipse(c1[0] - 1, c1[1] - 1.5, 2.2, 1.4, lean, 0, Math.PI * 2); ctx.fill();
     if (A.hairy) { const n0 = tw(cw * 0.15, -toL + 2), n1 = tw(cw * 0.45, -toL * 0.8); hairStrokes(ctx, n0[0], n0[1], n1[0], n1[1], 5, 3); }
+  }
+  // 넥타이 (교장선생님)
+  if (A.tie) {
+    const n0 = tw(cw * 0.32, -toL + 1), n1 = tw(cw * 0.3, -toL * 0.62), n2 = tw(cw * 0.22, -toL * 0.38), n3 = tw(cw * 0.42, -toL * 0.4);
+    ctx.fillStyle = '#f5f5f5'; ctx.beginPath(); ctx.moveTo(n0[0] - 3, n0[1]); ctx.lineTo(n0[0] + 3, n0[1]); ctx.lineTo(n1[0], n1[1] + 2); ctx.fill();
+    ctx.fillStyle = OUT; ctx.beginPath(); ctx.moveTo(n0[0] - 1.8, n0[1] - 0.5); ctx.lineTo(n0[0] + 1.8, n0[1] - 0.5); ctx.lineTo(n3[0], n3[1] + 0.5); ctx.lineTo(n1[0] - 0.2, n2[1] + 2); ctx.lineTo(n2[0] - 0.5, n2[1] + 0.5); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = A.tie; ctx.beginPath(); ctx.moveTo(n0[0] - 1, n0[1]); ctx.lineTo(n0[0] + 1, n0[1]); ctx.lineTo(n3[0] - 0.6, n3[1]); ctx.lineTo(n1[0] - 0.2, n2[1] + 1); ctx.lineTo(n2[0] + 0.3, n2[1]); ctx.closePath(); ctx.fill();
   }
   // 축구 유니폼 등번호 (차니팍)
   if (A.jersey) {
@@ -721,6 +729,14 @@ function drawHair(ctx, L, hair, r, rx, t) {
       break;
     }
     case 'buzz': capFill(1.03, -0.55, 0.3, col); break;
+    case 'bald': {   // 대머리 + 옆머리 (교장선생님)
+      ctx.save(); ctx.beginPath(); ctx.ellipse(0, 0, rx * 1.1, r * 1.1, 0, 0, Math.PI * 2); ctx.clip();
+      ctx.fillStyle = OUT; ctx.beginPath(); ctx.ellipse(-rx * 0.62, r * 0.05, rx * 0.5, r * 0.55, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = col; ctx.beginPath(); ctx.ellipse(-rx * 0.66, r * 0.05, rx * 0.42, r * 0.47, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+      ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.beginPath(); ctx.ellipse(r * 0.15, -r * 0.62, r * 0.32, r * 0.13, -0.3, 0, Math.PI * 2); ctx.fill();
+      break;
+    }
     case 'crew': cap(1.05, -0.6, 0.35); break;
     case 'slick':
       cap(1.07, -0.55, 0.65, -1);

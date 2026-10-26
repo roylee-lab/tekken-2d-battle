@@ -23,27 +23,53 @@ function build(o) { return Object.assign({}, BASE_BUILD, o); }
 const SLOT_KEYS = ['Q', 'W', 'E', 'R'];
 const SLOT_CD = [5, 10, 30, 60];               // 슬롯별 쿨타임(초)
 const SLOT_CD_START = [5, 10, 20, 30];         // 라운드 시작 시 첫 쿨타임(초)
-function cdText(k) { return SLOT_CD_START[k] !== SLOT_CD[k] ? `첫 ${SLOT_CD_START[k]}초 · 이후 ${SLOT_CD[k]}초` : `${SLOT_CD[k]}초`; }
-const ATK = { pBase: 8, pStep: 3, kickMul: 0.5, pReach: 38, kReach: 60 };
+function cdText(k, c) {
+  const d = c !== undefined && skillDef(c, k);
+  if (d && d.cd) return `${d.cd}초`;   // 보스처럼 자기 쿨타임이 있는 스킬
+  return SLOT_CD_START[k] !== SLOT_CD[k] ? `첫 ${SLOT_CD_START[k]}초 · 이후 ${SLOT_CD[k]}초` : `${SLOT_CD[k]}초`;
+}
+const HITBOX = [   // tools/hitbox.cjs 로 측정 (p 주먹끝, k 발끝, f 몸통 앞면, h 키)
+  { p: 59, k: 73, f: 17, h: 107 },   // 0
+  { p: 59, k: 73, f: 17, h: 107 },   // 1
+  { p: 56, k: 69, f: 16, h: 101 },   // 2
+  { p: 59, k: 73, f: 17, h: 113 },   // 3
+  { p: 60, k: 74, f: 24, h: 109 },   // 4
+  { p: 70, k: 85, f: 24, h: 118 },   // 5
+  { p: 61, k: 74, f: 31, h: 112 },   // 6
+  { p: 67, k: 83, f: 19, h: 121 },   // 7
+  { p: 62, k: 77, f: 16, h: 113 },   // 8
+  { p: 68, k: 82, f: 16, h: 120 },   // 9
+  { p: 59, k: 75, f: 17, h: 108 },   // 10
+  { p: 66, k: 79, f: 18, h: 125 },   // 11
+  { p: 60, k: 74, f: 17, h: 123 },   // 12
+  { p: 62, k: 77, f: 15, h: 114 },   // 13
+  { p: 60, k: 73, f: 17, h: 108 },   // 14
+  { p: 65, k: 81, f: 19, h: 119 },   // 15
+  { p: 68, k: 87, f: 16, h: 137 },   // 16
+  { p: 73, k: 86, f: 16, h: 142 },   // 17
+];
+const HITBOX_SLIM = { p: 61, k: 74, f: 17, h: 112 };
+const ATK = { pBase: 8, pStep: 3, kickMul: 0.5, pReach: 38, kReach: 60, pBonus: 8 };   // pBonus: 주먹 사거리 추가
 const BAL = {   // v4 밸런스 패치: 체력 2배 (경기 시간 증가) + AI 대전 시뮬레이션 기반 조정
-  0: { hp: 212, vacPush: 8, vacStun: 45, stimT: 445, stimLS: 1.0, focusT: 1200, focus: 1.2, vac2Dmg: 15, vac2Stun: 60 },
-  1: { hp: 195, toothN: 4, toothDmg: 3.14, cutPct: 0.047, regen: 10, regenSec: 8, cloneT: 1200, debuffT: 600, debuff: 0.2 },
-  2: { hp: 270, judoDmg: 30, judoStun: 60, parryT: 35, reviveHp: 0.4, reviveDebuff: 0.2, qteN: 5, qteDmg: 10, qteHeal: 10, invisT: 300, invisSpd: 1.5, invisGuardOff: 120 },
-  3: { hp: 232, bambooDmg: 14.92, shootDmg: 11.64, shootMax: 3, spd: 1.2, cdRed: 0.2, crystalDmg: 20, flyDmg: 50 },
-  4: { hp: 146, ddHeal: 0.034, ddEvery: 4, ddMax: 0.1, dicePer: 2.8, angerEvery: 3, angerAdd: 0.05, friend: 0.1, ddTwice: 0.318,
+  0: { hp: 249, vacPush: 8, vacStun: 45, stimT: 445, stimLS: 1.0, focusT: 1200, focus: 1.2, vac2Dmg: 15, vac2Stun: 60 },
+  1: { hp: 221, toothN: 4, toothDmg: 3.14, cutPct: 0.047, regen: 10, regenSec: 8, cloneT: 1200, debuffT: 600, debuff: 0.2 },
+  2: { hp: 230, judoDmg: 30, judoStun: 60, parryT: 35, tripStun: 45, tripRange: 24, qteN: 5, qteDmg: 10, qteHeal: 10, invisT: 300, invisSpd: 1.5, invisGuardOff: 120 },
+  3: { hp: 255, bambooDmg: 14.92, shootDmg: 11.64, shootMax: 3, spd: 1.2, cdRed: 0.2, crystalDmg: 20, flyDmg: 50 },
+  4: { hp: 210, ddHeal: 0.034, ddEvery: 4, ddMax: 0.1, dicePer: 2.8, angerEvery: 3, angerAdd: 0.05, friend: 0.1, ddTwice: 0.318,
     momPct: 0.318, momSec: 31.8, curseSec: 31.8, curseDR: 0.318, curseAtk: 0.318, curseRefl: 0.318 },
-  5: { hp: 240, nunDmg: 4.64, nunRoot: 46, prep: 120, act: 99, atkUp: 0.1, rushDmg: 12, rushStun: 60, chokeDps: 10, chokeNeed: 40, chokeMax: 360 },
-  6: { hp: 174, meokT: 28, manT: 42, ttaT: 1200, bellyHeal: 150, bellySpd: 1.3 },
-  7: { hp: 189, gaeDmg: 4.85, gaeRoot: 53, poisT: 262, poisTick: 1, footExt: 60, stackMax: 5, breathDmg: 5, breathStun: 60, breathHB: 180, burpAtk: 0.1, burpHeal: 10, burpStun: 60, burpT: 600 },
-  8: { hp: 221, noteDiff: 0.498, noteSame: 0.15, noteHeal: 7, boardSpd: 1.2, dr: 0.1, laughDmg: 300, laughWind: 24, laughReach: 12, kcT: 300, kcDmg: 1 },
-  9: { hp: 182, pressRoot: 30, pressSlow: 79, forceT: 132, awakeSec: 30, awakeMul: 1.3, awakeCd: 1, rageT: 1200, rage: 1.3, penT: 120, penSlow: 0.25, earT: 1800 },
-  10: { hp: 208, fartMul: 0.633, explMul: 2.3, poisT: 300, poisTick: 1, bombRed: 5, legT: 1200, leg: 1.3, shuttleHit: 50, shuttleBlock: 5 },
-  11: { hp: 198, painMax: 5, painRoot: 208, majRoot: 70, majBoost: 180, majSpd: 0.1, yankP: 0.5, fireT: 45, fireDmg: 1 },
-  12: { hp: 208, sealSec: 8, headDmg: 13, spikeT: 300, spikeDR: 0.1, headInv: 60, otaku: 0.1, growT: 1200, grow: 1.3, growPush: 72, moP: 0.5 },
-  13: { hp: 182, late: 0.1, kkDmg: 5, drunkT: 300, jjinSelf: 10, jjinStun: 150, formT: 600, form: 1.3 },
-  14: { hp: 214, furDot: 0.5, sneezeP: 0.15, sneezeT: 30, shingT: 600, shingDmg: 1, chestT: 300, chestDR: 0.5, antN: 100, antWave: 25, antWaveT: 30, antSpd: 12, antHp: 2, antDmg: 1, antBite: 60, antLife: 117 },
-  16: { hp: 132, ironAt: 0.2, ironT: 300, ironRange: 2, pimoLife: 420, pimoRoot: 240, pimoMax: 2, mantisT: 240, mantis: 1.5, clockT: 300, clockSpd: 1.75, clockStun: 60, clockSec: 455, phonePct: 0.2, phoneT: 1800 },
-  15: { hp: 192, eun: 0.1, mallangT: 180, mallangRefl: 0.5, ballMin: 3, ballMax: 30, fifaT: 1200, fifaLS: 0.5, fifaAtk: 0.1, fifaMul: 2, bombDmg: 50, bombFuse: 60, bombR: 85 },
+  5: { hp: 244, nunDmg: 4.64, nunRoot: 46, prep: 120, act: 99, atkUp: 0.1, rushDmg: 12, rushStun: 60, chokeDps: 10, chokeNeed: 40, chokeMax: 360 },
+  6: { hp: 278, meokT: 28, manT: 42, ttaT: 1200, bellyHeal: 150, bellySpd: 1.3 },
+  7: { hp: 180, gaeDmg: 4.85, gaeRoot: 53, poisT: 262, poisTick: 1, footExt: 60, stackMax: 5, breathDmg: 5, breathStun: 60, breathHB: 180, burpAtk: 0.1, burpHeal: 10, burpStun: 60, burpT: 600 },
+  8: { hp: 193, noteDiff: 0.498, noteSame: 0.15, noteHeal: 7, boardSpd: 1.2, dr: 0.1, laughDmg: 300, laughWind: 24, laughReach: 12, kcT: 300, kcDmg: 1 },
+  9: { hp: 130, pressRoot: 30, pressSlow: 79, forceT: 132, awakeSec: 30, awakeMul: 1.3, awakeCd: 1, rageT: 1200, rage: 1.3, penT: 120, penSlow: 0.25, earT: 1800 },
+  10: { hp: 214, fartMul: 0.633, explMul: 2.3, poisT: 300, poisTick: 1, bombRed: 5, legT: 1200, leg: 1.3, shuttleHit: 50, shuttleBlock: 5 },
+  11: { hp: 193, painMax: 5, painRoot: 208, majRoot: 70, majBoost: 180, majSpd: 0.1, yankP: 0.5, fireT: 45, fireDmg: 1 },
+  12: { hp: 208, sealSec: 8, headDmg: 13, spikeT: 300, spikeDR: 0.1, headInv: 60, otaku: 0.1, growT: 1200, grow: 1.3, growPush: 72, moP: 0.25, yutMin: 1, yutMax: 50 },
+  13: { hp: 161, late: 0.1, kkDmg: 5, drunkT: 300, jjinSelf: 10, jjinStun: 150, formT: 600, form: 1.3 },
+  14: { hp: 234, furDot: 0.5, sneezeP: 0.15, sneezeT: 30, shingT: 600, shingDmg: 1, chestT: 300, chestDR: 0.5, antN: 100, antWave: 25, antWaveT: 30, antSpd: 12, antHp: 2, antDmg: 1, antBite: 60, antLife: 117 },
+  16: { hp: 150, ironAt: 0.2, ironT: 300, ironRange: 2, pimoLife: 420, pimoRoot: 240, pimoMax: 2, mantisT: 240, mantis: 1.5, clockT: 300, clockSpd: 1.75, clockStun: 60, clockSec: 455, phonePct: 0.2, phoneT: 600 },
+  15: { hp: 308, eun: 0.1, mallangT: 180, mallangRefl: 0.5, ballMin: 3, ballMax: 30, fifaT: 1200, fifaLS: 0.5, fifaAtk: 0.1, fifaMul: 2, bombDmg: 50, bombFuse: 60, bombR: 85 },
+  17: { hp: 200, barrierN: 3, barrierGap: 90, barrierOff: 300, tpCd: 5, pushCd: 10, pushDmg: 10, shotCd: 15, shotDmg: 20, shotSpd: 16, bombCd: 20, bombDmg: 50, bombSpd: 19, domCd: 30, domT: 1800, domDmg: 1, healCd: 60, lives: 2 },   // 히든 보스 (밸런스 대상 아님)
 };
 function skillDef(c, slot) { return CHARS[c]['s' + (slot + 1)] || null; }
 function skillInfo(c, slot) { const d = skillDef(c, slot); return d ? d.info(BAL[c]) : '비어 있는 슬롯 (추후 추가 예정)'; }
@@ -79,14 +105,14 @@ const CHARS = [
   },
   {
     name: 'JJjin', en: 'JJJIN', color: '#8B4513', country: 'FR', stage: 'paris',
-    desc: ['유도와 패링의 파이터', '쓰러져도 다시 일어난다'],
+    desc: ['유도와 패링의 파이터', '발을 걸어 넘어뜨린다'],
     s1: { name: '유도', info: (b) => `근접 업어치기: 고정 ${b.judoDmg} 피해 (가드 불가) + 상대를 반대편으로 메쳐 ${(b.judoStun / 60).toFixed(1)}초 넘어뜨림` },
     s2: { name: '패링', info: (b) => `${(b.parryT / 60).toFixed(2)}초간 공격 무효화 및 반사 밀어내기` },
     s3: { name: '패드립 배틀', heal: true, info: (b) => `화면의 글자를 먼저 누른 쪽이 고정 ${b.qteDmg} 피해 + ${b.qteHeal} 회복 (${b.qteN}글자)` },
     s4: { name: '영역 전개', info: (b) => `${b.invisT / 60}초간 무적 + 투명 + 이동속도 +${Math.round((b.invisSpd - 1) * 100)}%, 상대 ${b.invisGuardOff / 60}초 가드 불가` },
-    passive: { name: '부활', desc: (b) => `라운드마다 1회, 쓰러지면 최대 체력 ${Math.round(b.reviveHp * 100)}%로 부활 (부활 후 이속·공격력 등 모든 능력치 -${Math.round(b.reviveDebuff * 100)}%)` },
+    passive: { name: '와사바리', desc: (b) => `가까이 붙어서 킥을 맞히면 발을 걸어 넘어뜨림 (${(b.tripStun / 60).toFixed(2)}초 다운)` },
     look: {
-      H: 0.84, b: build({ torsoW: 14, waistW: 11.5, thigh: 6.2, shin: 5.2, arm: 4.8, fore: 4.3 }), skin: '#5e3a22',
+      H: 0.95, b: build({ torsoW: 14, waistW: 11.5, thigh: 6.2, shin: 5.2, arm: 4.8, fore: 4.3 }), skin: '#5e3a22',
       hair: { style: 'buzz', color: '#0d0d0d' }, top: '#a0522d', topStyle: 'tank', pants: '#3b2412', shoes: '#e8e8e8', acc: { headband: '#f1c40f' },
     },
   },
@@ -213,7 +239,7 @@ const CHARS = [
     s1: { name: '뾰족한 머리', info: (b) => `박치기 고정 ${b.headDmg} 피해 + ${b.headInv / 60}초 무적 + ${b.spikeT / 60}초간 받는 피해 -${Math.round(b.spikeDR * 100)}%` },
     s2: { name: '해킹', info: (b) => `상대 스킬 1개 ${b.sealSec}초 사용 불가 + 1회 복제 (W 다시 누르기)` },
     s3: { name: '난쟁이의 희망', info: (b) => `${b.growT / 60}초간 사거리·몸집 +${Math.round((b.grow - 1) * 100)}% + 상대 ${b.growPush}px 밀어냄` },
-    s4: { name: '모 아니면 도', info: (b) => `윷! ${Math.round(b.moP * 100)}% 확률로 모: 상대 즉사 / 도: 1 피해` },
+    s4: { name: '모 아니면 도', info: (b) => `윷! ${Math.round(b.moP * 100)}% 확률로 모: 상대 즉사 / 나머지: ${b.yutMin}~${b.yutMax} 랜덤 피해` },
     passive: { name: '오타쿠', desc: (b) => `상대가 이은뚱이면 모든 능력치 +${Math.round(b.otaku * 100)}%, 일본 스테이지에서 +${Math.round(b.otaku * 100)}% (중첩)` },
     look: {
       H: 1.02, b: build({ torsoW: 14.5, waistW: 12, thigh: 6, shin: 5.2, arm: 4.6, fore: 4.2 }), skin: '#f2c99e',
@@ -272,10 +298,33 @@ const CHARS = [
       hair: { style: 'parted', color: '#151515' }, top: '#37474f', topStyle: 'tee', pants: '#263238', shoes: '#eeeeee', acc: { arc: true },
     },
   },
+  {   // 17: 히든 보스 — LUNATIC 선택 후 CPU 대전 선택 화면에서 B
+    name: '흑요', en: 'HEUGYO', color: '#c9a227', country: 'KR', stage: 'school', hidden: true, boss: true,
+    desc: ['정체를 알 수 없는 히든 보스', '키 190cm 이상 · 2페이즈'],
+    // 보스 전용 스킬 6개 (쿨타임 초) — 2페이즈부터 사용
+    bossSk: [
+      { name: '순간 이동', cd: 5, info: () => '즉시 상대의 등 뒤로 이동' },
+      { name: '척력 파동', cd: 10, info: (b) => `상대를 맵의 가장 먼 끝으로 날려 보내고 ${b.pushDmg} 피해` },
+      { name: '금강탄', cd: 15, info: (b) => `거대한 탄을 아주 빠르게 발사, ${b.shotDmg} 피해` },
+      { name: '흑점탄', cd: 20, info: (b) => `검은 탄을 아주 빠르게 발사, ${b.bombDmg} 피해` },
+      { name: '절대 영역', cd: 30, info: (b) => `${b.domT / 60}초간 상대를 계속 기절시키고 1프레임마다 ${b.domDmg} 피해` },
+      { name: '완전 재생', cd: 60, info: () => '체력을 즉시 최대로 회복' },
+    ],
+    passive: { name: '절대 결계', desc: (b) => `펀치·킥 등 물리 공격을 전부 무시. ${b.barrierN}번 연속으로 공격받으면 ${b.barrierOff / 60}초간 결계 해제` },
+    look: {
+      H: 1.27, b: build({ torsoW: 11.5, waistW: 9.5, thigh: 4.4, shin: 3.8, arm: 3.4, fore: 3.0, headR: 8.2, leg: 1.12 }), skin: '#e6c3a0',
+      hair: { style: 'slick', color: '#16161d' }, top: '#2f3542', topStyle: 'hoodie', pants: '#1e2029', shoes: '#111111', acc: {},
+    },
+    look2: {   // 2페이즈: 후드를 벗고 금빛 코트
+      H: 1.27, b: build({ torsoW: 11.5, waistW: 9.5, thigh: 4.4, shin: 3.8, arm: 3.4, fore: 3.0, headR: 8.2, leg: 1.12 }), skin: '#e6c3a0',
+      hair: { style: 'slick', color: '#16161d' }, top: '#141a2e', topStyle: 'coat', pants: '#141a2e', shoes: '#111111', acc: { gold: true },
+    },
+  },
 ];
 const SELECT_ORDER = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 13, 14, 15, 16]; // 8+8 그리드 (Tirón은 K로)
 const SEL_COLS = 8;
-const TIRON = 11, HINCHAM = 12, YOUNGTAK = 13, GAEMI = 14, CHANI = 15, YUDONG = 16;
+const TIRON = 11, HINCHAM = 12, YOUNGTAK = 13, GAEMI = 14, CHANI = 15, YUDONG = 16, BOSS = 17;
+
 
 // 승리 기록
 function getRecords() {

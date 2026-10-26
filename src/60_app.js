@@ -19,6 +19,7 @@ const WIN_QUOTES = {
   14: '털 하나에도 개미 백 마리가 산다.',
   15: '센터백은 뚫려도 은뚱은 터진다.',
   16: '4시 55분이다. 휴대폰은 내일 돌려받는다.',
+  17: '봉인을 풀게 만든 건 네가 처음이다.',
 };
 
 const APP = {
@@ -118,7 +119,7 @@ function tick() {
 
 const TITLE_MENU = () => [
   'CPU 대전', ACC.token ? `친구 대전 (${ACC.nick})` : '친구 대전 (로그인)', '온라인 대전 (방 코드)', '캐릭터 도감',
-  '난이도 : ' + DIFF[APP.diff].name,
+  '난이도 : ' + DIFF[APP.diff].name + (APP.diff === 5 ? ' ★' : ''),
   'BGM : ' + (AUD.musicOn ? 'ON' : 'OFF'),
   '효과음 : ' + (AUD.sfxOn ? 'ON' : 'OFF'),
   '아나운서 음성 : ' + (AUD.voiceOn ? 'ON' : 'OFF'),
@@ -163,6 +164,12 @@ function updSelect() {
   if (IN.take('U') || IN.take('D')) { S.cur = S.cur < SEL_COLS ? Math.min(N - 1, S.cur + SEL_COLS) : S.cur - SEL_COLS; moved = true; }
   if (moved) { S.hidden = false; playSfx('cursor'); if (APP.mode === 'online') sendSel(); }
   const hid = IN.take('HID');
+  // LUNATIC + CPU 대전: B를 누르면 히든 보스전
+  const boss = IN.take('BOSS') && APP.mode === 'cpu' && APP.diff === 5;
+  if (boss) {
+    S.ready = true; playSfx('confirm'); announce(CHARS[myChar()].en.toLowerCase());
+    S.cpuC = BOSS; APP._vsDelay = 45; playSfx('roar'); return;
+  }
   if (hid || IN.take('START') || IN.take('S1') || IN.take('P')) {
     S.hidden = hid;
     S.ready = true; S.readyAt = performance.now(); playSfx('confirm');
@@ -174,8 +181,9 @@ function updSelect() {
   }
 }
 
+function dictOrder() { return [...SELECT_ORDER, TIRON]; }
 function updDict() {
-  const order = [...SELECT_ORDER, TIRON];
+  const order = dictOrder();
   let i = order.indexOf(APP.dict);
   if (IN.take('L') || IN.take('U')) { i = (i + order.length - 1) % order.length; playSfx('cursor'); APP.st = 0; }
   if (IN.take('R') || IN.take('D')) { i = (i + 1) % order.length; playSfx('cursor'); APP.st = 0; }
@@ -207,7 +215,9 @@ function updFight() {
   }
   if (G.phase === 'end') {
     if (G.pt > 90) {
-      if (IN.take('START')) { if (APP.mode === 'online') netSend({ t: 'menu', to: 'select' }); goSelect(); return; }
+      if (IN.take('START')) {
+        if (APP.mode === 'online') netSend({ t: 'menu', to: 'select' }); goSelect(); return;
+      }
       if (IN.take('BACK')) { goTitle(); return; }
       if (APP.mode === 'cpu' && IN.take('S4')) { startVS(G.F[0].c, G.F[1].c, G.stage, (Math.random() * 1e9) | 0, APP.vs && APP.vs.late); return; }
     }
@@ -215,7 +225,7 @@ function updFight() {
   const me = APP.autoP1 ? aiInput(G, G.F[0], G.F[1], APP.ai[0], 2) : { h: IN.heldMask(), p: IN.pressMask(), keys: IN.takeKeys(), a: IN.takeAny() };
   let inputs;
   if (APP.mode === 'online') inputs = [me, guestInput()];
-  else inputs = [me, aiInput(G, G.F[1], G.F[0], APP.ai[1], APP.diff)];
+  else inputs = [me, aiInput(G, G.F[1], G.F[0], APP.ai[1], G.F[1].c === BOSS ? 6 : APP.diff)];
   G.ev = [];
   stepGame(G, inputs);
   handleEvents(G, G.ev);
@@ -324,7 +334,7 @@ function rSelectBuf(t) {
   selBg(t);
   const S = APP.sel;
   const leftC = APP.mySide === 0 ? myChar() : (S.opp.c !== null ? S.opp.c : SELECT_ORDER[S.opp.cur]);
-  const rightC = APP.mySide === 0 ? (APP.mode === 'cpu' ? (S.roulette > 0 || S.cpuC !== null ? SELECT_ORDER[S.opp.cur] : null) : (S.opp.c !== null ? S.opp.c : SELECT_ORDER[S.opp.cur])) : myChar();
+  const rightC = APP.mySide === 0 ? (APP.mode === 'cpu' ? (S.cpuC === BOSS ? BOSS : S.roulette > 0 || S.cpuC !== null ? SELECT_ORDER[S.opp.cur] : null) : (S.opp.c !== null ? S.opp.c : SELECT_ORDER[S.opp.cur])) : myChar();
   for (const [c, x, f, ready] of [[leftC, 78, 1, APP.mySide === 0 ? S.ready : S.opp.ready], [rightC, 402, -1, APP.mySide === 1 ? S.ready : S.opp.ready]]) {
     bctx.fillStyle = 'rgba(0,0,0,0.35)'; bctx.beginPath(); bctx.ellipse(x, 176, 40, 6, 0, 0, Math.PI * 2); bctx.fill();
     if (c === null || c === undefined) {
@@ -355,7 +365,7 @@ function rSelectHUD(t) {
   const cursors = [];
   cursors.push({ side: APP.mySide, cur: S.cur, ready: S.ready, hidden: S.hidden });
   if (APP.mode === 'online') cursors.push({ side: 1 - APP.mySide, cur: S.opp.cur, ready: S.opp.ready });
-  else if (S.roulette > 0 || S.cpuC !== null) cursors.push({ side: 1, cur: S.opp.cur, ready: S.roulette === 0, cpu: true });
+  else if ((S.roulette > 0 || S.cpuC !== null) && S.cpuC !== BOSS) cursors.push({ side: 1, cur: S.opp.cur, ready: S.roulette === 0, cpu: true });
   for (const c of cursors) {
     const T = tiles[c.cur]; if (!T) continue;
     const col = c.side === 0 ? '#ff3b3b' : '#3b9bff';
@@ -370,6 +380,7 @@ function rSelectHUD(t) {
   const showC = (side) => {
     if (side === APP.mySide) return myChar();
     if (APP.mode === 'online') return S2.opp.c !== null ? S2.opp.c : SELECT_ORDER[S2.opp.cur];
+    if (S2.cpuC === BOSS) return BOSS;
     return S2.roulette > 0 || S2.cpuC !== null ? SELECT_ORDER[S2.opp.cur] : null;
   };
   for (const side of [0, 1]) {
@@ -403,7 +414,7 @@ function rSelectHUD(t) {
   const rec = getRecords()[myChar()] || 0;
   txt(ctx, `🏆 ${rec}`, 326, 37, 7, '#ffe14d', 'right', FONT_KR2, 0);
   const hint = APP.mode === 'online' ? (S.ready ? '상대를 기다리는 중... (ESC 취소)' : '←→↑↓ 이동 · SPACE 결정 · K 히든 · C 도감')
-    : '←→↑↓ 이동 · SPACE 결정 · K 히든(Tirón) · C 도감 · ESC 뒤로';
+    : '←→↑↓ 이동 · SPACE 결정 · K 히든(Tirón) · C 도감' + (APP.diff === 5 ? ' · B 히든 보스!' : ' · ESC 뒤로');
   txt(ctx, hint, 240, 268, 7, '#aab', 'center', FONT_KR2);
 }
 function wrapText(ctx, s, x, y, maxW, size, col) {
@@ -441,6 +452,7 @@ function rVSHUD(t) {
   const S = STAGE_DEF[v.stage];
   ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(140, 246, 200, 16);
   txt(ctx, 'STAGE · ' + S.name, 240, 258, 8.5, '#ffe14d', 'center', FONT_KR2, 0);
+  if (v.c1 === BOSS && (t >> 3) % 2) { ctx.fillStyle = 'rgba(180,0,0,0.75)'; ctx.fillRect(0, 186, VW, 22); bigText(ctx, '!! WARNING · HIDDEN BOSS !!', 240, 203, 13, '#ffffff', '#ff1744'); }
   if (APP.mode === 'online') txt(ctx, APP.mySide === 0 ? '◀ YOU' : 'YOU ▶', APP.mySide === 0 ? 20 : 460, 64, 7, '#ffe14d', APP.mySide === 0 ? 'left' : 'right', FONT_EN);
 }
 
@@ -474,8 +486,8 @@ function rDictHUD(t) {
     const sk = skillDef(c, k);
     ctx.fillStyle = sk ? '#ffe14d' : '#555a70'; ctx.fillRect(210, y - 8, 10, 10);
     txt(ctx, SLOT_KEYS[k], 215, y + 0.5, 6.5, '#000', 'center', FONT_EN, 0);
-    if (!sk) { txt(ctx, `비어 있음 (추후 추가) · 쿨타임 ${cdText(k)}`, 224, y, 8, '#6b6f86', 'left', FONT_KR2, 0); y += 13; continue; }
-    txt(ctx, sk.name + `   쿨타임 ${cdText(k)}`, 224, y, 9.5, '#fff', 'left', FONT_KR, 0);
+    if (!sk) { txt(ctx, `비어 있음 (추후 추가) · 쿨타임 ${cdText(k, c)}`, 224, y, 8, '#6b6f86', 'left', FONT_KR2, 0); y += 13; continue; }
+    txt(ctx, sk.name + `   쿨타임 ${cdText(k, c)}`, 224, y, 9.5, '#fff', 'left', FONT_KR, 0);
     y += wrapText(ctx, skillInfo(c, k), 224, y + 11, 236, 7.5, '#b8c4dd') + 14;
   }
   txt(ctx, '패시브 · ' + C.passive.name, 210, y, 9.5, '#ffb3e6', 'left', FONT_KR, 0);
@@ -483,7 +495,7 @@ function rDictHUD(t) {
   txt(ctx, '“' + WIN_QUOTES[c] + '”', 210, y, 8, '#9fe6ff', 'left', FONT_KR2, 0);
   const rec = getRecords()[c] || 0;
   txt(ctx, `🏆 내 승리 기록: ${rec}회`, 460, 244, 8, '#ffe14d', 'right', FONT_KR2, 0);
-  const order = [...SELECT_ORDER, TIRON];
+  const order = dictOrder();
   txt(ctx, `◀ ${order.indexOf(c) + 1} / ${order.length} ▶`, 334, 244, 8, '#fff', 'center', FONT_EN, 0);
   txt(ctx, '←→ 넘기기 · ESC 닫기', 105, 262, 7.5, '#aab', 'center', FONT_KR2);
 }

@@ -164,6 +164,7 @@ const SONGS = {
   tajmahal: { bpm: 120, root: 61, scale: 'bhairav', prog: [0, 0, 3, 4], style: 'indian', seed: 31 },
   sagrada: { bpm: 146, root: 64, scale: 'phrygdom', prog: [0, 6, 5, 4], style: 'flamenco', seed: 32 },
   tokyo: { bpm: 152, root: 57, scale: 'insen', prog: [0, 2, 3, 1], style: 'techno', seed: 33 },
+  boss: { bpm: 164, root: 50, scale: 'harmonic', prog: [0, 6, 5, 4], style: 'rock', seed: 66 },
 };
 
 // 리듬 템플릿 (마디 단위, [시작 스텝, 길이])

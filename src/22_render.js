@@ -47,7 +47,7 @@ function onAnnounce(G, kind, val) {
       const won = val === me;
       announce(won ? 'You win!' : 'You lose');
       playJingle(won ? 'win' : 'lose');
-      if (won) addRecord(G.F[me].c);
+      if (won) { addRecord(G.F[me].c); if (G.F[1 - me].c === BOSS) toast('🏆 흑요 격파! 당신이 진정한 최강자!'); }
     }
     stopMusic();
   }
@@ -109,6 +109,19 @@ function renderWorld(b, G, t) {
   const cam = Math.round(FX.cam);
   const hype = G.phase === 'ko' ? 1 : (A.hp < A.maxHp * 0.3 || Bf.hp < Bf.maxHp * 0.3) ? 0.5 : 0;
   drawStage(b, G.stage, cam, t, hype);
+  // 흑요 절대 영역: 멈춘 시간 (검정·금색 시계 문양)
+  const dom = G.F.find((F) => F.c === BOSS && F.domT > 0);
+  if (dom) {
+    b.fillStyle = 'rgba(6,5,12,0.86)'; b.fillRect(0, 0, VW, VH);
+    const cx = VW / 2, cy = 110;
+    b.strokeStyle = 'rgba(201,162,39,0.55)'; b.lineWidth = 1;
+    for (let r = 30; r < 330; r += 34) { b.beginPath(); b.arc(cx, cy, r, 0, Math.PI * 2); b.stroke(); }
+    for (let i = 0; i < 12; i++) { const a = (i / 12) * Math.PI * 2; b.beginPath(); b.moveTo(cx + Math.cos(a) * 24, cy + Math.sin(a) * 24); b.lineTo(cx + Math.cos(a) * 330, cy + Math.sin(a) * 330); b.stroke(); }
+    b.strokeStyle = '#c9a227'; b.lineWidth = 3;
+    b.beginPath(); b.moveTo(cx, cy); b.lineTo(cx + Math.cos(-1.2) * 60, cy + Math.sin(-1.2) * 60); b.stroke();
+    b.lineWidth = 2; b.beginPath(); b.moveTo(cx, cy); b.lineTo(cx + Math.cos(0.4) * 90, cy + Math.sin(0.4) * 90); b.stroke();
+    for (let i = 0; i < 40; i++) { b.fillStyle = i % 3 ? 'rgba(255,240,200,0.5)' : 'rgba(201,162,39,0.8)'; b.fillRect((i * 97) % VW, (i * 53) % 200, 1, 1); }
+  }
 
   // 죽순 / 피모
   for (const tr of G.traps) {
@@ -255,10 +268,11 @@ function drawFighterInGame(b, F, G, t) {
     FX.parts.push({ k: 'flame', x: F.x + (Math.random() - 0.5) * 30, y: F.y + Math.random() * 90, vx: 0, vy: 0.6, life: 18, c: Math.random() < 0.5 ? '#9b30ff' : '#2a0040', r: 2.5 });
     if ((t % 90) === 0) FX.floats.push({ x: F.x + (Math.random() - 0.5) * 30, y: F.y + 110, t: '31.8', c: '#c06bff', life: 50 });
   }
-  if (F.awake || F.stimT > 0 || F.spikeT > 0 || F.curseT > 0) {
+  if (F.c === BOSS && F.bph === 2 && (t % 3) === 0) FX.parts.push({ k: 'flame', x: F.x + (Math.random() - 0.5) * 36, y: F.y + Math.random() * 120, vx: 0, vy: 0.7, life: 20, c: Math.random() < 0.5 ? '#c9a227' : '#14121e', r: 2.5 });
+  if (F.awake || F.stimT > 0 || F.spikeT > 0 || F.curseT > 0 || (F.c === BOSS && F.bph === 2)) {
     b.save(); b.globalAlpha = 0.5 + 0.2 * Math.sin(t * 0.3);
     b.filter = 'none';
-    const glow = F.curseT > 0 ? '#7a00ff' : F.awake ? '#c86bff' : F.stimT > 0 ? '#ff3b3b' : '#00e676';
+    const glow = F.c === BOSS ? '#c9a227' : F.curseT > 0 ? '#7a00ff' : F.awake ? '#c86bff' : F.stimT > 0 ? '#ff3b3b' : '#00e676';
     for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
       b.drawImage(silhouette(glow), ox + dx * 1.5, oy + dy * 1.5);
     }
@@ -270,7 +284,7 @@ function drawFighterInGame(b, F, G, t) {
   drawSkillFX(b, F, G, t, sx, sy);
   // 이유동 아이언맨 레이저 펀치
   if (F.c === YUDONG && (F.ironT > 0 || F.phoneT > 0) && F.atk === 'P' && F.atkT >= F.atkAct - 1 && F.atkT <= F.atkAct + 4) {
-    const len = radius(F) + reachOf(F, 'P'), y0 = sy - 66 * lookOf(F).H * FSCALE;
+    const len = reachOf(F, 'P'), y0 = sy - 66 * lookOf(F).H * FSCALE;
     b.strokeStyle = 'rgba(120,220,255,0.55)'; b.lineWidth = 6; b.beginPath(); b.moveTo(sx + F.f * 12, y0); b.lineTo(sx + F.f * len, y0); b.stroke();
     b.strokeStyle = '#ffffff'; b.lineWidth = 2; b.beginPath(); b.moveTo(sx + F.f * 12, y0); b.lineTo(sx + F.f * len, y0); b.stroke();
   }
@@ -312,6 +326,12 @@ function drawSkillFX(b, F, G, t, sx, sy) {
   }
   if (F.breathN > 0 && (t % 2) === 0) {
     FX.parts.push({ k: 'bub', x: F.x + F.f * 18, y: F.y + 72 * H, vx: F.f * (2 + Math.random() * 1.5), vy: (Math.random() - 0.5) * 0.5, life: 22, c: Math.random() < 0.5 ? '#a8ff60' : '#6dbf2a', r: 2 + Math.random() * 3 });
+  }
+  if (F.c === BOSS && F.bOffT <= 0 && !F.ko) {   // 흑요 절대 결계
+    const pulse = 0.35 + 0.15 * Math.sin(t * 0.15), cy = sy - 62 * H;
+    b.strokeStyle = `rgba(150,220,255,${pulse})`; b.lineWidth = 1;
+    b.beginPath(); b.ellipse(sx, cy, 30 * H, 70 * H, 0, 0, Math.PI * 2); b.stroke();
+    for (let i = 0; i < 6; i++) { const a = t * 0.03 + i * Math.PI / 3; b.fillStyle = `rgba(190,235,255,${pulse})`; b.fillRect(sx + Math.cos(a) * 30 * H - 1, cy + Math.sin(a) * 70 * H - 1, 2, 2); }
   }
   if (F.laughT > 0) txt(b, 'ㅋ'.repeat(1 + ((t >> 2) % 4)), mx + F.f * 6, my - 8, 8, '#ff66b3', 'center', FONT_KR, '#000');
   if (F.kcT > 0 && (t % 12) < 8) txt(b, 'K C K C', sx, sy - 120 * H * FSCALE, 6, '#ff66b3', 'center', FONT_EN, '#000');
@@ -403,6 +423,20 @@ function drawProjectile(b, p, t, G) {
   const d = sign(p.vx);
   b.save(); b.translate(sx, sy);
   switch (p.t) {
+    case 'goldshot': {   // 금강탄
+      const r = 16 + Math.sin(t * 0.8) * 1.5;
+      b.fillStyle = 'rgba(201,162,39,0.35)'; b.beginPath(); b.ellipse(-d * 14, 0, r * 1.9, r * 0.9, 0, 0, Math.PI * 2); b.fill();
+      b.fillStyle = '#c9a227'; b.beginPath(); b.arc(0, 0, r, 0, Math.PI * 2); b.fill();
+      b.fillStyle = '#fff3c4'; b.beginPath(); b.arc(d * 3, -3, r * 0.55, 0, Math.PI * 2); b.fill();
+      break;
+    }
+    case 'darkshot': {   // 흑점탄
+      b.fillStyle = 'rgba(201,162,39,0.5)'; b.beginPath(); b.arc(0, 0, 15, 0, Math.PI * 2); b.fill();
+      b.fillStyle = '#05040a'; b.beginPath(); b.arc(0, 0, 12, 0, Math.PI * 2); b.fill();
+      b.strokeStyle = '#ffe9a8'; b.lineWidth = 1; b.beginPath(); b.arc(0, 0, 12, t * 0.3, t * 0.3 + 4); b.stroke();
+      for (let i = 1; i < 5; i++) { b.fillStyle = `rgba(20,16,30,${0.5 - i * 0.1})`; b.beginPath(); b.arc(-d * i * 9, 0, 11 - i * 2, 0, Math.PI * 2); b.fill(); }
+      break;
+    }
     case 'vacuum': {
       const w = 1 + Math.sin(t * 0.6) * 0.15;
       b.fillStyle = 'rgba(120,200,255,0.35)'; b.beginPath(); b.ellipse(-d * 6, 0, 16 * w, 11, 0, 0, Math.PI * 2); b.fill();
@@ -566,7 +600,7 @@ function renderHUD(ctx, G, t) {
       txt(ctx, (s === APP.mySide ? '▶ ' : '') + lab, s === 0 ? bx + bw - 28 : bx + 28, 32, 7, s === APP.mySide ? '#ffe14d' : '#9fd0ff', s === 0 ? 'right' : 'left', FONT_KR2);
     }
     // 라운드 승리 표시
-    for (let i = 0; i < WIN_ROUNDS; i++) {
+    for (let i = 0; i < (G.winN || WIN_ROUNDS); i++) {
       const wx = s === 0 ? bx + bw - 8 - i * 10 : bx + 8 + i * 10;
       const won = F.wins > i;
       ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(wx, 27 + 0, 4, 0, Math.PI * 2); ctx.fill();
@@ -610,12 +644,48 @@ function renderHUD(ctx, G, t) {
   if (G.yut) drawYut(ctx, G.yut, t);
   if (G.qte) drawQTE(ctx, G, t);
   if (G.clock) drawClock(ctx, G.clock, t);
+  if (G.cut) drawBossCut(ctx, G, t);
   // 아나운서
   drawAnnouncer(ctx, G, t);
 }
+// 흑요 2페이즈 컷신
+function drawBossCut(ctx, G, t) {
+  const c = G.cut, k = 210 - c.t;
+  const F = G.F[c.side];
+  const bar = Math.min(40, k * 2);
+  ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(0, 0, VW, VH);
+  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, VW, bar); ctx.fillRect(0, VH - bar, VW, bar);
+  if (k > 20) {
+    const a = Math.min(1, (k - 20) / 30), slide = (1 - a) * 80;
+    ctx.globalAlpha = a;
+    ctx.save(); ctx.beginPath(); ctx.rect(0, bar, VW, VH - bar * 2); ctx.clip();
+    for (let i = 0; i < 16; i++) { ctx.strokeStyle = 'rgba(201,162,39,0.35)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(140, 140); const an = i / 16 * Math.PI * 2 + k * 0.01; ctx.lineTo(140 + Math.cos(an) * 400, 140 + Math.sin(an) * 400); ctx.stroke(); }
+    const L0 = CHARS[BOSS].look; CHARS[BOSS].look = CHARS[BOSS].look2; drawPortrait(ctx, BOSS, 140 - slide, 175, 7, 1, 'n', t); CHARS[BOSS].look = L0;
+    ctx.restore();
+    bigText(ctx, '흑 요', 330 + slide, 110, 24, '#fff3c4', '#c9a227', FONT_KR);
+    txt(ctx, k > 80 ? '「…장난은 여기까지다.」' : '', 330, 140, 10, '#ffffff', 'center', FONT_KR, '#000');
+    txt(ctx, k > 130 ? 'PHASE 2 · 봉인 해제' : '', 330, 162, 9, '#c9a227', 'center', FONT_EN, '#000');
+    ctx.globalAlpha = 1;
+  }
+}
 function measure(ctx, s, size) { ctx.font = `${size}px ${FONT_KR}`; return ctx.measureText(s).width; }
 
+function drawBossSkills(ctx, F, s, t) {
+  const sk = CHARS[BOSS].bossSk;
+  for (let k = 0; k < 6; k++) {
+    const w = 58, h = 10, col = k % 3, row = Math.floor(k / 3);
+    const x = s === 0 ? 30 + col * (w + 3) : 450 - w - col * (w + 3), y = 37 + row * 12;
+    const cd = F.bcd[k], max = sk[k].cd * SEC, locked = F.bph < 2;
+    ctx.fillStyle = '#000'; ctx.fillRect(x - 1, y - 1, w + 2, h + 2);
+    ctx.fillStyle = locked ? '#15182a' : '#1c2340'; ctx.fillRect(x, y, w, h);
+    if (!locked && cd > 0) { ctx.fillStyle = '#4a3f20'; ctx.fillRect(x, y, w * clamp(1 - cd / max, 0, 1), h); }
+    else if (!locked) { ctx.fillStyle = (t >> 4) % 2 ? '#8a6d14' : '#a8851a'; ctx.fillRect(x, y, w, h); }
+    txt(ctx, locked ? '???' : sk[k].name, x + 2, y + 8, 6.5, locked ? '#6b6f86' : '#fff', 'left', FONT_KR2, 0);
+    if (!locked && cd > 0) txt(ctx, Math.ceil(cd / SEC) + '', x + w - 2, y + 8, 6, '#ffe14d', 'right', FONT_EN, 0);
+  }
+}
 function drawSkillBoxes(ctx, F, s, t) {
+  if (F.c === BOSS) { drawBossSkills(ctx, F, s, t); return; }
   for (let k = 0; k < 4; k++) {
     const def = skillDef(F.c, k);
     const w = 88, h = 10, col = k % 2, row = k >> 1;
@@ -664,7 +734,11 @@ function drawStatus(ctx, F, s, t) {
   if (F.momHp > 0 && F.momT > 0) tags.push([`은맘 ${Math.ceil(F.momHp)}/${Math.ceil(F.momMax)}`, '#ff8fb3']);
   if (F.curseT > 0) tags.push([`31.8의 저주 ${Math.ceil(F.curseT / SEC)}s`, '#c06bff']);
   if (F.c === TIRON) tags.push(['고통 ' + F.pain + '/' + BAL[11].painMax, '#ff9f43']);
-  if (F.c === 2 && !F.revived) tags.push(['부활 대기', '#f5c542']);
+  if (F.tripT > 0) tags.push(['넘어짐', '#f5c542']);
+  if (F.c === BOSS) tags.push(F.bOffT > 0 ? ['결계 해제 ' + Math.ceil(F.bOffT / SEC) + 's', '#7fd4ff'] : ['절대 결계 ' + F.bCnt + '/' + BAL[17].barrierN, '#7fd4ff']);
+  if (F.c === BOSS) tags.push([F.bph === 2 ? '2페이즈' : '1페이즈', '#c9a227']);
+  if (F.domT > 0) tags.push(['절대 영역 ' + Math.ceil(F.domT / SEC) + 's', '#c9a227']);
+  if (F.lives > 0) tags.push(['부활 ' + '♥'.repeat(F.lives), '#ff6b9a']);
   if (F.mul > 1.001) tags.push(['공격 +' + Math.round((F.mul - 1) * 100) + '%', '#ff7b3b']);
   if (F.stunT > 0) tags.push(['기절', '#ffe14d']);
   if (F.drunkT > 0) tags.push(['취함 ' + Math.ceil(F.drunkT / SEC) + 's', '#ffd27f']);
@@ -746,7 +820,7 @@ function drawYut(ctx, y, t) {
     const fly = y.t > 0;
     ctx.translate(198 + i * 28, 152 + (fly ? Math.sin(t * 0.5 + i) * 12 : 0));
     ctx.rotate(fly ? t * 0.3 + i : 0.1 * (i - 1.5));
-    const flat = fly ? (t + i * 3) % 8 < 4 : y.res === 5 ? true : i > 0;
+    const flat = fly ? (t + i * 3) % 8 < 4 : y.res === 5 ? true : i < y.res;
     ctx.fillStyle = '#000'; ctx.fillRect(-5, -16, 10, 32);
     ctx.fillStyle = flat ? '#f5deb3' : '#a0522d'; ctx.fillRect(-4, -15, 8, 30);
     if (!flat) { ctx.fillStyle = '#5d2e0f'; for (let k = -10; k <= 10; k += 10) ctx.fillRect(-2, k - 1, 4, 2); }
@@ -754,7 +828,7 @@ function drawYut(ctx, y, t) {
   }
   if (y.t === 0) {
     if (y.res === 5) bigText(ctx, '모!!!', 240, 196, 18, '#fffbe0', '#ffb000', FONT_KR);
-    else bigText(ctx, '도...', 240, 196, 14, '#ffffff', '#888888', FONT_KR);
+    else bigText(ctx, ['도', '개', '걸'][y.res - 1] + '! ' + (y.dmg || 1) + ' 피해', 240, 196, 14, '#ffffff', y.res === 3 ? '#ff8f00' : '#888888', FONT_KR);
   }
 }
 function drawQTE(ctx, G, t) {

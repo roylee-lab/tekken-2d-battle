@@ -4,17 +4,19 @@
 // ============================================================
 const B_L = 1, B_R = 2, B_U = 4, B_D = 8, B_P = 16, B_K = 32, B_S1 = 64, B_S2 = 128, B_S3 = 256, B_S4 = 512;
 const B_SK = [B_S1, B_S2, B_S3, B_S4];
-const PROJ_TYPES = new Set(['VACUUM', 'TOOTH', 'MOLACUT', 'BAMBOO', 'GEOKGI', 'POISON_BULLET', 'GAEGURA', 'NOTE', 'TOXIC_FART', 'CRYSTAL', 'SHUTTLE', 'MAKGEOLLI', 'SHINGLES', 'BALL']);
+const PROJ_TYPES = new Set(['GOLDSHOT', 'DARKSHOT', 'VACUUM', 'TOOTH', 'MOLACUT', 'BAMBOO', 'GEOKGI', 'POISON_BULLET', 'GAEGURA', 'NOTE', 'TOXIC_FART', 'CRYSTAL', 'SHUTTLE', 'MAKGEOLLI', 'SHINGLES', 'BALL']);
 const POISONISH = new Set(['BREATH', 'TOXIC_EXPLOSION', 'TOXIC_FART', 'POISON_BULLET']);
 const MELEE_T = new Set(['PUNCH', 'KICK']);
+const PHYS_T = new Set(['PUNCH', 'KICK', 'JUDO', 'HEADBUTT', 'RUSH', 'CHOKE', 'FLYING']);   // 흑요 결계가 막는 물리 공격
 const QTE_KEYS = 'AFGHJLZXVBNTYUIO';   // 이동·공격·스킬·메뉴 키와 겹치지 않는 글자
 let rnd = Math.random; // 시뮬레이션 난수
 
 const _lookVar = {};
 function lookOf(F) {
-  const base = CHARS[F.c].look;
-  const k = (F.slim && F.c === 6 ? 's' : '') + (F.earT > 0 ? 'e' : '') + (F.drunkT > 0 ? 'd' : '') + (F.c === YUDONG && ironOn(F) ? 'i' : '');
-  if (!k) return base;
+  const p2 = F.c === BOSS && F.bph === 2;   // 흑요 2페이즈 모습
+  const base = p2 ? CHARS[F.c].look2 : CHARS[F.c].look;
+  const k = (p2 ? 'p' : '') + (F.slim && F.c === 6 ? 's' : '') + (F.earT > 0 ? 'e' : '') + (F.drunkT > 0 ? 'd' : '') + (F.c === YUDONG && ironOn(F) ? 'i' : '');
+  if (!k || k === 'p') return base;
   const key = F.c + k;
   if (!_lookVar[key]) {
     const v = Object.assign({}, base, { acc: Object.assign({}, base.acc), b: Object.assign({}, base.b) });
@@ -60,7 +62,7 @@ function makeFighter(side, c) {
     rootT: 0, slowT: 0, delayT: 0, guardOffT: 0, boostT: 0, poisT: 0, poisTick: 0,
     board: false, djUsed: false,
     rushN: 0, rushT: 0, noteN: 0, noteT: 0, noteSess: 0, noteHits: 0, noteFired: 0,
-    ddN: 0, diceN: 0, mul: 1, angerT: 0, awake: false, revived: false, pain: 0,
+    ddN: 0, diceN: 0, mul: 1, angerT: 0, awake: false, pain: 0,
     maemOwn: false, maemEnemy: false, regenT: 0,
     spikeT: 0, dashT: 0, dashDir: 1, headT: 0, headHit: false, castT: 0,
     momHp: 0, momMax: 0, momT: 0, curseT: 0,
@@ -68,7 +70,7 @@ function makeFighter(side, c) {
     laughT: 0, breathN: 0, breathT: 0, breathHit: false, fireT: 0, flyT: 0, flyX: 0, flyFrom: 0, rushT2: 0,
     chokeT: 0, chokeN: 0, chokeTick: 0, chokeHold: false, kkT: 0, shutT: 0, stk: 0, yank: false, slim: false, clone: null, ddFree: false,
     shingT: 0, shingTick: 0, chestT: 0, ants: [], antG: [], antQ: 0, antT: 0, mallangT: 0, fifaT: 0, fifaNext: false, bomb: null,
-    invulT: 0, ironT: 0, ironUsed: false, clockT: 0, phoneT: 0, phoneDmg: 0, phoneStart: 0, phoneHealT: 0, phoneHealAmt: 0,
+    invulT: 0, tripT: 0, bph: 1, bcd: [0, 0, 0, 0, 0, 0], bOffT: 0, bCnt: 0, bLast: -999, domT: 0, lives: 0, ironT: 0, ironUsed: false, clockT: 0, phoneT: 0, phoneDmg: 0, phoneStart: 0, phoneHealT: 0, phoneHealAmt: 0,
     ko: false, wins: 0, combo_recv: 0, comboShowT: 0,
   };
 }
@@ -80,13 +82,15 @@ function newMatch(c0, c1, stage, mode, late) {
     F: [makeFighter(0, c0), makeFighter(1, c1)],
     proj: [], traps: [], freezeT: 0, hitStop: 0, dice: null, notes: [],
     stage, mode, rw: -1, mw: -1, koType: '', perfect: false, flash: 0, ev: [], pid: 0,
+    bossFight: c0 === BOSS || c1 === BOSS, cut: null,
   };
+  G.winN = G.bossFight ? 1 : WIN_ROUNDS;   // 히든 보스전은 단판
   resetRound(G);
   return G;
 }
 
 function resetRound(G) {
-  G.phase = 'intro'; G.pt = 0; G.timer = ROUND_TIME * SEC; G.roundF = 0;
+  G.phase = 'intro'; G.pt = 0; G.timer = (G.bossFight ? 999 : ROUND_TIME) * SEC; G.roundF = 0; G.cut = null;
   G.proj = []; G.traps = []; G.freezeT = 0; G.hitStop = 0; G.dice = null; G.notes = []; G.flash = 0; G.qte = null; G.yut = null; G.clock = null;
   G.rw = -1; G.koType = ''; G.perfect = false;
   for (const F of G.F) {
@@ -99,6 +103,9 @@ function resetRound(G) {
     F.hp = F.maxHp;
     // 첫 라운드는 첫 쿨타임부터, 다음 라운드부터는 이전 라운드의 남은 쿨타임을 그대로 이어감
     F.cd = G.round > 1 ? prevCd : SLOT_CD_START.map((s) => s * SEC);
+    // 히든 보스전: 보스는 1페이즈부터, 플레이어는 부활 2번
+    if (c === BOSS) { F.bph = 1; F.bcd = [0, 0, 0, 0, 0, 0]; F.bOffT = 0; F.bCnt = 0; F.domT = 0; }
+    else if (G.bossFight && G.round === 1) F.lives = BAL[17].lives;
     // 힌참휴 오타쿠 / 영탁 니가 왜 거기서 나와: 모든 능력치 배율
     F.pm = 1;
     if (c === HINCHAM) { if (O.c === 4) F.pm *= 1 + BAL[12].otaku; if (G.stage === 'tokyo') F.pm *= 1 + BAL[12].otaku; }
@@ -137,6 +144,14 @@ function applyDamage(G, A, D, dmg, type, o) {
   const proj = PROJ_TYPES.has(type);
   const hy = D.y + 50 * lookOf(D).H;
   if (D.invulT > 0 && !o.pure && A !== D) { ev(G, 'spark', D.x, hy, 'immune'); ev(G, 'float', D.x, hy + 24, '무적', '#fff6a0'); return 'immune'; }
+  // 흑요 절대 결계: 물리 공격 무시, 연속으로 맞으면 잠깐 해제
+  if (D.c === BOSS && A && A !== D && PHYS_T.has(type) && D.bOffT <= 0) {
+    const B = BAL[17];
+    D.bCnt = G.roundF - D.bLast <= B.barrierGap ? D.bCnt + 1 : 1; D.bLast = G.roundF;
+    if (D.bCnt >= B.barrierN) { D.bCnt = 0; D.bOffT = B.barrierOff; note(G, `결계 해제! ${B.barrierOff / 60}초간 공격이 통한다`, '#7fd4ff', 100); ev(G, 'sfx', 'clash'); ev(G, 'spark', D.x, hy, 'clash'); }
+    else { ev(G, 'spark', D.x, hy, 'immune'); ev(G, 'float', D.x, hy + 24, `결계 ${D.bCnt}/${B.barrierN}`, '#7fd4ff'); ev(G, 'sfx', 'immune'); }
+    return 'immune';
+  }
   // 창가오 거꾸로 쓴 귀마개: 상대 스킬 피해 무시 (일반 공격만 맞음)
   if (D.earT > 0 && A !== D && !MELEE_T.has(type)) { ev(G, 'spark', D.x, hy, 'immune'); ev(G, 'float', D.x, hy + 24, '무시!', '#c38bff'); return 'immune'; }
   if (A && A !== D && A.curseT > 0 && !o.reflect) dmg *= 1 + BAL[4].curseAtk;   // 31.8의 저주: 공격력 증가
@@ -217,7 +232,7 @@ function applyDamage(G, A, D, dmg, type, o) {
   if (dmg > 0) {
     D.hp -= dmg;
     if (D.phoneT > 0) D.phoneDmg += dmg;
-    ev(G, 'float', D.x + rnd() * 10 - 5, hy + 22, (Math.round(dmg * 10) / 10).toString(), blocked ? '#bbbbbb' : (o.fixed ? '#ff5edb' : '#ffe14d'));
+    if (!o.silent) ev(G, 'float', D.x + rnd() * 10 - 5, hy + 22, (Math.round(dmg * 10) / 10).toString(), blocked ? '#bbbbbb' : (o.fixed ? '#ff5edb' : '#ffe14d'));
     if (A !== D && A.stimT > 0 && canHeal(A)) { addHp(A, dmg * BAL[0].stimLS); ev(G, 'heal', A.x, A.y + 50); }
     if (A !== D && A.fifaT > 0 && canHeal(A)) addHp(A, dmg * BAL[15].fifaLS);
     if (A.c === 3 && A !== D) { const red = Math.round(BAL[3].cdRed * SEC); A.cd = A.cd.map((v) => Math.max(0, v - red)); }
@@ -229,13 +244,10 @@ function applyDamage(G, A, D, dmg, type, o) {
 function checkKO(G, D) {
   if (D.hp > 0 || D.ko) return;
   if (D.phoneT > 0 || D.phoneHealT > 0) { D.hp = 0; return; }   // 이유동 휴대폰압수: 스킬이 끝날 때까지 죽지 않음
-  if (D.c === 2 && !D.revived) {
-    D.revived = true; D.hp = D.maxHp * BAL[2].reviveHp; D.hitT = 0;
-    addMod(D, 'revive', 'all', 1 - BAL[2].reviveDebuff, 1e9);   // 부활 후 모든 능력치 감소 (라운드 끝까지)
-    G.freezeT = Math.max(G.freezeT, 75);
-    note(G, `JJjin 부활! (체력 ${Math.round(BAL[2].reviveHp * 100)}%)`, '#f5c542', 110); ev(G, 'sfx', 'revive'); ev(G, 'revive', D.x, D.y);
-    return;
-  }
+  // 히든 보스: 1페이즈 체력이 0이 되면 컷신과 함께 2페이즈
+  if (D.c === BOSS && D.bph === 1) { bossPhase2(G, D); return; }
+  // 히든 보스전: 플레이어는 2번까지 부활 (보스의 지속 스킬은 끝난 것으로 처리)
+  if (G.bossFight && D.c !== BOSS && D.lives > 0) { playerRevive(G, D); return; }
   D.hp = 0; D.ko = true;
 }
 
@@ -255,6 +267,14 @@ function spawnProj(G, F, t, vx, life, r, extra) {
 }
 
 const PROJ_HIT = {
+  goldshot(G, A, T, p) {   // 흑요 금강탄
+    const res = applyDamage(G, A, T, BAL[17].shotDmg, 'GOLDSHOT', { fixed: true });
+    if (res === 'hit') { T.hitT = Math.max(T.hitT, 22); T.kb = sign(p.vx) * 6; G.hitStop = 8; ev(G, 'shake', 12, 6); }
+  },
+  darkshot(G, A, T, p) {   // 흑요 흑점탄
+    const res = applyDamage(G, A, T, BAL[17].bombDmg, 'DARKSHOT', { fixed: true });
+    if (res === 'hit') { T.hitT = Math.max(T.hitT, 30); T.kb = sign(p.vx) * 8; G.hitStop = 12; G.flash = 8; ev(G, 'shake', 20, 9); }
+  },
   vacuum(G, A, T, p) {
     const res = applyDamage(G, A, T, 0, 'VACUUM');
     if (res === 'hit' || (res === 'block' && T.c !== 0)) { T.kb = sign(p.vx) * BAL[0].vacPush; T.hitT = Math.max(T.hitT, BAL[0].vacStun); ev(G, 'sfx', 'whoosh'); }
@@ -648,6 +668,11 @@ const SK = {
     (G, F, O) => {
       if (disrupt(G, O)) { note(G, '해킹 실패! 막혔다', '#ff8fb3', 80); return true; }
       const own = [0, 1, 2, 3].filter((s) => skillDef(O.c, s));
+      if (!own.length) {   // 흑요처럼 일반 스킬 칸이 없는 상대: 보스 스킬 쿨타임을 봉인 시간만큼 묶음
+        if (O.c === BOSS) O.bcd = O.bcd.map((v) => Math.max(v, BAL[12].sealSec * SEC));
+        ev(G, 'hack', F.side); ev(G, 'sfx', 'hack'); note(G, `해킹 성공! ${CHARS[O.c].name}의 스킬 ${BAL[12].sealSec}초 봉인`, '#00e676', 120);
+        return true;
+      }
       let avail = own.filter((s) => O.seal[s] <= 0);
       if (!avail.length) avail = own;
       const s = avail[Math.floor(rnd() * avail.length)];
@@ -720,7 +745,7 @@ const SK = {
       const B = BAL[16];
       F.phoneStart = F.maxHp * B.phonePct; if (F.hp > F.phoneStart) F.hp = F.phoneStart;
       F.phoneT = B.phoneT; F.phoneDmg = 0;
-      note(G, '📱 휴대폰압수! 30초간 아이언맨 + 죽지 않음', '#ff5252', 120); ev(G, 'sfx', 'roar'); ev(G, 'shake', 10, 5);
+      note(G, '📱 휴대폰압수! ' + BAL[16].phoneT / 60 + '초간 아이언맨 + 죽지 않음', '#ff5252', 120); ev(G, 'sfx', 'roar'); ev(G, 'shake', 10, 5);
       return true;
     },
   ],
@@ -741,6 +766,7 @@ const SK = {
       return true;
     },
   ],
+
 };
 
 function useSkill(G, F, O, slot, inp) {
@@ -759,7 +785,7 @@ function useSkill(G, F, O, slot, inp) {
   if (F.cd[slot] > 0) return;
   if (def.heal && F.ttaT > 0) { ev(G, 'sfx', 'deny'); ev(G, 'float', F.x, F.y + 100, 'ㄸ방해 중!', '#ff9f43'); return; }
   if (SK[F.c][slot](G, F, O, inp)) {
-    let cd = SLOT_CD[slot];
+    let cd = def.cd || SLOT_CD[slot];
     if (F.awake) cd = Math.max(1, cd - BAL[9].awakeCd);
     if (!(F.c === 8 && slot === 1)) F.cd[slot] = cd * SEC;   // 보드는 파괴될 때 쿨타임 시작
     // 이은뚱 패시브 31.8: 더블다운을 한 번 더 쓸 수 있음
@@ -776,13 +802,17 @@ function useSkill(G, F, O, slot, inp) {
 }
 
 // ---------- 근접 공격 ----------
-function startAttack(G, F, O, type) {
+// 공격 프레임 (전체 길이 dur, 판정 프레임 act)
+function atkTiming(F, type) {
   let dur = type === 'P' ? 14 : 22, act = type === 'P' ? 3 : 6;
   let mult = 1;
   if (F.delayT > 0) mult *= 1.6;      // 창가오 압도: 딜레이 증가
   if (F.awake) mult /= BAL[9].awakeMul; // 창가오 각성: 공속 증가
   mult /= stat(F, 'aspd');
-  dur = Math.round(dur * mult); act = Math.max(2, Math.round(act * mult));
+  return { dur: Math.round(dur * mult), act: Math.max(2, Math.round(act * mult)) };
+}
+function startAttack(G, F, O, type) {
+  const { dur, act } = atkTiming(F, type);
   let dmg;
   if (type === 'P') {
     F.combo = F.comboT > 0 ? (F.combo % 3) + 1 : 1;
@@ -800,14 +830,28 @@ function startAttack(G, F, O, type) {
   ev(G, 'sfx', type === 'P' ? 'swing' : 'swing2');
 }
 
+// ---- 근접 판정: 실제로 그려지는 스프라이트 크기(HITBOX)를 그대로 사용 ----
+// 몸 중심에서 주먹/발 끝까지의 거리. 사거리 버프·디버프는 기본 사거리(ATK.pReach/kReach)에 대한 비율만큼 더하거나 뺌
+function hbOf(F) { return F.slim && F.c === 6 ? HITBOX_SLIM : HITBOX[F.c]; }
 function reachOf(F, type) {
-  return (type === 'P' ? ATK.pReach * (F.c === YUDONG && ironOn(F) ? BAL[16].ironRange : 1) : ATK.kReach * stat(F, 'krange')) * lookOf(F).H * stat(F, 'range');
+  const hb = hbOf(F), H = lookOf(F).H;
+  if (type === 'P') return hb.p + ATK.pBonus + ((F.c === YUDONG && ironOn(F) ? BAL[16].ironRange : 1) * stat(F, 'range') - 1) * ATK.pReach * H;
+  return hb.k + (stat(F, 'krange') * stat(F, 'range') - 1) * ATK.kReach * H;
+}
+const HIT_SINK = 4;   // 주먹이 몸통 앞면을 이만큼 파고들어야 맞음
+// 몸이 맞닿을 만큼 붙어 있으면 스프라이트 크기와 상관없이 항상 닿음
+function meleeRange(F, O, type) { return Math.max(reachOf(F, type) + hbOf(O).f - HIT_SINK, radius(F) + radius(O) + 10); }
+// 공격 높이가 상대 몸(발끝~머리) 안에 있는지
+function meleeVert(F, O, type, oy) {
+  if (F.y <= 0 && oy <= 20) return true;   // 둘 다 땅 위면 키 차이와 상관없이 닿음
+  const ay = F.y + hbOf(F).h * (type === 'K' ? 0.42 : 0.6);
+  return ay >= oy - 8 && ay <= oy + hbOf(O).h + 8;
 }
 function meleeHit(G, F, O) {
-  const reach = reachOf(F, F.atk);
   const dx = O.x - F.x;
   if (O.ko) return;
-  const inR = (x, y) => Math.abs(x - F.x) <= radius(F) + radius(O) + reach - 10 && sign(x - F.x) === F.f && Math.abs(y - F.y) < 52;
+  const range = meleeRange(F, O, F.atk);
+  const inR = (x, y) => Math.abs(x - F.x) <= range && (sign(x - F.x) === F.f || Math.abs(x - F.x) < 6) && meleeVert(F, O, F.atk, y);
   const C = O.clone;
   if (C && C.hp > 0 && inR(C.x, C.y) && (!inR(O.x, O.y) || Math.abs(C.x - F.x) < Math.abs(dx))) {
     cloneHit(G, O, F.atkDmg * stat(F, 'atk') * (F.atk === 'K' ? stat(F, 'kdmg') : 1));
@@ -835,6 +879,10 @@ function meleeHit(G, F, O) {
       O.hitT = isK ? 15 : 11;
       O.kb = F.f * (isK ? 4.2 : 2.2) * (F.atkStep === 3 ? 1.6 : 1);
       if (O.y > 0) { O.vy = 3; O.vx = F.f * 1.5; }
+      // JJjin 와사바리: 가까이 붙어서 킥을 맞히면 걸어 넘어뜨림
+      if (F.c === 2 && isK && O.y <= 0 && Math.abs(O.x - F.x) <= radius(F) + radius(O) + BAL[2].tripRange && stunTarget(G, O, BAL[2].tripStun)) {
+        O.tripT = BAL[2].tripStun; O.kb *= 0.3; ev(G, 'float', O.x, O.y + 104, '와사바리!', '#f5c542'); ev(G, 'sfx', 'hitK');
+      }
       G.hitStop = isK ? 7 : 5;
       O.combo_recv = O.hitT > 0 && O.comboShowT > 0 ? O.combo_recv + 1 : 1;
       O.comboShowT = 60;
@@ -879,6 +927,58 @@ function stepYudong(G, F, O) {
     if (F.phoneHealT % 12 === 0) ev(G, 'heal', F.x, F.y + 50);
     if (--F.phoneHealT === 0) checkKO(G, F);
   }
+}
+
+// ---------- 히든 보스: 흑요 ----------
+function bossPhase2(G, D) {
+  D.bph = 2; D.hp = D.maxHp = BAL[17].hp; D.ko = false; D.hitT = 0; D.stunT = 0; D.rootT = 0; D.atk = null; D.bOffT = 0; D.bCnt = 0;
+  D.bcd = [0, 4, 6, 9, 15, 60].map((s) => s * SEC);   // 2페이즈 첫 쿨타임 (순간이동은 바로)
+  D.mods = D.mods.filter((m) => m.v >= 1);
+  G.proj = []; G.cut = { t: 210, side: D.side }; G.freezeT = Math.max(G.freezeT, 210); G.flash = 20;
+  note(G, '흑요가 후드를 벗었다… 진짜 싸움은 지금부터', '#c9a227', 200); ev(G, 'sfx', 'roar'); ev(G, 'shake', 24, 10); ev(G, 'revive', D.x, D.y);
+}
+function playerRevive(G, D) {
+  D.lives--; D.hp = D.maxHp; D.ko = false; D.hitT = 0; D.stunT = 0; D.rootT = 0; D.tripT = 0; D.slowT = 0; D.poisT = 0; D.guardOffT = 0;
+  D.seal = [0, 0, 0, 0]; D.mods = D.mods.filter((m) => m.v >= 1); D.invulT = 90;
+  const B = G.F[1 - D.side];
+  if (B.c === BOSS) B.domT = 0;   // 보스의 지속 스킬(절대 영역)은 끝난 것으로
+  G.proj = G.proj.filter((p) => p.o === D.side); G.freezeT = Math.max(G.freezeT, 75); G.flash = 12;
+  note(G, `부활! (남은 부활 ${D.lives}번)`, '#7dff9a', 130); ev(G, 'sfx', 'revive'); ev(G, 'revive', D.x, D.y);
+}
+// i: 0 순간이동, 1 척력 파동, 2 금강탄, 3 흑점탄, 4 절대 영역, 5 완전 재생
+function bossSkill(G, F, O, i) {
+  const B = BAL[17], def = CHARS[BOSS].bossSk[i];
+  if (F.bph < 2 || F.bcd[i] > 0 || O.ko) return;
+  F.bcd[i] = def.cd * SEC; F.castT = 14;
+  ev(G, 'call', F.side, def.name); ev(G, 'sfx', 'skill');
+  if (i === 0) {
+    const side = O.f;   // 상대가 바라보는 반대쪽 = 등 뒤
+    ev(G, 'ghost', F.side);
+    F.x = clamp(O.x - side * (radius(O) + radius(F) - 2), 20, ARENA_W - 20); F.y = 0; F.vy = 0; F.vx = 0; F.f = O.x > F.x ? 1 : -1;
+    ev(G, 'spark', F.x, F.y + 60, 'clash'); ev(G, 'sfx', 'whoosh');
+  } else if (i === 1) {
+    O.x = F.x < ARENA_W / 2 ? ARENA_W - 20 : 20; O.y = 0; O.vy = 0; O.vx = 0; O.kb = 0; O.atk = null; O.hitT = Math.max(O.hitT, 16);
+    applyDamage(G, F, O, B.pushDmg, 'PUSH', { fixed: true });
+    ev(G, 'shake', 14, 7); ev(G, 'sfx', 'explosion'); ev(G, 'spark', O.x, O.y + 60, 'big');
+  } else if (i === 2) {
+    spawnProj(G, F, 'goldshot', B.shotSpd, 80, 18, { y: F.y + 55 * lookOf(F).H });
+  } else if (i === 3) {
+    spawnProj(G, F, 'darkshot', B.bombSpd, 80, 13, { y: F.y + 55 * lookOf(F).H });
+  } else if (i === 4) {
+    F.domT = B.domT; G.flash = 14; note(G, `절대 영역 전개! ${B.domT / 60}초간 모든 것이 멈춘다`, '#c9a227', 160); ev(G, 'shake', 18, 8);
+  } else if (i === 5) {
+    F.hp = F.maxHp; ev(G, 'heal', F.x, F.y + 60); ev(G, 'float', F.x, F.y + 120, '완전 재생!', '#7dff9a');
+  }
+}
+function stepBoss(G, F, O, inp) {
+  if (F.bOffT > 0) F.bOffT--;
+  for (let i = 0; i < 6; i++) if (F.bcd[i] > 0) F.bcd[i]--;
+  // 절대 영역: 상대는 매 프레임 기절 + 1 피해
+  if (F.domT > 0) {
+    F.domT--;
+    if (!O.ko) { O.stunT = Math.max(O.stunT, 2); O.atk = null; applyDamage(G, F, O, BAL[17].domDmg, 'DOMAIN', { fixed: true, silent: true }); }
+  }
+  if (inp && inp.bs >= 0 && !F.hitT && !F.stunT && !F.atk) bossSkill(G, F, O, inp.bs);
 }
 
 // ---------- 지속형 스킬 상태 처리 ----------
@@ -1034,8 +1134,9 @@ function stepFighter(G, F, O, inp) {
   const L = lookOf(F), H = L.H;
   F.anim++;
   for (const k of ['stimT', 'meokT', 'manT', 'parryT', 'parryR', 'slowT', 'delayT', 'guardOffT', 'boostT', 'spikeT', 'hitT', 'blockT', 'castT', 'angerT', 'hitFlash', 'recov', 'comboShowT', 'rootT',
-    'stunT', 'hbT', 'ttaT', 'invisT', 'drunkT', 'earT', 'rageT', 'kcT', 'chestT', 'mallangT', 'fifaT', 'invulT', 'ironT']) dec(F, k);
+    'stunT', 'hbT', 'ttaT', 'invisT', 'drunkT', 'earT', 'rageT', 'kcT', 'chestT', 'mallangT', 'fifaT', 'invulT', 'ironT', 'tripT']) dec(F, k);
   stepYudong(G, F, O);
+  if (F.c === BOSS) stepBoss(G, F, O, inp);
   if (F.mods.length) { for (const m of F.mods) m.t--; F.mods = F.mods.filter((m) => m.t > 0); }
   F.sz = 1; for (const m of F.mods) if (m.k === 'size') F.sz *= m.v;
   // 영탁 막걸리: 방향키 반대 + 가드/점프 반대
@@ -1215,7 +1316,7 @@ function stepGame(G, inputs) {
     if (G.pt === 100 && G.rw >= 0) ev(G, 'announce', 'winround', G.rw);
     if (G.pt >= 200) {
       const [a, b] = G.F;
-      if (a.wins >= WIN_ROUNDS || b.wins >= WIN_ROUNDS || G.round >= 5) {
+      if (a.wins >= (G.winN || WIN_ROUNDS) || b.wins >= (G.winN || WIN_ROUNDS) || G.round >= 5) {
         G.phase = 'end'; G.pt = 0;
         G.mw = a.wins === b.wins ? -1 : a.wins > b.wins ? 0 : 1;
         ev(G, 'announce', 'match', G.mw);
@@ -1238,6 +1339,7 @@ function stepGame(G, inputs) {
   if (G.freezeT > 0) {
     G.freezeT--;
     if (G.clock && --G.clock.t <= 0) G.clock = null;
+    if (G.cut && --G.cut.t <= 0) G.cut = null;
     if (G.yut) {
       const y = G.yut;
       if (y.t > 0) {
@@ -1250,7 +1352,10 @@ function stepGame(G, inputs) {
             // 모: 즉사 (은맘·방어 스킬 무시, 귀마개·무적은 막음)
             if (T.earT > 0 || T.invulT > 0) { ev(G, 'float', T.x, T.y + 92, T.earT > 0 ? '무시!' : '무적!', '#c38bff'); note(G, '🥢 모!!! ...하지만 막혔다', '#c38bff', 100); }
             else { T.momHp = 0; T.momT = 0; T.hp = 0; T.hitT = 20; checkKO(G, T); ev(G, 'spark', T.x, T.y + 60, 'big'); ev(G, 'shake', 18, 9); note(G, '🥢 모!!! 즉사!!', '#ffcc33', 110); }
-          } else { applyDamage(G, C, T, 1, 'YUT', { fixed: true }); note(G, '🥢 도... (1 피해)', '#aaa', 100); }
+          } else {
+            const B = BAL[12], dmg = B.yutMin + Math.floor(rnd() * (B.yutMax - B.yutMin + 1));
+            y.res = dmg >= 35 ? 3 : dmg >= 15 ? 2 : 1; y.dmg = dmg; applyDamage(G, C, T, dmg, 'YUT', { fixed: true }); note(G, `🥢 ${dmg >= 35 ? '걸!' : dmg >= 15 ? '개!' : '도...'} (${dmg} 피해)`, dmg >= 35 ? '#ffcc33' : '#aaa', 100);
+          }
           ev(G, 'sfx', y.res === 5 ? 'jackpot' : 'deny');
         }
       } else if (y.pop > 0) { y.pop--; if (y.pop === 0) G.yut = null; }
@@ -1318,7 +1423,7 @@ function endCheck(G) {
     F.atk = null; F.guard = false; F.dashT = 0; F.headT = 0;
     for (const k of ['hitFlash', 'stimT', 'meokT', 'manT', 'jeongA', 'jeongP', 'parryT', 'rootT', 'guardOffT', 'slowT', 'poisT', 'hitT', 'blockT', 'castT', 'spikeT', 'angerT', 'rushN', 'noteN', 'momHp', 'momT', 'curseT',
       'stunT', 'hbT', 'ttaT', 'invisT', 'drunkT', 'earT', 'rageT', 'kcT', 'laughT', 'breathN', 'fireT', 'flyT', 'rushT2', 'chokeT', 'kkT', 'shutT',
-      'shingT', 'chestT', 'antQ', 'mallangT', 'fifaT', 'invulT', 'ironT', 'clockT', 'phoneT', 'phoneHealT']) F[k] = 0;
+      'shingT', 'chestT', 'antQ', 'mallangT', 'fifaT', 'invulT', 'ironT', 'clockT', 'phoneT', 'phoneHealT', 'tripT', 'domT', 'bOffT']) F[k] = 0;
     F.chokeHold = false; F.clone = null; F.ants = []; F.antG = []; F.bomb = null; F.fifaNext = false; F.mods = F.mods.filter((m) => m.id === 'belly'); F.sz = 1;
     if (F.ko) { F.vy = 4; F.vx = -F.f * 2.2; F.y = Math.max(F.y, 0.1); }
   }
