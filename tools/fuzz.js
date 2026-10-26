@@ -1,4 +1,5 @@
 // 버그 탐지용 무작위 대전: node tools/fuzz.js [판수=1]
+// (사명감 초크는 연타로 빠져나오는 설계라 경직 검사에서 제외)
 // 무작위 입력·AI를 섞어 모든 조합을 돌리며 예외, NaN, 맵 밖 이탈, 끝나지 않는 공격, 긴 무한 경직 등을 찾음
 const { Worker, isMainThread, parentPort, workerData } = require('worker_threads');
 const fs = require('fs'), vm = require('vm'), path = require('path');
@@ -34,7 +35,7 @@ function run({ jobs, n }) {
             if (F.atk && F.atkT > F.atkDur + 3) flag('공격 안 끝남', CHARS[F.c].name);
             if (F.hp > F.maxHp + BAL[6].bellyHeal + 1) flag('과회복 hp=' + Math.round(F.hp) + '/' + F.maxHp, CHARS[F.c].name);
             if (F.y < -1) flag('땅 아래 y', CHARS[F.c].name);
-            const locked = G.phase === 'fight' && !G.freezeT && !G.qte && !G.yut && !G.dice && (F.stunT > 0 || F.hitT > 0 || F.chokeT > 0 || F.rootT > 0 && F.atk);
+            const locked = G.phase === 'fight' && !G.freezeT && !G.qte && !G.yut && !G.dice && (F.stunT > 0 || F.hitT > 0 || F.rootT > 0 && F.atk);
             const other = G.F[1 - F.side];
             lock[F.side] = locked && !(other.c === BOSS && other.domT > 0) ? lock[F.side] + 1 : 0;
             if (lock[F.side] > 420) flag('7초 넘게 계속 경직/기절: ' + CHARS[F.c].name, '상대 ' + CHARS[other.c].name + ' stun' + F.stunT + ' hit' + F.hitT + ' choke' + F.chokeT);
