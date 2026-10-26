@@ -6,7 +6,7 @@ const iters = +(process.argv[2] || 6), n = +(process.argv[3] || 3);
 const KNOBS = {
   0: [['vacStun', 1, 1], ['stimT', 1, 1]],
   1: [['toothDmg', 1, 0], ['cutPct', 1, 0], ['regen', 1, 1]],
-  2: [['reviveHp', 1, 0], ['parryT', 0.5, 1]],
+  2: [['judoDmg', 1, 0], ['parryT', 0.5, 1]],
   3: [['bambooDmg', 1, 0], ['shootDmg', 1, 0]],
   4: [['ddHeal', 1, 0], ['dicePer', 1, 0]],
   5: [['nunDmg', 1, 0], ['nunRoot', 1, 1], ['act', 1, 1]],
@@ -28,6 +28,8 @@ const BAL0 = JSON.parse(JSON.stringify(ctx.__B));
 const IDS = Object.keys(KNOBS).map(Number);
 // 체력 위주로 조정할 캐릭터 (사명감: 체력 보완 요청)
 const HPX = { 5: 1.0 };
+// 사용자가 정한 체력 (튜너가 바꾸지 않음): JJjin 230 고정, 힌참휴는 너프 금지, 이유동은 버프 유지
+const HP_FIX = { 2: 230 }, HP_MIN = { 12: 208, 16: 150 };
 const SF = path.join(__dirname, 'tune_state.json');
 const S = {}; for (const c of IDS) S[c] = 1;
 if (fs.existsSync(SF) && process.argv[4] !== 'fresh') Object.assign(S, JSON.parse(fs.readFileSync(SF, 'utf8')));
@@ -37,6 +39,8 @@ function build() {
     const b = BAL0[c], o = {};
     for (const [k, e, isInt] of (process.env.HPONLY ? [] : KNOBS[c])) { let v = b[k] * Math.pow(S[c], e); v = isInt ? Math.max(1, Math.round(v)) : +v.toFixed(3); o[k] = v; }
     o.hp = Math.round(b.hp * Math.pow(S[c], process.env.HPONLY ? 0.8 : (HPX[c] || 0.35)));
+    if (HP_FIX[c]) o.hp = HP_FIX[c];
+    if (HP_MIN[c]) o.hp = Math.max(HP_MIN[c], o.hp);
     ov[c] = o;
   }
   return ov;

@@ -30,7 +30,8 @@ if (!isMainThread) { parentPort.postMessage(runChunk(workerData)); return; }
   const ov = process.argv[3] ? JSON.parse(fs.readFileSync(process.argv[3], 'utf8')) : null;
   const diffs = (process.env.DIFFS || '2,3').split(',').map(Number);
   const pairs = [];
-  for (const a of IDS) for (const b of IDS) if (a !== b) pairs.push([a, b]);
+  const ONLY = process.env.ONLY ? process.env.ONLY.split(',').map(Number) : null;   // 특정 캐릭터 조합만 (빠른 확인용)
+  for (const a of IDS) for (const b of IDS) if (a !== b && (!ONLY || ONLY.includes(a) || ONLY.includes(b))) pairs.push([a, b]);
   const W = +(process.env.W || require('os').cpus().length), chunks = Array.from({ length: W }, (_, i) => pairs.filter((_, j) => j % W === i));
   const t0 = Date.now();
   const res = (await Promise.all(chunks.map((c) => new Promise((ok, bad) => { const w = new Worker(__filename, { workerData: { pairs: c, n, ov, diffs, seedOff: +(process.env.SEEDOFF || 0) } }); w.on('message', ok); w.on('error', bad); })))).flat();
