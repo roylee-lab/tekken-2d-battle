@@ -72,6 +72,25 @@ function aNoise(t0, dur, vol, ftype, freq, bus, opt) {
   s.start(t0, Math.random() * 0.5); s.stop(t0 + dur + 0.02);
 }
 const mtof = (m) => 440 * Math.pow(2, (m - 69) / 12);
+// 합창 소리: 살짝 어긋난 톱니파 3개 + '아' 모음 포먼트 필터
+function aChoir(freq, t0, dur, vol, bus, solo) {
+  const c = AUD.ctx; if (!c) return;
+  const mix = c.createGain(), out = c.createGain();
+  for (const [f, q, gv] of [[730, 7, 1], [1090, 9, 0.55], [2440, 12, 0.22], [300, 3, 0.35]]) {
+    const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = f; bp.Q.value = q;
+    const g = c.createGain(); g.gain.value = gv; mix.connect(bp); bp.connect(g); g.connect(out);
+  }
+  const end = t0 + dur + 0.35;
+  for (const det of [-9, 0, 8]) {
+    const o = c.createOscillator(); o.type = 'sawtooth'; o.frequency.value = freq; o.detune.value = det;
+    const l = c.createOscillator(), lg = c.createGain(); l.frequency.value = 4.6 + det * 0.05; lg.gain.value = solo ? 7 : 4;
+    l.connect(lg); lg.connect(o.detune); o.connect(mix); o.start(t0); o.stop(end); l.start(t0); l.stop(end);
+  }
+  const a = solo ? 0.06 : 0.18;
+  out.gain.setValueAtTime(0.0001, t0); out.gain.linearRampToValueAtTime(vol * 2.4, t0 + a);
+  out.gain.setValueAtTime(vol * 2.4, t0 + Math.max(a, dur - 0.05)); out.gain.exponentialRampToValueAtTime(0.0001, end);
+  out.connect(bus || AUD.musicBus);
+}
 
 // ---------- 효과음 ----------
 const SFX = {
@@ -147,24 +166,97 @@ const STYLES = {
   indian: { spb: 16, k: 'x.....x.x.......', tek: '..x.x.....x.x.x.', s: '', h: '', bass: 'R...............', drone: true, lead: 'p25', leadLp: 2200, vib: 6.5, slide: true, arp: null, rh: 6 },
   flamenco: { spb: 12, k: 'x.....x.....', clapP: '..x..x.x.x.x', s: '', h: '', bass: 'R.....R.....', strum: 'x..x..x.x.x.', lead: 'sawtooth', leadLp: 2400, arp: null, rh: 5 },
   techno: { spb: 16, k: 'x...x...x...x...', s: '....x.......x...', h: '..x...x...x...x.', bass: 'RRORRROR RRORRRO', lead: 'square', arp: 'p12', arpFast: true, rh: 0 },
+  // ---- 나라별 추가 스타일 ----
+  trot: { spb: 16, k: 'x.......x.......', s: '....x.......x...', h: '..x...x...x...x.', bass: 'R...F...R...F...', chord: '..x...x...x...x.', lead: 'sawtooth', leadLp: 2000, vib: 7, slide: true, arp: null, rh: 3 },      // 한국 트로트 (뽕짝 2박)
+  semachi: { spb: 12, k: 'x.....x.....', s: '', h: '', tom: 'x..x..x.x...', block: '...x.....x..', bass: 'R.....F.....', lead: 'triangle', vib: 5, slide: true, arp: null, rh: 5, slow: true },   // 국악 세마치 장단 (3박)
+  waltz: { spb: 12, k: 'x...........', s: '', h: '', bass: 'R...........', chord: '....x...x...', lead: 'p25', vib: 6, arp: null, rh: 5 },     // 프랑스 왈츠 (아코디언)
+  manouche: { spb: 16, k: 'x.......x.......', s: '', h: '', swing: 0.2, bass: 'R...F...O...F...', strum: '..x...x...x...x.', lead: 'p25', vib: 5, arp: null, rh: 1 },   // 집시 재즈
+  bossa: { spb: 16, k: 'x..x..x.x..x..x.', s: '', h: 'x.x.x.x.x.x.x.x.', shaker: true, block: 'x..x..x...x..x..', bass: 'R..F....R..F....', chord: '..x..x...x..x...', lead: 'triangle', vib: 4, arp: null, rh: 7 },   // 보사노바
+  swingjazz: { spb: 12, k: 'x.....x.....', s: '', h: '', ride: 'x..x.xx..x.x', bass: 'R..F..O..F..', chord: '...x.....x..', lead: 'square', leadLp: 2200, arp: null, rh: 5 },   // 뉴욕 스윙 재즈
+  funk: { spb: 16, k: 'x..x..x...x.....', s: '....x..x....x...', h: 'xxxxxxxxxxxxxxxx', bass: 'R..R.O..R.R..F.O', lead: 'sawtooth', leadLp: 2400, arp: 'p12', rh: 4 },
+  enka: { spb: 16, k: 'x.......x.......', s: '........x.......', h: '', bass: 'R.......F.......', chord: '....x.......x...', lead: 'triangle', vib: 6.5, slide: true, arp: null, rh: 2, slow: true },   // 일본 엔카
+  matsuri: { spb: 16, k: '', s: '', h: '', taiko: 'x.x...x.x.x.....', block: '..x...x...x...x.', bass: 'R...R...F...R...', lead: 'p12', vib: 5, arp: 'p25', rh: 0 },   // 일본 마쓰리 (타이코)
+  erhu: { spb: 16, k: 'x.......x.......', s: '', h: '', block: 'x...x...x.x.x...', gong: true, bass: 'R.......F.......', lead: 'sawtooth', leadLp: 1500, vib: 6, slide: true, arp: null, rh: 2, slow: true },   // 중국 얼후
+  danbau: { spb: 16, k: 'x.......x...x...', s: '', h: '', block: '..x...x...x...x.', bass: 'R.......R...F...', lead: 'triangle', vib: 7, slide: true, arp: 'p12', arpSlow: true, rh: 2 },   // 베트남 단버우
+  bhangra: { spb: 16, k: 'x..x..x.x..x..x.', tek: 'x.xx.x.xx.x.xx.x', s: '', h: '', bass: 'R..R..R.F..F..F.', lead: 'p25', vib: 6, arp: null, rh: 4 },   // 인도 방그라 (돌 북)
+  maqsum: { spb: 16, k: 'x.....x...x.....', tek: '...x.x.....x.x..', s: '', h: '', bass: 'R.....R...F.....', lead: 'sawtooth', leadLp: 2000, vib: 6, slide: true, arp: null, rh: 6, drone: true },   // 이집트 막숨 리듬
+  pasodoble: { spb: 16, k: 'x.......x.......', s: '....x.......x...', h: '', brass: 'x.......x...x...', bass: 'R...F...R...F...', lead: 'sawtooth', leadLp: 2800, arp: null, rh: 3 },   // 스페인 파소도블레
+  mandolin: { spb: 16, k: 'x.......x.......', s: '', h: '', bass: 'R...F...R...F...', chord: '..x...x...x...x.', lead: 'p12', trem: true, arp: null, rh: 2 },   // 이탈리아 만돌린 칸초네
+  // 최종 보스: 합창·팀파니·현악 오스티나토로 웅장하게
+  epic: { spb: 16, timp: 'x.....x.x.......', osti: 'x.x.x.x.x.x.x.x.', choirPad: true, brass: 'x.........x.....', hit: true, s: '', h: '', bass: 'R.......R.......', lead: 'choir', arp: null, rh: 2 },
 };
+// 스테이지마다 여러 곡 (매 판 무작위로 고르고, 두 번 반복하면 다음 곡으로 넘어감)
 const SONGS = {
   title: { bpm: 132, root: 57, scale: 'minor', prog: [0, 5, 2, 6], style: 'rock', seed: 3 },
   select: { bpm: 140, root: 60, scale: 'major', prog: [0, 4, 5, 3], style: 'kpop', seed: 9 },
-  seoul: { bpm: 142, root: 62, scale: 'major', prog: [0, 4, 5, 3], style: 'kpop', seed: 21 },
-  palace: { bpm: 104, root: 60, scale: 'gungjung', prog: [0, 3, 2, 0], style: 'gugak', seed: 22 },
-  paris: { bpm: 150, root: 62, scale: 'major', prog: [0, 5, 1, 4], style: 'musette', seed: 23 },
-  halong: { bpm: 122, root: 62, scale: 'minpent', prog: [0, 3, 2, 0], style: 'eastern', seed: 24 },
-  greatwall: { bpm: 136, root: 60, scale: 'majpent', prog: [0, 3, 4, 0], style: 'eastern', seed: 25 },
-  rio_dojo: { bpm: 156, root: 57, scale: 'dorian', prog: [0, 3, 0, 4], style: 'samba', seed: 26 },
-  pisa: { bpm: 168, root: 62, scale: 'harmonic', prog: [0, 3, 4, 0], style: 'tarantella', seed: 27 },
-  pyramid: { bpm: 126, root: 62, scale: 'hijaz', prog: [0, 0, 6, 0], style: 'arabic', seed: 28 },
-  copacabana: { bpm: 92, root: 58, scale: 'dorian', prog: [0, 3, 0, 4], style: 'hiphop', seed: 29 },
-  newyork: { bpm: 152, root: 52, scale: 'mixo', prog: [0, 3, 0, 4], style: 'rock', seed: 30 },
-  tajmahal: { bpm: 120, root: 61, scale: 'bhairav', prog: [0, 0, 3, 4], style: 'indian', seed: 31 },
-  sagrada: { bpm: 146, root: 64, scale: 'phrygdom', prog: [0, 6, 5, 4], style: 'flamenco', seed: 32 },
-  tokyo: { bpm: 152, root: 57, scale: 'insen', prog: [0, 2, 3, 1], style: 'techno', seed: 33 },
-  boss: { bpm: 164, root: 50, scale: 'harmonic', prog: [0, 6, 5, 4], style: 'rock', seed: 66 },
+  seoul: [
+    { bpm: 142, root: 62, scale: 'major', prog: [0, 4, 5, 3], style: 'kpop', seed: 21 },
+    { bpm: 126, root: 57, scale: 'minpent', prog: [0, 3, 4, 0], style: 'trot', seed: 121 },
+    { bpm: 128, root: 61, scale: 'minor', prog: [5, 3, 0, 4], style: 'kpop', seed: 221 },
+  ],
+  palace: [
+    { bpm: 104, root: 60, scale: 'gungjung', prog: [0, 3, 2, 0], style: 'gugak', seed: 22 },
+    { bpm: 96, root: 62, scale: 'gungjung', prog: [0, 2, 3, 0], style: 'semachi', seed: 122 },
+    { bpm: 118, root: 57, scale: 'majpent', prog: [0, 3, 4, 0], style: 'semachi', seed: 222 },
+  ],
+  paris: [
+    { bpm: 150, root: 62, scale: 'major', prog: [0, 5, 1, 4], style: 'musette', seed: 23 },
+    { bpm: 168, root: 60, scale: 'major', prog: [0, 3, 4, 0], style: 'waltz', seed: 123 },
+    { bpm: 176, root: 57, scale: 'harmonic', prog: [0, 3, 4, 0], style: 'manouche', seed: 223 },
+  ],
+  halong: [
+    { bpm: 122, root: 62, scale: 'minpent', prog: [0, 3, 2, 0], style: 'eastern', seed: 24 },
+    { bpm: 100, root: 60, scale: 'minpent', prog: [0, 2, 3, 0], style: 'danbau', seed: 124 },
+    { bpm: 138, root: 64, scale: 'majpent', prog: [0, 3, 4, 0], style: 'danbau', seed: 224 },
+  ],
+  greatwall: [
+    { bpm: 136, root: 60, scale: 'majpent', prog: [0, 3, 4, 0], style: 'eastern', seed: 25 },
+    { bpm: 92, root: 62, scale: 'minpent', prog: [0, 3, 2, 0], style: 'erhu', seed: 125 },
+    { bpm: 150, root: 65, scale: 'majpent', prog: [0, 4, 3, 0], style: 'eastern', seed: 225 },
+  ],
+  rio_dojo: [
+    { bpm: 156, root: 57, scale: 'dorian', prog: [0, 3, 0, 4], style: 'samba', seed: 26 },
+    { bpm: 132, root: 60, scale: 'major', prog: [1, 4, 0, 5], style: 'bossa', seed: 126 },
+    { bpm: 168, root: 62, scale: 'mixo', prog: [0, 6, 3, 4], style: 'samba', seed: 226 },
+  ],
+  pisa: [
+    { bpm: 168, root: 62, scale: 'harmonic', prog: [0, 3, 4, 0], style: 'tarantella', seed: 27 },
+    { bpm: 112, root: 60, scale: 'major', prog: [0, 3, 4, 0], style: 'mandolin', seed: 127 },
+    { bpm: 184, root: 57, scale: 'harmonic', prog: [0, 5, 4, 0], style: 'tarantella', seed: 227 },
+  ],
+  pyramid: [
+    { bpm: 126, root: 62, scale: 'hijaz', prog: [0, 0, 6, 0], style: 'arabic', seed: 28 },
+    { bpm: 140, root: 60, scale: 'hijaz', prog: [0, 6, 5, 0], style: 'maqsum', seed: 128 },
+    { bpm: 104, root: 57, scale: 'hijaz', prog: [0, 1, 0, 6], style: 'arabic', seed: 228 },
+  ],
+  copacabana: [
+    { bpm: 92, root: 58, scale: 'dorian', prog: [0, 3, 0, 4], style: 'hiphop', seed: 29 },
+    { bpm: 124, root: 62, scale: 'major', prog: [1, 4, 0, 5], style: 'bossa', seed: 129 },
+    { bpm: 160, root: 60, scale: 'mixo', prog: [0, 3, 6, 4], style: 'samba', seed: 229 },
+  ],
+  newyork: [
+    { bpm: 152, root: 52, scale: 'mixo', prog: [0, 3, 0, 4], style: 'rock', seed: 30 },
+    { bpm: 176, root: 60, scale: 'blues', prog: [0, 3, 0, 4], style: 'swingjazz', seed: 130 },
+    { bpm: 108, root: 57, scale: 'dorian', prog: [0, 3, 0, 4], style: 'funk', seed: 230 },
+  ],
+  tajmahal: [
+    { bpm: 120, root: 61, scale: 'bhairav', prog: [0, 0, 3, 4], style: 'indian', seed: 31 },
+    { bpm: 158, root: 62, scale: 'mixo', prog: [0, 6, 0, 4], style: 'bhangra', seed: 131 },
+    { bpm: 96, root: 60, scale: 'bhairav', prog: [0, 3, 0, 4], style: 'indian', seed: 231 },
+  ],
+  sagrada: [
+    { bpm: 146, root: 64, scale: 'phrygdom', prog: [0, 6, 5, 4], style: 'flamenco', seed: 32 },
+    { bpm: 120, root: 60, scale: 'harmonic', prog: [0, 3, 4, 0], style: 'pasodoble', seed: 132 },
+    { bpm: 170, root: 62, scale: 'phrygdom', prog: [0, 6, 5, 0], style: 'flamenco', seed: 232 },
+  ],
+  tokyo: [
+    { bpm: 152, root: 57, scale: 'insen', prog: [0, 2, 3, 1], style: 'techno', seed: 33 },
+    { bpm: 84, root: 60, scale: 'insen', prog: [0, 3, 2, 0], style: 'enka', seed: 133 },
+    { bpm: 140, root: 62, scale: 'majpent', prog: [0, 3, 4, 0], style: 'matsuri', seed: 233 },
+  ],
+  // 최종 보스 (1페이즈 → 2페이즈에서 더 빠르고 높게)
+  boss: [{ bpm: 120, root: 50, scale: 'minor', prog: [0, 0, 5, 6], style: 'epic', seed: 66 }],
+  boss2: [{ bpm: 138, root: 52, scale: 'harmonic', prog: [0, 5, 6, 4], style: 'epic', seed: 77 }],
 };
 
 // 리듬 템플릿 (마디 단위, [시작 스텝, 길이])
@@ -179,8 +271,9 @@ const RHYTHMS = [
   [[[0, 3], [3, 3], [6, 4], [12, 4]], [[2, 2], [4, 2], [6, 2], [8, 6]], [[0, 4], [6, 2], [8, 2], [10, 6]]],
 ];
 
-function composeSong(key) {
-  const S = SONGS[key] || SONGS.title, ST = STYLES[S.style];
+function songList(key) { const v = SONGS[key] || SONGS.title; return Array.isArray(v) ? v : [v]; }
+function composeSong(S) {
+  const ST = STYLES[S.style];
   const R = mulberry32(S.seed * 7919);
   const sc = SCALES[S.scale], n = sc.length;
   const deg2semi = (i) => { const o = Math.floor(i / n), d = ((i % n) + n) % n; return o * 12 + sc[d]; };
@@ -236,7 +329,9 @@ function playMusic(key) {
   if (!AUD.ctx || AUD.ctx.state !== 'running') { MUSIC.pending = key; return; }
   if (MUSIC.key === key) return;
   stopMusic();
-  MUSIC.key = key; MUSIC.song = composeSong(key); MUSIC.step = 0;
+  const list = songList(key);
+  MUSIC.key = key; MUSIC.list = list; MUSIC.vi = Math.floor(Math.random() * list.length);
+  MUSIC.song = composeSong(list[MUSIC.vi]); MUSIC.step = 0;
   MUSIC.nextT = AUD.ctx.currentTime + 0.1;
   const gen = ++MUSIC.gen;
   MUSIC.timer = setInterval(() => { if (gen === MUSIC.gen) scheduleMusic(); }, 25);
@@ -259,6 +354,11 @@ function scheduleMusic() {
     if (ST.swing && s % 2 === 1) t += stepDur * ST.swing;
     playStep(M, bar, barI, s, t, stepDur);
     MUSIC.step++; MUSIC.nextT += stepDur;
+    // 두 번 반복하면 같은 스테이지의 다음 곡으로
+    if (MUSIC.step >= total * 2 && MUSIC.list && MUSIC.list.length > 1) {
+      MUSIC.vi = (MUSIC.vi + 1) % MUSIC.list.length; MUSIC.song = composeSong(MUSIC.list[MUSIC.vi]); MUSIC.step = 0;
+      return;
+    }
   }
 }
 function playStep(M, bar, barI, s, t, sd) {
@@ -273,6 +373,13 @@ function playStep(M, bar, barI, s, t, sd) {
   if (at(ST.tek)) aOsc('sine', 520, t, 0.05, 0.35, bus, { slide: 700, s: 0.2 });
   if (at(ST.clapP)) aNoise(t, 0.07, 0.4, 'bandpass', 1300, bus, { q: 1.3 });
   if (ST.gong && s === 0 && barI % 4 === 0) { aOsc('sine', 98, t, 1.2, 0.35, bus, { vib: 3, s: 0.5, r: 0.8 }); aNoise(t, 1.0, 0.1, 'bandpass', 400, bus); }
+  if (at(ST.ride)) aNoise(t, 0.14, 0.11, 'highpass', 6500, bus);
+  if (at(ST.taiko)) { aOsc('sine', s === 0 ? 75 : 95, t, 0.3, 0.8, bus, { slide: 45, s: 0.3 }); aNoise(t, 0.08, 0.25, 'lowpass', 600, bus); }
+  if (at(ST.timp)) { aOsc('sine', mtof(root - 24), t, 0.45, 0.9, bus, { slide: mtof(root - 25), s: 0.4, r: 0.3 }); aNoise(t, 0.12, 0.3, 'lowpass', 400, bus); }
+  if (ST.hit && s === 0 && barI % 4 === 0) {   // 오케스트라 히트
+    aNoise(t, 0.5, 0.6, 'lowpass', 2500, bus, { sweep: 200 });
+    [0, 7, 12, 15].forEach((m) => aOsc('sawtooth', mtof(root - 12 + m), t, 0.35, 0.07, bus, { lp: 2200, s: 0.3, r: 0.3 }));
+  }
   if (ST.scratch && s === 14 && barI % 2 === 1) aNoise(t, 0.12, 0.25, 'bandpass', 1500, bus, { sweep: 300, q: 3 });
   // 베이스
   const ci = M.chordIdx(bar.deg).map((i) => M.deg2semi(i));
@@ -295,15 +402,21 @@ function playStep(M, bar, barI, s, t, sd) {
       aOsc(ST.arp, mtof(root + ci[k]), t, sd * every * 0.7, 0.06, bus, { s: 0.5, lp: ST.arpSlow ? 1500 : 5000 });
     }
   }
+  if (at(ST.osti)) { const m = s % 4 === 0 ? ci[0] : s % 4 === 2 ? ci[0] + 12 : ci[2]; aOsc('sawtooth', mtof(root - 12 + m), t, sd * 0.45, 0.07, bus, { lp: 1400, s: 0.3, r: 0.03 }); }
+  if (at(ST.brass)) ci.forEach((c) => aOsc('sawtooth', mtof(root + c - 12), t, sd * 3, 0.06, bus, { lp: 1700, a: 0.03, s: 0.6, r: 0.2 }));
+  if (ST.choirPad && (s === 0 || s === M.spb / 2)) ci.forEach((c) => aChoir(mtof(root + c - 12), t, sd * M.spb / 2 * 0.98, 0.16, bus));
   if (at(ST.chord)) ci.forEach((c) => aOsc('p25', mtof(root + c), t, sd * 1.2, 0.045, bus, { s: 0.4 }));
   if (at(ST.strum)) ci.concat([ci[0] + 12]).forEach((c, i) => aOsc('sawtooth', mtof(root - 12 + c), t + i * 0.012, sd * 1.6, 0.05, bus, { s: 0.2, lp: 1800, r: 0.15 }));
   // 리드
+  const lead = S.lead || ST.lead;
   for (const nn of bar.lead) {
     if (nn.step !== s) continue;
-    const m = root + M.deg2semi(nn.idx) - (ST.lead === 'triangle' ? 0 : 12);
+    const m = root + M.deg2semi(nn.idx) - (lead === 'triangle' || lead === 'choir' ? 0 : 12);
     const dur = nn.len * sd * 0.92;
-    aOsc(ST.lead, mtof(m), t, dur, ST.lead === 'triangle' ? 0.2 : 0.11, bus, { vib: ST.vib, lp: ST.leadLp, s: 0.65, r: 0.06, slide: ST.slide && nn.len >= 4 ? mtof(m + 1) : 0, slideT: dur });
-    if (ST.lead !== 'triangle') aOsc('p12', mtof(m + 12), t + 0.02, dur * 0.8, 0.025, bus, { s: 0.5 });
+    if (lead === 'choir') { aChoir(mtof(m), t, dur, 0.3, bus, true); aChoir(mtof(m - 12), t, dur, 0.18, bus, true); continue; }
+    if (ST.trem && nn.len >= 2) { for (let k = 0; k < nn.len * 2; k++) aOsc(lead, mtof(m), t + k * sd / 2, sd * 0.4, 0.1, bus, { s: 0.5, r: 0.02 }); continue; }   // 만돌린 트레몰로
+    aOsc(lead, mtof(m), t, dur, lead === 'triangle' ? 0.2 : 0.11, bus, { vib: ST.vib, lp: ST.leadLp, s: 0.65, r: 0.06, slide: ST.slide && nn.len >= 4 ? mtof(m + 1) : 0, slideT: dur });
+    if (lead !== 'triangle') aOsc('p12', mtof(m + 12), t + 0.02, dur * 0.8, 0.025, bus, { s: 0.5 });
   }
 }
 // 짧은 징글

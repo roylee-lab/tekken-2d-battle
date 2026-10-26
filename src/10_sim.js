@@ -577,7 +577,8 @@ const SK = {
     },
     (G, F, O) => {   // R: 31.8의 저주
       F.curseT = Math.round(BAL[4].curseSec * SEC);
-      note(G, '☠ 31.8의 저주 ☠ 피해 -31.8% · 공격 +31.8% · 반사 31.8%', '#c06bff', 130);
+      addMod(F, 'curse_spd', 'spd', 1 + BAL[4].curseSpd, F.curseT); addMod(F, 'curse_rng', 'range', 1 + BAL[4].curseRange, F.curseT);   // 이동속도·사정거리 +31.8%
+      note(G, '☠ 31.8의 저주 ☠ 피해 -31.8% · 공격·이속·사거리 +31.8% · 반사 31.8%', '#c06bff', 130);
       ev(G, 'sfx', 'roar'); ev(G, 'shake', 12, 6); ev(G, 'aura', F.side, 'press');
       return true;
     },
@@ -950,7 +951,7 @@ function bossPhase2(G, D) {
   D.bcd = [0, 4, 6, 9, 15, 60].map((s) => s * SEC);   // 2페이즈 첫 쿨타임 (순간이동은 바로)
   D.mods = D.mods.filter((m) => m.v >= 1);
   G.proj = []; G.cut = { t: 210, side: D.side }; G.freezeT = Math.max(G.freezeT, 210); G.flash = 20;
-  note(G, '흑요가 후드를 벗었다… 진짜 싸움은 지금부터', '#c9a227', 200); ev(G, 'sfx', 'roar'); ev(G, 'shake', 24, 10); ev(G, 'revive', D.x, D.y);
+  note(G, '흑요가 후드를 벗었다… 진짜 싸움은 지금부터', '#c9a227', 200); ev(G, 'bgm', 'boss2'); ev(G, 'sfx', 'roar'); ev(G, 'shake', 24, 10); ev(G, 'revive', D.x, D.y);
 }
 function playerRevive(G, D) {
   D.lives--; D.hp = D.maxHp; D.ko = false; D.hitT = 0; D.stunT = 0; D.rootT = 0; D.tripT = 0; D.slowT = 0; D.poisT = 0; D.guardOffT = 0;

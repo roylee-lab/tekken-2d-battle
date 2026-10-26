@@ -30,6 +30,7 @@ function handleEvents(G, list) {
         break;
       }
       case 'announce': onAnnounce(G, a, b); break;
+      case 'bgm': if (APP.state === 'fight') playMusic(a); break;
       default: break;
     }
   }
@@ -763,7 +764,7 @@ function drawStatus(ctx, F, s, t) {
   if (F.clockT > 0) tags.push(['4시 55분', '#fff59d']);
   if (F.c === 4 && F.ddFree) tags.push(['더블다운 1회 더', '#ffb36b']);
   for (const m of F.mods) {
-    const lab = { mantis: '맨티스컷', focus: '공속↑', debuff: '능력치-20%', debuff_c: '능력치-20%', rage: '반장의 분노', pen: '벌점', pen_c: '벌점', leg1: '다리 회복', grow1: '거대화', form: '폼 미쳤다', burp: '트름 공격↑', fifa: '공격 +10%' }[m.id];
+    const lab = { mantis: '맨티스컷', focus: '공속↑', debuff: '능력치-20%', debuff_c: '능력치-20%', rage: '반장의 분노', curse_spd: '이속↑', curse_rng: '사거리↑', pen: '벌점', pen_c: '벌점', leg1: '다리 회복', grow1: '거대화', form: '폼 미쳤다', burp: '트름 공격↑', fifa: '공격 +10%' }[m.id];
     if (lab) tags.push([lab + (m.t < 1e8 ? ' ' + Math.ceil(m.t / SEC) + 's' : ''), m.id === 'debuff' || m.id === 'pen' ? '#9f8fff' : '#ffb347']);
   }
   if ((F.pm || 1) > 1.001) tags.push(['패시브 +' + Math.round((F.pm - 1) * 100) + '%', '#ffb3e6']);
