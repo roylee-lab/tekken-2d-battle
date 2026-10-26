@@ -249,7 +249,7 @@ const BAL = {   // v4 밸런스 패치: 체력 2배 (경기 시간 증가) + AI 
   1: { hp: 221, toothN: 4, toothDmg: 3.14, cutPct: 0.047, regen: 10, regenSec: 8, cloneT: 1200, debuffT: 600, debuff: 0.2 },
   2: { hp: 230, judoDmg: 30, judoStun: 60, parryT: 35, tripStun: 45, tripRange: 24, tripImm: 120, qteN: 5, qteDmg: 10, qteHeal: 10, invisT: 300, invisSpd: 1.5, invisGuardOff: 120 },
   3: { hp: 255, bambooDmg: 14.92, shootDmg: 11.64, shootMax: 3, spd: 1.2, cdRed: 0.2, crystalDmg: 20, flyDmg: 50 },
-  4: { hp: 210, ddHeal: 0.034, ddEvery: 4, ddMax: 0.1, dicePer: 5, angerEvery: 3, angerAdd: 0.05, friend: 0.1, ddTwice: 0.318,
+  4: { hp: 210, ddHeal: 0.034, ddEvery: 4, ddMax: 0.1, dicePer: 5, angerEvery: 3, angerAdd: 0.05, friend: 0.1, ddTwice: 0.318, ddLuck: 0.5, hp1P: 0.0318,
     momPct: 0.318, momSec: 31.8, curseSec: 31.8, curseDR: 0.318, curseAtk: 0.318, curseRefl: 0.318, curseSpd: 0.318, curseRange: 0.318 },
   5: { hp: 197, nunDmg: 4.64, nunRoot: 46, prep: 120, act: 99, atkUp: 0.1, rushDmg: 12, rushStun: 60, chokeDps: 10, chokeNeed: 100, chokeMax: 600 },
   6: { hp: 278, meokT: 28, manT: 42, ttaT: 1200, bellyHeal: 150, bellySpd: 1.3 },
@@ -326,11 +326,11 @@ const CHARS = [
   {
     name: '이은뚱', en: 'EUNTTUNG', color: '#e67e22', country: 'CN', stage: 'greatwall',
     desc: ['체력 회복 및 주사위', '운명의 힘을 다룸 (체지방률 31.8%)'],
-    s1: { name: '더블다운', heal: true, info: (b) => `최대 체력 ${Math.round(b.ddHeal * 100)}% 회복 / ${b.ddEvery}회마다 최대 체력 ${Math.round(b.ddMax * 100)}% 증가` },
+    s1: { name: '피망 더블다운', heal: true, info: (b) => `최대 체력 ${(b.ddHeal * 100).toFixed(1)}% 회복 (50% 확률로 2배, 50% 확률로 절반) / ${b.ddEvery}회마다 최대 체력 ${Math.round(b.ddMax * 100)}% 증가` },
     s2: { name: '하츠 스테리오', info: (b) => `주사위 눈 x ${b.dicePer} 데미지 / ${b.angerEvery}번마다 공격력 +${Math.round(b.angerAdd * 100)}% & 분노` },
     s3: { name: '은맘', info: (b) => `최대 체력 ${(b.momPct * 100).toFixed(1)}%의 은맘 소환, 모든 피해·방해를 대신 받음 (${b.momSec}초)` },
     s4: { name: '31.8의 저주', info: (b) => `${b.curseSec}초간 받는 피해 -${(b.curseDR * 100).toFixed(1)}% · 공격·이동속도·사정거리 +${(b.curseAtk * 100).toFixed(1)}% · 피해 ${(b.curseRefl * 100).toFixed(1)}% 반사` },
-    passive: { name: '우리는 친구 · 31.8', desc: (b) => `상대가 mola·JJjin이면 능력 +${Math.round(b.friend * 100)}% / 더블다운 ${(b.ddTwice * 100).toFixed(1)}% 확률로 연속 2회` },
+    passive: { name: '우리는 친구 · 31.8', desc: (b) => `상대가 mola·JJjin이면 능력 +${Math.round(b.friend * 100)}% / 피망 더블다운 ${(b.ddTwice * 100).toFixed(1)}% 확률로 연속 2회 / ${(b.hp1P * 100).toFixed(2)}% 확률로 체력 1로 시작` },
     look: {
       H: 1.0, b: build({ torsoW: 18, waistW: 19, belly: 0.75, thigh: 8, shin: 6.5, arm: 6, fore: 5.5, headR: 9.6 }), skin: '#f0c49a',
       hair: { style: 'short', color: '#18181a' }, top: '#e67e22', topStyle: 'tee', pants: '#5d4037', shoes: '#ddd', acc: { glasses: true, lips: true, roundFace: true },
@@ -637,6 +637,8 @@ function resetRound(G) {
     // 이은뚱 패시브: 상대가 mola/JJjin이면 최대 체력 +10
     F.maxHp = BAL[c].hp + (c === 4 && (O.c === 1 || O.c === 2) ? Math.round(BAL[4].hp * BAL[4].friend) : 0);
     F.hp = F.maxHp;
+    // 이은뚱 패시브: 3.18% 확률로 체력 1로 라운드 시작
+    if (c === 4 && rnd() < BAL[4].hp1P) { F.hp = 1; note(G, '3.18%... 이은뚱이 체력 1로 시작한다!', '#ff7b7b', 150); }
     // 첫 라운드는 첫 쿨타임부터, 다음 라운드부터는 이전 라운드의 남은 쿨타임을 그대로 이어감
     F.cd = G.round > 1 ? prevCd : SLOT_CD_START.map((s) => s * SEC);
     // 히든 보스전: 보스는 1페이즈부터, 플레이어는 부활 2번
@@ -1085,12 +1087,15 @@ const SK = {
   4: [
     (G, F, O) => {
       const B4 = BAL[4];
-      heal(G, F, F.maxHp * B4.ddHeal);
+      // 피망 더블다운: 50% 확률로 회복량 2배, 50% 확률로 절반
+      const lucky = rnd() < B4.ddLuck;
+      heal(G, F, F.maxHp * B4.ddHeal * (lucky ? 2 : 0.5));
+      ev(G, 'float', F.x, F.y + 118, lucky ? '피망 대박! x2' : '피망... x0.5', lucky ? '#7dff9a' : '#aaaaaa');
       F.ddN++;
       if (F.ddN % B4.ddEvery === 0) {
         F.maxHp = Math.round(F.maxHp * (1 + B4.ddMax));
         heal(G, F, F.maxHp * B4.ddMax);
-        note(G, `더블다운 ${B4.ddEvery}회! 최대 체력 ${F.maxHp}`, '#ffb36b', 90);
+        note(G, `피망 더블다운 ${B4.ddEvery}회! 최대 체력 ${F.maxHp}`, '#ffb36b', 90);
       }
       return true;
     },
@@ -1338,7 +1343,7 @@ function useSkill(G, F, O, slot, inp) {
     // 이은뚱 패시브 31.8: 더블다운을 한 번 더 쓸 수 있음
     if (F.c === 4 && slot === 0) {
       if (F.ddFree) F.ddFree = false;
-      else if (rnd() < BAL[4].ddTwice) { F.ddFree = true; F.cd[0] = 0; note(G, '31.8%! 더블다운 한 번 더!', '#ffb36b', 80); }
+      else if (rnd() < BAL[4].ddTwice) { F.ddFree = true; F.cd[0] = 0; note(G, '31.8%! 피망 더블다운 한 번 더!', '#ffb36b', 80); }
     }
     // 독민재B 패시브 불쾌지수
     if (F.c === 7) F.stk = Math.min(BAL[7].stackMax, F.stk + 1);
@@ -4746,7 +4751,7 @@ function drawStatus(ctx, F, s, t) {
   if (F.ironT > 0) tags.push(['아이언맨 ' + Math.ceil(F.ironT / SEC) + 's', '#ff5252']);
   if (F.phoneT > 0) tags.push(['휴대폰압수 ' + Math.ceil(F.phoneT / SEC) + 's (불사)', '#ff5252']);
   if (F.clockT > 0) tags.push(['4시 55분', '#fff59d']);
-  if (F.c === 4 && F.ddFree) tags.push(['더블다운 1회 더', '#ffb36b']);
+  if (F.c === 4 && F.ddFree) tags.push(['피망 더블다운 1회 더', '#ffb36b']);
   for (const m of F.mods) {
     const lab = { mantis: '맨티스컷', focus: '공속↑', debuff: '능력치-20%', debuff_c: '능력치-20%', rage: '반장의 분노', curse_spd: '이속↑', curse_rng: '사거리↑', pen: '벌점', pen_c: '벌점', leg1: '다리 회복', grow1: '거대화', form: '폼 미쳤다', burp: '트름 공격↑', fifa: '공격 +10%' }[m.id];
     if (lab) tags.push([lab + (m.t < 1e8 ? ' ' + Math.ceil(m.t / SEC) + 's' : ''), m.id === 'debuff' || m.id === 'pen' ? '#9f8fff' : '#ffb347']);
@@ -5578,7 +5583,7 @@ async function rtcJoin(id, onFail, opts) {
 //  - 방 코드: 어디서든 접속
 //  - 같은 와이파이: 같은 공유기(공인 IP, IPv6는 앞 64비트)에서 열린 방 목록에서 골라 참가
 // ============================================================
-const NET_VER = 14;
+const NET_VER = 15;
 const NET = {
   epoch: 0, peer: null, conn: null, role: null, status: '', onMsg: null, ping: 0, lastRecv: 0,
   guestHeld: 0, guestCounts: null, guestKs: [], guestAny: 0, lastKeySeq: 0, lastAny: 0, lastCounts: { U: 0, P: 0, K: 0, S1: 0, S2: 0, S3: 0, S4: 0 }, outEv: [], inEv: [], snap: null,
