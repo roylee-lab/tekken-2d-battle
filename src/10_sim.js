@@ -101,6 +101,8 @@ function resetRound(G) {
     // 이은뚱 패시브: 상대가 mola/JJjin이면 최대 체력 +10
     F.maxHp = BAL[c].hp + (c === 4 && (O.c === 1 || O.c === 2) ? Math.round(BAL[4].hp * BAL[4].friend) : 0);
     F.hp = F.maxHp;
+    // 이은뚱 패시브: 3.18% 확률로 체력 1로 라운드 시작
+    if (c === 4 && rnd() < BAL[4].hp1P) { F.hp = 1; note(G, '3.18%... 이은뚱이 체력 1로 시작한다!', '#ff7b7b', 150); }
     // 첫 라운드는 첫 쿨타임부터, 다음 라운드부터는 이전 라운드의 남은 쿨타임을 그대로 이어감
     F.cd = G.round > 1 ? prevCd : SLOT_CD_START.map((s) => s * SEC);
     // 히든 보스전: 보스는 1페이즈부터, 플레이어는 부활 2번
@@ -549,12 +551,15 @@ const SK = {
   4: [
     (G, F, O) => {
       const B4 = BAL[4];
-      heal(G, F, F.maxHp * B4.ddHeal);
+      // 피망 더블다운: 50% 확률로 회복량 2배, 50% 확률로 절반
+      const lucky = rnd() < B4.ddLuck;
+      heal(G, F, F.maxHp * B4.ddHeal * (lucky ? 2 : 0.5));
+      ev(G, 'float', F.x, F.y + 118, lucky ? '피망 대박! x2' : '피망... x0.5', lucky ? '#7dff9a' : '#aaaaaa');
       F.ddN++;
       if (F.ddN % B4.ddEvery === 0) {
         F.maxHp = Math.round(F.maxHp * (1 + B4.ddMax));
         heal(G, F, F.maxHp * B4.ddMax);
-        note(G, `더블다운 ${B4.ddEvery}회! 최대 체력 ${F.maxHp}`, '#ffb36b', 90);
+        note(G, `피망 더블다운 ${B4.ddEvery}회! 최대 체력 ${F.maxHp}`, '#ffb36b', 90);
       }
       return true;
     },
@@ -802,7 +807,7 @@ function useSkill(G, F, O, slot, inp) {
     // 이은뚱 패시브 31.8: 더블다운을 한 번 더 쓸 수 있음
     if (F.c === 4 && slot === 0) {
       if (F.ddFree) F.ddFree = false;
-      else if (rnd() < BAL[4].ddTwice) { F.ddFree = true; F.cd[0] = 0; note(G, '31.8%! 더블다운 한 번 더!', '#ffb36b', 80); }
+      else if (rnd() < BAL[4].ddTwice) { F.ddFree = true; F.cd[0] = 0; note(G, '31.8%! 피망 더블다운 한 번 더!', '#ffb36b', 80); }
     }
     // 독민재B 패시브 불쾌지수
     if (F.c === 7) F.stk = Math.min(BAL[7].stackMax, F.stk + 1);
