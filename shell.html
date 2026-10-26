@@ -37,14 +37,15 @@
   .tb { border: 2px solid #000; border-radius: 10px; color: #fff; font-family: "Black Han Sans", sans-serif; font-size: 14px; display: flex; align-items: center; justify-content: center; background: #333a5a; box-shadow: inset 0 -3px 0 rgba(0,0,0,.4); touch-action: none; }
   .tb.on { filter: brightness(1.6); transform: translateY(2px); }
   .tb.up { grid-column: 2; grid-row: 1; } .tb.lf { grid-column: 1; grid-row: 2; } .tb.rt { grid-column: 3; grid-row: 2; } .tb.dn { grid-column: 2; grid-row: 3; }
-  .acts { display: grid; grid-template-columns: repeat(4, 52px); grid-template-rows: repeat(2, 54px); gap: 5px; }
+  .acts { display: grid; grid-template-columns: repeat(4, 52px); grid-template-rows: repeat(2, 54px); grid-auto-rows: 54px; gap: 5px; }
+  .tb.hx { display: none; } body.heugyo .tb.hx { display: flex; } .tb.s5 { background: #8a6d14; } .tb.s6 { background: #6a1010; }   /* 흑요 전용 T·Y */
   .tb.p { background: #c0392b; } .tb.k { background: #d35400; } .tb.s1 { background: #2471a3; } .tb.s2 { background: #7d3c98; } .tb.s3 { background: #1e8449; } .tb.s4 { background: #b9770e; }
   .tb.st { background: #1e8449; font-size: 12px; } .tb.bk { background: #555; font-size: 12px; }
   @media (orientation: landscape) {
     body.touch #stage { width: min(100vw, calc(100vh * 16 / 9)); }
     body.touch #touch { position: fixed; left: 0; right: 0; bottom: 0; max-width: none; pointer-events: none; padding: 0 12px calc(8px + env(safe-area-inset-bottom)); }
     body.touch .pad, body.touch .acts { pointer-events: auto; opacity: 0.72; }
-    body.touch .acts { grid-template-columns: repeat(4, 46px); grid-template-rows: repeat(2, 44px); }
+    body.touch .acts { grid-template-columns: repeat(4, 46px); grid-template-rows: repeat(2, 44px); grid-auto-rows: 44px; }
     body.touch .pad { grid-template-columns: repeat(3, 42px); grid-template-rows: repeat(3, 36px); }
   }
   /* 계정 / 친구 */
@@ -64,6 +65,7 @@
   .acc .empty { color: #9aa6d6; padding: 8px 0; font-size: 14px; }
   .acc .wait { background: #3a1410; border: 1px solid #ff6b4a; padding: 8px; margin: 8px 0; font-size: 15px; }
   .acc .msg { margin-top: 10px; font-size: 14px; } .acc .msg.good { color: #7dff9a; } .acc .msg.bad { color: #ff8a8a; }
+  .ceo { color: #ffd700; font-family: "Black Han Sans", sans-serif; text-shadow: 0 0 6px rgba(255,200,0,.7), 1px 1px 0 #5a3a00; font-size: .85em; }
   /* 게시판 */
   .panel.board { width: min(96%, 620px); }
   .board .dl { display: flex; gap: 8px; }
@@ -128,7 +130,7 @@
     </div>
     <div class="acts">
       <div class="tb p" data-btn="P">펀치<br>S</div><div class="tb k" data-btn="K">킥<br>D</div><div class="tb st" data-btn="START">START</div><div class="tb bk" data-btn="BACK">BACK</div>
-      <div class="tb s1" data-btn="S1">Q</div><div class="tb s2" data-btn="S2">W</div><div class="tb s3" data-btn="S3">E</div><div class="tb s4" data-btn="S4">R</div>
+      <div class="tb s1" data-btn="S1">Q</div><div class="tb s2" data-btn="S2">W</div><div class="tb s3" data-btn="S3">E</div><div class="tb s4" data-btn="S4">R</div><div class="tb s5 hx" data-btn="S5">T</div><div class="tb s6 hx" data-btn="S6">Y</div>
     </div>
   </div>
   <div class="hint">이동 ←→ · 점프 ↑ · 가드 ↓ (피해 70% 경감) · 펀치 S · 킥 D · 스킬 Q / W / E / R · 시작 SPACE · 뒤로/일시정지 ESC · BGM M</div>
