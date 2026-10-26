@@ -589,14 +589,18 @@ const SK = {
       F.jeongP = BAL[5].prep; note(G, '正義 준비... (자기 구속)', '#48e0c0', 80); return true;
     },
     (G, F, O) => { if (F.y > 0) return false; F.rushT2 = 30; ev(G, 'sfx', 'charge'); return true; },
-    (G, F, O) => {
-      if (F.y > 0) return false;
-      if (inFront(F, O, 22) && O.chokeT <= 0 && !O.ko) {
-        if (disrupt(G, O)) { note(G, '잡기 실패!', '#48e0c0', 60); return true; }
+    (G, F, O) => {   // Jiu-jitsu: 거리와 상관없이 즉시 상대 목 뒤로 이동해 초크
+      if (O.chokeT > 0 || O.ko) return false;
+      if (disrupt(G, O)) { note(G, '잡기 실패!', '#48e0c0', 60); return true; }
+      {
+        O.atk = null; O.laughT = 0; O.fireT = 0; O.dashT = 0; O.headT = 0; O.rushT2 = 0; O.flyT = 0; O.y = 0; O.vy = 0; O.vx = 0; O.kb = 0;
+        const off = Math.max(14, radius(F) + radius(O) - 18);
+        if (O.x - O.f * off < 20 || O.x - O.f * off > ARENA_W - 20) O.f = -O.f;   // 등 뒤가 벽이면 상대를 돌려세움
+        ev(G, 'ghost', F.side);
+        F.x = O.x - O.f * off; F.y = 0; F.vy = 0; F.vx = 0; F.kb = 0; F.f = O.f; F.atk = null; F.dashT = 0;
         O.chokeT = BAL[5].chokeMax; O.chokeN = 0; O.chokeTick = 0; F.chokeHold = true;
-        O.atk = null; O.laughT = 0; O.fireT = 0; O.dashT = 0; O.headT = 0; O.rushT2 = 0; O.flyT = 0; O.y = 0; O.vy = 0;
         note(G, `Jiu-jitsu 초크! 아무 키나 ${BAL[5].chokeNeed}번 연타해서 탈출!`, '#48e0c0', 120); ev(G, 'sfx', 'hitK'); ev(G, 'shake', 8, 4);
-      } else { ev(G, 'sfx', 'miss'); ev(G, 'float', F.x, F.y + 100, '헛잡기', '#aaa'); }
+      }
       return true;
     },
   ],
@@ -1011,6 +1015,7 @@ function stepSkillStates(G, F, O, inp) {
     const holder = O;
     F.chokeT--; F.chokeN += (inp && inp.a) || 0; F.chokeTick++;
     F.x = holder.x + holder.f * Math.max(14, radius(holder) + radius(F) - 18); F.y = 0; F.vx = 0; F.kb = 0; clampX(F);
+    F.f = holder.f;   // 목 뒤에서 잡혀 있으므로 사명감과 같은 쪽을 바라봄
     if (F.chokeTick >= 60) { F.chokeTick = 0; applyDamage(G, holder, F, BAL[5].chokeDps, 'CHOKE', { fixed: true }); ev(G, 'sfx', 'hitP'); ev(G, 'shake', 4, 2); }
     const escaped = F.chokeN >= BAL[5].chokeNeed;
     if (escaped || F.chokeT <= 0 || holder.ko || F.ko) {
@@ -1215,7 +1220,7 @@ function stepFighter(G, F, O, inp) {
 
   const grounded = F.y <= 0;
   const fx = faceX(F, O);
-  if (fx !== F.x && !F.flyT) F.f = fx > F.x ? 1 : -1;
+  if (fx !== F.x && !F.flyT && !(F.chokeT > 0)) F.f = fx > F.x ? 1 : -1;
 
   const stunned = F.hitT > 0 || F.blockT > 0 || F.stunT > 0 || F.chokeT > 0 || F.chokeHold;
   const busy = busyOf(F);
@@ -1310,7 +1315,7 @@ function resolveBodies(G) {
   for (const F of G.F) clampX(F);
   // 이동과 충돌이 끝난 동일한 좌표를 기준으로 두 방향을 함께 갱신한다. (mola 분신이 더 가까우면 분신을 바라봄)
   if (a.x !== b.x) {
-    for (const [F, O] of [[a, b], [b, a]]) { if (F.flyT > 0) continue; const x = faceX(F, O); if (x !== F.x) F.f = x > F.x ? 1 : -1; }
+    for (const [F, O] of [[a, b], [b, a]]) { if (F.flyT > 0 || F.chokeT > 0) continue; const x = faceX(F, O); if (x !== F.x) F.f = x > F.x ? 1 : -1; }
   }
 }
 

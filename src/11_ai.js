@@ -23,7 +23,7 @@ const AI_SKILL = {
   2: [(F, O, d) => close(F, O, 14) && O.y < 10, () => false, (F, O, d) => true, (F, O, d) => d < 200],
   3: [(F, O, d) => d > 50 && d < 190, (F, O, d) => d < 90, (F, O, d) => d > 50 && d < 230, (F, O, d) => d < 220 && (helpless(O) || O.atk || O.castT > 0)],
   4: [(F, O, d) => F.hp < F.maxHp * 0.9, (F, O, d) => true, (F, O, d) => d < 220, (F, O, d) => d < 200],
-  5: [(F, O, d) => d < 210, (F, O, d) => F.hp < F.maxHp * 0.55 && d > 90, (F, O, d) => d > 40 && d < 170, (F, O, d) => close(F, O, 18)],
+  5: [(F, O, d) => d < 210, (F, O, d) => F.hp < F.maxHp * 0.55 && d > 90, (F, O, d) => d > 40 && d < 170, (F, O, d) => O.invulT <= 0 && O.earT <= 0 && !O.ko],
   6: [(F, O, d) => O.atk && d < 90, (F, O, d) => F.hp < F.maxHp * 0.75 && d < 100, (F, O, d) => true, (F, O, d) => F.hp < F.maxHp * 0.6],
   7: [(F, O, d) => d < 180, (F, O, d) => O.poisT <= 0 && d < 230, (F, O, d) => close(F, O, 45), (F, O, d) => F.stk >= 4 && d < 160],
   8: [(F, O, d) => d > 60 && d < 210, (F, O, d) => !F.board, (F, O, d) => close(F, O, 10) && (helpless(O) || rnd() < 0.35), (F, O, d) => true],

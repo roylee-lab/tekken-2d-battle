@@ -57,7 +57,7 @@ const BAL = {   // v4 밸런스 패치: 체력 2배 (경기 시간 증가) + AI 
   3: { hp: 255, bambooDmg: 14.92, shootDmg: 11.64, shootMax: 3, spd: 1.2, cdRed: 0.2, crystalDmg: 20, flyDmg: 50 },
   4: { hp: 210, ddHeal: 0.034, ddEvery: 4, ddMax: 0.1, dicePer: 2.8, angerEvery: 3, angerAdd: 0.05, friend: 0.1, ddTwice: 0.318,
     momPct: 0.318, momSec: 31.8, curseSec: 31.8, curseDR: 0.318, curseAtk: 0.318, curseRefl: 0.318 },
-  5: { hp: 244, nunDmg: 4.64, nunRoot: 46, prep: 120, act: 99, atkUp: 0.1, rushDmg: 12, rushStun: 60, chokeDps: 10, chokeNeed: 40, chokeMax: 360 },
+  5: { hp: 197, nunDmg: 4.64, nunRoot: 46, prep: 120, act: 99, atkUp: 0.1, rushDmg: 12, rushStun: 60, chokeDps: 10, chokeNeed: 100, chokeMax: 600 },
   6: { hp: 278, meokT: 28, manT: 42, ttaT: 1200, bellyHeal: 150, bellySpd: 1.3 },
   7: { hp: 180, gaeDmg: 4.85, gaeRoot: 53, poisT: 262, poisTick: 1, footExt: 60, stackMax: 5, breathDmg: 5, breathStun: 60, breathHB: 180, burpAtk: 0.1, burpHeal: 10, burpStun: 60, burpT: 600 },
   8: { hp: 193, noteDiff: 0.498, noteSame: 0.15, noteHeal: 7, boardSpd: 1.2, dr: 0.1, laughDmg: 300, laughWind: 24, laughReach: 12, kcT: 300, kcDmg: 1 },
@@ -148,7 +148,7 @@ const CHARS = [
     s1: { name: '客氣', info: (b) => `쌍절곤 투척 ${b.nunDmg} 데미지, 맞은 적 ${(b.nunRoot / 60).toFixed(1)}초 고정` },
     s2: { name: '正義', info: (b) => `${(b.prep / 60).toFixed(1)}초 자기 구속 후 ${(b.act / 60).toFixed(1)}초간 모든 공격 무효` },
     s3: { name: '분노의 질주', info: (b) => `전력 돌진, 부딪히면 ${b.rushDmg} 피해 + ${(b.rushStun / 60).toFixed(1)}초 넘어뜨림` },
-    s4: { name: 'Jiu-jitsu', info: (b) => `근접 초크: 초당 고정 ${b.chokeDps} 피해, 아무 키 ${b.chokeNeed}번 연타 시 탈출` },
+    s4: { name: 'Jiu-jitsu', info: (b) => `거리와 상관없이 즉시 상대 목 뒤로 가서 초크: 초당 고정 ${b.chokeDps} 피해 (최대 ${b.chokeMax / 60}초), 아무 키 ${b.chokeNeed}번 연타 시 탈출` },
     passive: { name: '有段者', desc: (b) => `일반 공격 및 발차기 데미지 +${Math.round(b.atkUp * 100)}%` },
     look: {
       H: 1.15, b: build({ torsoW: 19, waistW: 13, thigh: 7.5, shin: 6, arm: 6.8, fore: 6, muscle: 1, headR: 8.6 }), skin: '#e9b98c',
